@@ -111,10 +111,14 @@ export function useWallet() {
         setAddress(addr);
 
         try {
-          const bal = await getSessionBalance(ctr, addr);
+          console.log("Reading session balance for:", addr);
+          const rawBal = await ctr.sessionBalance(addr);
+          console.log("Raw balance:", rawBal.toString());
+          const bal = formatEther(rawBal);
+          console.log("Formatted balance:", bal);
           setSessionBalance(bal);
         } catch (e) {
-          console.warn("getSessionBalance failed:", e.message);
+          console.warn("getSessionBalance failed:", e.message, e);
         }
       } catch (err) {
         console.error("Wallet setup failed:", err);
@@ -127,9 +131,11 @@ export function useWallet() {
   const refreshBalance = useCallback(async () => {
     if (!contract || !address) return;
     try {
-      const bal = await getSessionBalance(contract, address);
-      setSessionBalance(bal);
-    } catch {}
+      const rawBal = await contract.sessionBalance(address);
+      setSessionBalance(formatEther(rawBal));
+    } catch (e) {
+      console.warn("refreshBalance failed:", e.message);
+    }
   }, [contract, address]);
 
   return {
