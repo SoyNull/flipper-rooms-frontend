@@ -177,7 +177,9 @@ export function useFlip(contract, address, refreshBalance) {
         }
       }
       setChallenges(allChallenges);
-    } catch {}
+    } catch (err) {
+      console.warn("Challenges fetch failed:", err.message);
+    }
   }, [contract]);
 
   const refreshHistory = useCallback(async () => {
@@ -185,9 +187,8 @@ export function useFlip(contract, address, refreshBalance) {
     try {
       const provider = contract.runner.provider;
       const currentBlock = await provider.getBlockNumber();
-      const fromBlock = Math.max(0, currentBlock - 500);
-      const filter = contract.filters.FlipResolved();
-      const events = await contract.queryFilter(filter, fromBlock, currentBlock);
+      const fromBlock = Math.max(0, currentBlock - 1000);
+      const events = await contract.queryFilter("FlipResolved", fromBlock, currentBlock);
       const items = events.slice(-20).reverse().map(e => ({
         challengeId: Number(e.args.challengeId),
         winner: e.args.winner,
@@ -199,7 +200,9 @@ export function useFlip(contract, address, refreshBalance) {
         block: e.blockNumber,
       }));
       setHistory(items);
-    } catch {}
+    } catch (err) {
+      console.warn("History fetch failed:", err.message);
+    }
   }, [contract]);
 
   const flipPvp = useCallback(async (tierWei, referral = 0) => {
@@ -322,7 +325,9 @@ export function useSeats(contract, address, refreshBalance) {
         const mine = all.filter(s => s.owner.toLowerCase() === address.toLowerCase() && s.active);
         setMySeats(mine.map(s => s.id));
       }
-    } catch {}
+    } catch (err) {
+      console.warn("Seats fetch failed:", err.message);
+    }
     setLoading(false);
   }, [contract, address]);
 
@@ -422,7 +427,9 @@ export function useProtocol(contract) {
     try {
       const s = await getProtocolStatsFn(contract);
       setStats(s);
-    } catch {}
+    } catch (err) {
+      console.warn("Protocol stats fetch failed:", err.message);
+    }
   }, [contract]);
 
   return { stats, refreshStats };

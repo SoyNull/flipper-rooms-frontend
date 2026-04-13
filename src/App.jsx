@@ -218,14 +218,16 @@ export default function FlipperRooms() {
     protocolHook.refreshStats();
   }, [contract]);
 
-  // Auto-refresh every 10s
+  // Polling: refresh all data every 15s (no event listeners — public RPC doesn't support eth_newFilter)
   useEffect(() => {
     if (!contract) return;
-    const iv = setInterval(() => {
+    const poll = () => {
       refreshBalance();
       protocolHook.refreshStats();
       flipHook.refreshChallenges();
-    }, 10000);
+      flipHook.refreshHistory();
+    };
+    const iv = setInterval(poll, 15000);
     return () => clearInterval(iv);
   }, [contract, refreshBalance]);
 
@@ -240,27 +242,6 @@ export default function FlipperRooms() {
     if (!contract || !selectedSeat) { setSeatDetail(null); return; }
     getSeatInfoFn(contract, selectedSeat.id).then(setSeatDetail).catch(() => {});
   }, [contract, selectedSeat]);
-
-  // Event listeners
-  useEffect(() => {
-    if (!contract) return;
-    const onFlip = (...args) => {
-      flipHook.refreshHistory();
-      protocolHook.refreshStats();
-      refreshBalance();
-    };
-    const onSeatBought = () => seatHook.refreshSeats();
-    const onChallenge = () => flipHook.refreshChallenges();
-
-    contract.on("FlipResolved", onFlip);
-    contract.on("SeatBought", onSeatBought);
-    contract.on("ChallengeCreated", onChallenge);
-    return () => {
-      contract.off("FlipResolved", onFlip);
-      contract.off("SeatBought", onSeatBought);
-      contract.off("ChallengeCreated", onChallenge);
-    };
-  }, [contract]);
 
   // Flip handlers
   const handleFlipPvp = async () => {
