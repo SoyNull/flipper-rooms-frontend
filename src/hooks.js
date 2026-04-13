@@ -76,7 +76,9 @@ export function useWallet() {
   const [address, setAddress] = useState(null);
   const [sessionBalance, setSessionBalance] = useState("0");
 
+  // Auto-connect when Privy session exists (page load or login)
   useEffect(() => {
+    if (!ready) return;
     async function setup() {
       if (!authenticated || wallets.length === 0) {
         setProvider(null);
@@ -104,7 +106,7 @@ export function useWallet() {
       }
     }
     setup();
-  }, [authenticated, wallets]);
+  }, [ready, authenticated, wallets]);
 
   const refreshBalance = useCallback(async () => {
     if (!contract || !address) return;
@@ -116,6 +118,7 @@ export function useWallet() {
 
   return {
     connected: authenticated && !!contract,
+    authenticated,
     address,
     provider,
     signer,

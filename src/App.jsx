@@ -204,7 +204,7 @@ export default function FlipperRooms() {
 
   const { toasts, remove: removeToast } = useToasts();
   const wallet = useWallet();
-  const { connected, address, contract, sessionBalance, refreshBalance, connect, disconnect, ready } = wallet;
+  const { connected, address, contract, sessionBalance, refreshBalance, connect, disconnect, ready, authenticated } = wallet;
   const flipHook = useFlip(contract, address, refreshBalance);
   const seatHook = useSeats(contract, address, refreshBalance);
   const protocolHook = useProtocol(contract);
@@ -386,16 +386,20 @@ export default function FlipperRooms() {
             </div>
           </div>
           <div style={{ width: 1, height: 28, background: "#1a1a28" }}/>
-          {connected ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {!ready ? (
+            <span style={{ color: "#555", fontSize: 11 }}>Loading...</span>
+          ) : connected ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 8, color: "#444", letterSpacing: 1.5, fontWeight: 600 }}>SESSION</div>
                 <div style={{ fontSize: 13, fontWeight: 700 }}>{Number(sessionBalance).toFixed(4)} ETH</div>
               </div>
-              <div onClick={disconnect} style={{ padding: "7px 14px", borderRadius: 6, background: "#12121e", border: "1px solid #1a1a28", fontSize: 11, fontWeight: 500, cursor: "pointer" }}>
+              <div onClick={disconnect} style={{ padding: "7px 14px", borderRadius: 6, background: "#12121e", border: "1px solid #1a1a28", fontSize: 11, cursor: "pointer" }}>
                 {shortAddr(address)}
               </div>
             </div>
+          ) : authenticated ? (
+            <span style={{ color: "#f0c040", fontSize: 11, animation: "pulse 1.5s infinite" }}>Connecting...</span>
           ) : (
             <button onClick={connect} style={{
               padding: "9px 20px", borderRadius: 6, background: "#00e87b", color: "#000", border: "none",
