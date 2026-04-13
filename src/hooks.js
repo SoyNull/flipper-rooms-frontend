@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import {
-  connectWallet as connectWalletFn,
   getContract,
   getSessionBalance,
   getPlayerInfo,
@@ -64,17 +64,47 @@ function removeToast(id) {
 }
 
 // ═══════════════════════════════════════
-//              useWallet
+//              useWallet (Privy)
 // ═══════════════════════════════════════
 
 export function useWallet() {
-  const [connected, setConnected] = useState(false);
-  const [address, setAddress] = useState(null);
+  const { login, logout, authenticated, ready } = usePrivy();
+  const { wallets } = useWallets();
   const [provider, setProvider] = useState(null);
   const [signer, setSigner] = useState(null);
   const [contract, setContract] = useState(null);
+  const [address, setAddress] = useState(null);
   const [sessionBalance, setSessionBalance] = useState("0");
-  const [wrongNetwork, setWrongNetwork] = useState(false);
+
+  useEffect(() => {
+    async function setup() {
+      if (!authenticated || wallets.length === 0) {
+        setProvider(null);
+        setSigner(null);
+        setContract(null);
+        setAddress(null);
+        setSessionBalance("0");
+        return;
+      }
+      try {
+        const wallet = wallets[0];
+        await wallet.switchChain(84532); // Base Sepolia
+        const ethProvider = await wallet.getEthersProvider();
+        const sgnr = await ethProvider.getSigner();
+        const addr = await sgnr.getAddress();
+        const ctr = getContract(sgnr);
+        setProvider(ethProvider);
+        setSigner(sgnr);
+        setContract(ctr);
+        setAddress(addr);
+        const bal = await getSessionBalance(ctr, addr);
+        setSessionBalance(bal);
+      } catch (err) {
+        addToast("error", decodeError(err));
+      }
+    }
+    setup();
+  }, [authenticated, wallets]);
 
   const refreshBalance = useCallback(async () => {
     if (!contract || !address) return;
@@ -84,52 +114,18 @@ export function useWallet() {
     } catch {}
   }, [contract, address]);
 
-  const connect = useCallback(async () => {
-    try {
-      const w = await connectWalletFn();
-      setProvider(w.provider);
-      setSigner(w.signer);
-      setAddress(w.address);
-      const c = getContract(w.signer);
-      setContract(c);
-      setConnected(true);
-      setWrongNetwork(false);
-      const bal = await getSessionBalance(c, w.address);
-      setSessionBalance(bal);
-    } catch (err) {
-      if (err.message?.includes("chain")) {
-        setWrongNetwork(true);
-      }
-      addToast("error", decodeError(err));
-    }
-  }, []);
-
-  const disconnect = useCallback(() => {
-    setConnected(false);
-    setAddress(null);
-    setProvider(null);
-    setSigner(null);
-    setContract(null);
-    setSessionBalance("0");
-  }, []);
-
-  // Listen for account/chain changes
-  useEffect(() => {
-    if (!window.ethereum) return;
-    const handleAccounts = (accounts) => {
-      if (accounts.length === 0) disconnect();
-      else connect();
-    };
-    const handleChain = () => connect();
-    window.ethereum.on("accountsChanged", handleAccounts);
-    window.ethereum.on("chainChanged", handleChain);
-    return () => {
-      window.ethereum.removeListener("accountsChanged", handleAccounts);
-      window.ethereum.removeListener("chainChanged", handleChain);
-    };
-  }, [connect, disconnect]);
-
-  return { connected, address, provider, signer, contract, sessionBalance, refreshBalance, connect, disconnect, wrongNetwork };
+  return {
+    connected: authenticated && !!contract,
+    address,
+    provider,
+    signer,
+    contract,
+    sessionBalance,
+    refreshBalance,
+    connect: login,
+    disconnect: logout,
+    ready,
+  };
 }
 
 // ═══════════════════════════════════════

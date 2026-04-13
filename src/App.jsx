@@ -7,7 +7,6 @@ import {
   withdraw as withdrawFn,
   getPlayerInfo,
   getSeatInfo as getSeatInfoFn,
-  switchToBaseSepolia,
   decodeError,
 } from "./contract.js";
 import { parseEther, formatEther } from "ethers";
@@ -205,7 +204,7 @@ export default function FlipperRooms() {
 
   const { toasts, remove: removeToast } = useToasts();
   const wallet = useWallet();
-  const { connected, address, contract, sessionBalance, refreshBalance, connect, disconnect, wrongNetwork } = wallet;
+  const { connected, address, contract, sessionBalance, refreshBalance, connect, disconnect, ready } = wallet;
   const flipHook = useFlip(contract, address, refreshBalance);
   const seatHook = useSeats(contract, address, refreshBalance);
   const protocolHook = useProtocol(contract);
@@ -387,12 +386,7 @@ export default function FlipperRooms() {
             </div>
           </div>
           <div style={{ width: 1, height: 28, background: "#1a1a28" }}/>
-          {wrongNetwork ? (
-            <button onClick={() => switchToBaseSepolia().then(connect)} style={{
-              padding: "9px 20px", borderRadius: 6, background: "#ff4444", color: "#fff", border: "none",
-              fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", letterSpacing: 1
-            }}>SWITCH NETWORK</button>
-          ) : connected ? (
+          {connected ? (
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 8, color: "#444", letterSpacing: 1.5, fontWeight: 600 }}>SESSION</div>
