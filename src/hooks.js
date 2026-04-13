@@ -28,7 +28,7 @@ import {
   EXPLORER,
 } from "./contract.js";
 import { TIERS, CONTRACT_ADDRESS } from "./config.js";
-import { parseEther, formatEther } from "ethers";
+import { parseEther, formatEther, BrowserProvider } from "ethers";
 
 // ═══════════════════════════════════════
 //             TOAST SYSTEM
@@ -97,7 +97,8 @@ export function useWallet() {
           console.warn("switchChain failed (may already be on correct chain):", e.message);
         }
 
-        const ethProvider = await wallet.getEthersProvider();
+        const rawProvider = await wallet.getEthereumProvider();
+        const ethProvider = new BrowserProvider(rawProvider);
         const sgnr = await ethProvider.getSigner();
         const addr = await sgnr.getAddress();
         const ctr = getContract(sgnr);
