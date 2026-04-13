@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import * as THREE from "three";
-import { useWallet, useFlip, useSeats, useProtocol, useToasts, EXPLORER } from "./hooks.js";
+import { useWallet, useFlip, useSeats, useProtocol, useToasts, addToast, EXPLORER } from "./hooks.js";
 import { TIERS, CONTRACT_ADDRESS } from "./config.js";
 import {
   deposit as depositFn,
@@ -200,6 +200,7 @@ export default function FlipperRooms() {
   const [seatDetail, setSeatDetail] = useState(null);
   const [seatView, setSeatView] = useState("grid");
   const [depositAmt, setDepositAmt] = useState("");
+  const [isDepositing, setIsDepositing] = useState(false);
   const [playerStats, setPlayerStats] = useState(null);
 
   const { toasts, remove: removeToast } = useToasts();
@@ -286,23 +287,31 @@ export default function FlipperRooms() {
   }, []);
 
   const handleDeposit = async () => {
-    if (!contract || !depositAmt) return;
+    if (!contract || !depositAmt || isDepositing) return;
+    setIsDepositing(true);
     try {
-      await depositFn(contract, depositAmt);
+      const receipt = await depositFn(contract, depositAmt);
       setDepositAmt("");
       refreshBalance();
     } catch (err) {
-      // toast handled in hooks
+      addToast("error", decodeError(err));
+    } finally {
+      setIsDepositing(false);
     }
   };
 
   const handleWithdraw = async () => {
-    if (!contract || !depositAmt) return;
+    if (!contract || !depositAmt || isDepositing) return;
+    setIsDepositing(true);
     try {
-      await withdrawFn(contract, depositAmt);
+      const receipt = await withdrawFn(contract, depositAmt);
       setDepositAmt("");
       refreshBalance();
-    } catch (err) {}
+    } catch (err) {
+      addToast("error", decodeError(err));
+    } finally {
+      setIsDepositing(false);
+    }
   };
 
   const shortAddr = (addr) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
@@ -415,8 +424,8 @@ export default function FlipperRooms() {
                 flex: 1, background: "#07070f", border: "1px solid #1a1a28", borderRadius: 6,
                 padding: "9px 14px", color: "#c8c8d0", fontSize: 12, fontFamily: "inherit"
               }}/>
-              <button onClick={handleDeposit} disabled={!connected} style={{ padding: "9px 18px", borderRadius: 6, background: "#00e87b15", border: "1px solid #00e87b40", color: "#00e87b", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", letterSpacing: 1, opacity: connected ? 1 : 0.4 }}>DEPOSIT</button>
-              <button onClick={handleWithdraw} disabled={!connected} style={{ padding: "9px 18px", borderRadius: 6, background: "#ff444415", border: "1px solid #ff444440", color: "#ff4444", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", letterSpacing: 1, opacity: connected ? 1 : 0.4 }}>WITHDRAW</button>
+              <button onClick={handleDeposit} disabled={!connected || isDepositing} style={{ padding: "9px 18px", borderRadius: 6, background: "#00e87b15", border: "1px solid #00e87b40", color: "#00e87b", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", letterSpacing: 1, opacity: connected && !isDepositing ? 1 : 0.4 }}>{isDepositing ? "..." : "DEPOSIT"}</button>
+              <button onClick={handleWithdraw} disabled={!connected || isDepositing} style={{ padding: "9px 18px", borderRadius: 6, background: "#ff444415", border: "1px solid #ff444440", color: "#ff4444", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", letterSpacing: 1, opacity: connected && !isDepositing ? 1 : 0.4 }}>{isDepositing ? "..." : "WITHDRAW"}</button>
             </div>
 
             {/* 3D Coin + Flip Area */}
@@ -506,9 +515,10 @@ export default function FlipperRooms() {
                   <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                     <span style={{ fontWeight: 700, color: "#f0c040", fontSize: 13 }}>{c.amount} Ξ</span>
                     {c.creator.toLowerCase() === address?.toLowerCase() ? (
-                      <button onClick={() => flipHook.cancelCh(c.id)} style={{
+                      <button onClick={() => flipHook.cancelCh(c.id)} disabled={flipHook.isFlipping} style={{
                         padding: "5px 14px", borderRadius: 5, background: "#ff444412", border: "1px solid #ff444440",
-                        color: "#ff4444", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit"
+                        color: "#ff4444", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                        opacity: flipHook.isFlipping ? 0.4 : 1
                       }}>CANCEL</button>
                     ) : (
                       <button onClick={() => handleAccept(c.id)} disabled={flipHook.isFlipping} style={{
@@ -528,19 +538,19 @@ export default function FlipperRooms() {
                 <div style={{ padding: "16px", textAlign: "center", color: "#333", fontSize: 11 }}>No recent flips</div>
               )}
               {flipHook.history.map((h, i) => {
-                const isWinner = h.winner.toLowerCase() === address?.toLowerCase();
+                const isWinner = address ? h.winner.toLowerCase() === address.toLowerCase() : null;
                 return (
                   <div key={i} style={{
                     display: "flex", justifyContent: "space-between", alignItems: "center",
                     padding: "9px 16px", borderBottom: "1px solid #0e0e1a", fontSize: 11
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 7, height: 7, borderRadius: "50%", background: isWinner ? "#00e87b" : "#ff4444" }}/>
-                      <span style={{ color: isWinner ? "#00e87b" : "#ff4444", fontWeight: 700, fontSize: 10, letterSpacing: 1 }}>
-                        {isWinner ? "WON" : "LOST"}
+                      <div style={{ width: 7, height: 7, borderRadius: "50%", background: isWinner === null ? "#666" : isWinner ? "#00e87b" : "#ff4444" }}/>
+                      <span style={{ color: isWinner === null ? "#666" : isWinner ? "#00e87b" : "#ff4444", fontWeight: 700, fontSize: 10, letterSpacing: 1 }}>
+                        {isWinner === null ? "FLIP" : isWinner ? "WON" : "LOST"}
                       </span>
                       <span style={{ color: "#444" }}>
-                        vs {h.vsTreasury ? "Treasury" : shortAddr(isWinner ? h.loser : h.winner)}
+                        {h.vsTreasury ? "vs Treasury" : `${shortAddr(h.winner)} vs ${shortAddr(h.loser)}`}
                       </span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -630,7 +640,7 @@ export default function FlipperRooms() {
                   <span style={{textAlign:"right"}}>NAME</span>
                 </div>
                 <div style={{ maxHeight: 460, overflowY: "auto" }}>
-                  {seatHook.seats.filter(s => s.active).sort((a, b) => Number(b.priceWei - a.priceWei)).slice(0, 50).map(s => (
+                  {seatHook.seats.filter(s => s.active).sort((a, b) => (b.priceWei > a.priceWei ? 1 : b.priceWei < a.priceWei ? -1 : 0)).slice(0, 50).map(s => (
                     <div key={s.id} onClick={() => { setSelectedSeat(s); setSeatView("grid"); }} style={{
                       display: "grid", gridTemplateColumns: "50px 1fr 90px 90px 70px",
                       padding: "9px 14px", fontSize: 11, borderBottom: "1px solid #0e0e1a", cursor: "pointer",
@@ -795,6 +805,8 @@ function SeatDetailPanel({ seat, detail, address, connected, seatHook, onClose }
   const [buyName, setBuyName] = useState("");
   const [buyDeposit, setBuyDeposit] = useState("0.002");
   const [newPrice, setNewPrice] = useState("");
+  const [ownerNewPrice, setOwnerNewPrice] = useState("");
+  const [ownerAddDeposit, setOwnerAddDeposit] = useState("");
 
   const isOwner = address && seat.active && seat.owner.toLowerCase() === address.toLowerCase();
   const isZero = !seat.active;
@@ -863,6 +875,26 @@ function SeatDetailPanel({ seat, detail, address, connected, seatHook, onClose }
             width: "100%", padding: "10px 0", borderRadius: 6, background: "#00e87b12", border: "1px solid #00e87b40",
             color: "#00e87b", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit"
           }}>CLAIM REWARDS</button>
+          <div style={{ display: "flex", gap: 4 }}>
+            <input placeholder="New price (ETH)" value={ownerNewPrice} onChange={e => setOwnerNewPrice(e.target.value)} style={{
+              flex: 1, padding: "8px 8px", background: "#07070f", border: "1px solid #1a1a28",
+              borderRadius: 5, color: "#c8c8d0", fontSize: 10, fontFamily: "inherit", boxSizing: "border-box"
+            }}/>
+            <button onClick={() => { if (ownerNewPrice) { seatHook.updatePrice(seat.id, ownerNewPrice); setOwnerNewPrice(""); } }} style={{
+              padding: "8px 10px", borderRadius: 5, background: "#f0c04012", border: "1px solid #f0c04040",
+              color: "#f0c040", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap"
+            }}>SET PRICE</button>
+          </div>
+          <div style={{ display: "flex", gap: 4 }}>
+            <input placeholder="Add deposit (ETH)" value={ownerAddDeposit} onChange={e => setOwnerAddDeposit(e.target.value)} style={{
+              flex: 1, padding: "8px 8px", background: "#07070f", border: "1px solid #1a1a28",
+              borderRadius: 5, color: "#c8c8d0", fontSize: 10, fontFamily: "inherit", boxSizing: "border-box"
+            }}/>
+            <button onClick={() => { if (ownerAddDeposit) { seatHook.addDeposit(seat.id, ownerAddDeposit); setOwnerAddDeposit(""); } }} style={{
+              padding: "8px 10px", borderRadius: 5, background: "#3b7dff12", border: "1px solid #3b7dff40",
+              color: "#3b7dff", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap"
+            }}>ADD DEP</button>
+          </div>
           <button onClick={() => seatHook.abandon(seat.id)} style={{
             width: "100%", padding: "10px 0", borderRadius: 6, background: "#ff444412", border: "1px solid #ff444440",
             color: "#ff4444", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit"
