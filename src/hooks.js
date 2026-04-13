@@ -78,30 +78,45 @@ export function useWallet() {
 
   // Auto-connect when Privy session exists (page load or login)
   useEffect(() => {
-    if (!ready) return;
+    console.log("Privy state:", { authenticated, ready, walletsLength: wallets.length });
+    if (!authenticated || !ready) return;
+
+    if (wallets.length === 0) {
+      console.log("No wallets yet, waiting...");
+      return;
+    }
+
     async function setup() {
-      if (!authenticated || wallets.length === 0) {
-        setProvider(null);
-        setSigner(null);
-        setContract(null);
-        setAddress(null);
-        setSessionBalance("0");
-        return;
-      }
       try {
         const wallet = wallets[0];
-        await wallet.switchChain(84532); // Base Sepolia
+        console.log("Wallet found:", wallet.address, wallet.walletClientType);
+
+        try {
+          await wallet.switchChain(84532);
+        } catch (e) {
+          console.warn("switchChain failed (may already be on correct chain):", e.message);
+        }
+
         const ethProvider = await wallet.getEthersProvider();
         const sgnr = await ethProvider.getSigner();
         const addr = await sgnr.getAddress();
         const ctr = getContract(sgnr);
+
+        console.log("Connected:", addr, "Contract:", ctr.target);
+
         setProvider(ethProvider);
         setSigner(sgnr);
         setContract(ctr);
         setAddress(addr);
-        const bal = await getSessionBalance(ctr, addr);
-        setSessionBalance(bal);
+
+        try {
+          const bal = await getSessionBalance(ctr, addr);
+          setSessionBalance(bal);
+        } catch (e) {
+          console.warn("getSessionBalance failed:", e.message);
+        }
       } catch (err) {
+        console.error("Wallet setup failed:", err);
         addToast("error", decodeError(err));
       }
     }
