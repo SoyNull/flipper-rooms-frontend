@@ -1286,6 +1286,8 @@ export default function FlipperRooms() {
   const [flipHistory, setFlipHistory] = useState([]);
   const [lastPayout, setLastPayout] = useState("0");
   const tierBarRef = useRef(null);
+  const [borderState, setBorderState] = useState("idle");
+  const spinStartRef = useRef(0);
 
   // Called by Coin3D when landing animation completes
   const onFlipDone = useCallback(() => {
@@ -1315,6 +1317,7 @@ export default function FlipperRooms() {
 
     setTimeout(() => {
       setCoinState("idle");
+      setBorderState("idle");
       setShowResult(false);
       setResult(null);
     }, 5000);
@@ -1369,9 +1372,10 @@ export default function FlipperRooms() {
       return;
     }
 
-    // Embedded wallet: start animation immediately (auto-signs)
     if (isEmbedded) {
       setCoinState("spinning");
+      setBorderState("spinning");
+      spinStartRef.current = Date.now();
       playFlipSound();
     } else {
       setWaitingConfirm(true);
@@ -1380,10 +1384,11 @@ export default function FlipperRooms() {
     try {
       const tx = await contract.flipVsTreasury(tierWei, ref);
 
-      // External wallet: TX signed, now animate
       if (!isEmbedded) {
         setWaitingConfirm(false);
         setCoinState("spinning");
+        setBorderState("spinning");
+        spinStartRef.current = Date.now();
         playFlipSound();
       }
 
@@ -1404,11 +1409,20 @@ export default function FlipperRooms() {
         } catch {}
       }
 
-      pendingResultRef.current = { won, payout: payoutStr, amount: amountStr };
-      setCoinState(won ? "win" : "lose");
+      // Ensure border spins for at least 3 seconds
+      const elapsed = Date.now() - spinStartRef.current;
+      const extraWait = Math.max(0, 3000 - elapsed);
+
+      setTimeout(() => {
+        pendingResultRef.current = { won, payout: payoutStr, amount: amountStr };
+        setCoinState(won ? "win" : "lose");
+        // Border crossfade slightly after coin starts landing
+        setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
+      }, extraWait);
 
     } catch (err) {
       setCoinState("idle");
+      setBorderState("idle");
       setWaitingConfirm(false);
       const msg = decodeError(err);
       if (msg.includes("TreasuryBetTooHigh") || msg.includes("treasury") || msg.includes("Treasury")) {
@@ -1457,6 +1471,8 @@ export default function FlipperRooms() {
 
       if (isEmbedded) {
         setCoinState("spinning");
+        setBorderState("spinning");
+        spinStartRef.current = Date.now();
         playFlipSound();
         setFlipModal({ playerA: address, playerB: creatorAddr || "Opponent", amount: amt, state: "spinning", winner: null, txHash: null });
       } else {
@@ -1468,6 +1484,8 @@ export default function FlipperRooms() {
       if (!isEmbedded) {
         setWaitingConfirm(false);
         setCoinState("spinning");
+        setBorderState("spinning");
+        spinStartRef.current = Date.now();
         playFlipSound();
         setFlipModal({ playerA: address, playerB: creatorAddr || "Opponent", amount: amt, state: "spinning", winner: null, txHash: null });
       }
@@ -1488,15 +1506,22 @@ export default function FlipperRooms() {
         } catch {}
       }
 
-      pendingResultRef.current = {
-        won, payout: payoutStr, amount: amt,
-        flipModalUpdate: { state: won ? "win" : "lose", winner: won ? address : creatorAddr, txHash },
-      };
-      flipHook.refreshChallenges();
-      setCoinState(won ? "win" : "lose");
+      const elapsed = Date.now() - spinStartRef.current;
+      const extraWait = Math.max(0, 3000 - elapsed);
+
+      setTimeout(() => {
+        pendingResultRef.current = {
+          won, payout: payoutStr, amount: amt,
+          flipModalUpdate: { state: won ? "win" : "lose", winner: won ? address : creatorAddr, txHash },
+        };
+        flipHook.refreshChallenges();
+        setCoinState(won ? "win" : "lose");
+        setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
+      }, extraWait);
 
     } catch (err) {
       setCoinState("idle");
+      setBorderState("idle");
       setFlipModal(null);
       addToast("error", decodeError(err));
     }
@@ -1637,7 +1662,7 @@ export default function FlipperRooms() {
 
                     {/* ═══ DUEL COIN STAGE ═══ */}
                     {(() => {
-                      const wrapperClass = coinState === "spinning" ? "spinning" : showResult ? (result === "win" ? "result-win" : "result-lose") : "";
+                      const wrapperClass = borderState === "spinning" ? "spinning" : borderState === "win" ? "result-win" : borderState === "lose" ? "result-lose" : "";
                       const p1Class = showResult ? (result === "win" ? "winner" : "loser") : "";
                       const p2Class = showResult ? (result === "win" ? "loser" : "winner") : "";
                       const a1Class = coinState === "spinning" ? "avatar-bounce" : showResult ? (result === "win" ? "avatar-win" : "avatar-lose") : "";
