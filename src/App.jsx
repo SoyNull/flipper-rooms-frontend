@@ -1,33 +1,355 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import * as THREE from "three";
 import { useWallet, useFlip, useSeats, useProtocol, useToasts, addToast, EXPLORER } from "./hooks.js";
-import { TIERS, CONTRACT_ADDRESS } from "./config.js";
-import { deposit as depositFn, withdraw as withdrawFn, getPlayerInfo, getSeatInfo as getSeatInfoFn, decodeError } from "./contract.js";
-import { parseEther } from "ethers";
-import { playClickSound, playFlipSound, playWinSound, playLoseSound, playDepositSound, playStreakSound, playJackpotSound } from "./sounds.js";
+import { getOpenChallenges, getChallengeInfo, decodeError } from "./contract.js";
+import { CONTRACT_ADDRESS, TIERS } from "./config.js";
+import { parseEther, formatEther } from "ethers";
+import { playClickSound, playFlipSound, playWinSound, playLoseSound, playDepositSound, playStreakSound } from "./sounds.js";
 
-const OWNER = "0xe5678f8659d229a303abecdd0d0113cf1f4f83ae";
-const ZERO = "0x0000000000000000000000000000000000000000";
-const short = (a) => a ? `${a.slice(0,6)}...${a.slice(-4)}` : "";
-const addrColor = (a) => a ? `#${a.slice(2,8)}` : "#333";
+const shortAddr = (a) => a ? `${a.slice(0,6)}...${a.slice(-4)}` : "???";
+const addrColor = (a) => {
+  if (!a) return "#444";
+  const h = parseInt(a.slice(2,8), 16);
+  const hue = h % 360;
+  return `hsl(${hue}, 60%, 55%)`;
+};
 
-// ═══════════════════════════════════════
-//  AVATAR
-// ═══════════════════════════════════════
-function Avatar({ address, size = 36 }) {
-  const c = addrColor(address);
-  return <div style={{
-    width: size, height: size, borderRadius: "50%", flexShrink: 0,
-    background: `linear-gradient(135deg, ${c}, ${c}88)`,
-    display: "flex", alignItems: "center", justifyContent: "center",
-    fontSize: size * 0.32, fontWeight: 700, color: "#fff", border: "2px solid #1b2838"
-  }}>{address ? address.slice(2,4).toUpperCase() : "?"}</div>;
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg-deep: #080b12;
+  --bg-main: #0c1019;
+  --bg-card: #111722;
+  --bg-card-hover: #161d2b;
+  --bg-elevated: #1a2233;
+  --border: #1e2a3a;
+  --border-light: #253347;
+  --text: #e2e8f0;
+  --text-dim: #8892a4;
+  --text-muted: #4a5568;
+  --green: #10b981;
+  --green-glow: #10b98140;
+  --green-dark: #065f46;
+  --red: #ef4444;
+  --red-glow: #ef444440;
+  --gold: #f59e0b;
+  --gold-glow: #f59e0b30;
+  --blue: #3b82f6;
+  --teal: #14b8a6;
 }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sans-serif; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.app { display: flex; height: 100vh; overflow: hidden; }
+
+.sidebar {
+  width: 260px; min-width: 260px; background: var(--bg-main);
+  border-right: 1px solid var(--border); display: flex; flex-direction: column;
+}
+.sidebar-header {
+  padding: 16px 18px; border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.sidebar-header h3 { font-size: 13px; font-weight: 600; color: var(--text-dim); letter-spacing: 0.5px; }
+.online-badge {
+  display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--teal);
+}
+.online-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); animation: blink 2s infinite; }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.chat-messages { flex: 1; overflow-y: auto; padding: 8px 0; }
+.chat-msg {
+  display: flex; gap: 10px; padding: 8px 18px; transition: background 0.15s;
+}
+.chat-msg:hover { background: var(--bg-card); }
+.chat-avatar {
+  width: 28px; height: 28px; min-width: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: #fff; font-family: 'JetBrains Mono', monospace;
+}
+.chat-name { font-size: 12px; font-weight: 600; }
+.chat-level {
+  display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 5px;
+  border-radius: 4px; background: var(--bg-elevated); color: var(--text-dim);
+  margin-left: 4px; vertical-align: middle;
+}
+.chat-text { font-size: 12px; color: var(--text-dim); margin-top: 2px; line-height: 1.4; }
+.chat-input-wrap {
+  padding: 12px 18px; border-top: 1px solid var(--border);
+}
+.chat-input-wrap input {
+  width: 100%; background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px; color: var(--text); font-size: 12px;
+  font-family: 'Outfit', sans-serif; outline: none; transition: border-color 0.2s;
+}
+.chat-input-wrap input:focus { border-color: var(--green); }
+
+.main-col { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.topbar {
+  height: 56px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px; border-bottom: 1px solid var(--border); background: var(--bg-main);
+  flex-shrink: 0;
+}
+.logo { display: flex; align-items: center; gap: 8px; }
+.logo-text { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+.logo-green { color: var(--green); }
+.logo-dim { color: var(--text-muted); }
+.logo-badge {
+  font-size: 8px; font-weight: 800; letter-spacing: 1.5px; padding: 3px 8px;
+  border-radius: 4px; background: #3b82f615; color: var(--blue); border: 1px solid #3b82f630;
+}
+
+.nav { display: flex; gap: 4px; }
+.nav-btn {
+  padding: 8px 18px; border: none; background: none; color: var(--text-dim);
+  font-size: 13px; font-weight: 600; font-family: 'Outfit', sans-serif;
+  cursor: pointer; border-radius: 6px; transition: all 0.2s;
+}
+.nav-btn:hover { color: var(--text); background: var(--bg-card); }
+.nav-btn.active { color: var(--green); background: #10b98110; }
+
+.header-right { display: flex; align-items: center; gap: 12px; }
+.balance-pill {
+  display: flex; align-items: center; gap: 8px; padding: 6px 14px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600;
+}
+.connect-btn {
+  padding: 8px 20px; border: none; border-radius: 8px; font-size: 13px;
+  font-weight: 700; font-family: 'Outfit', sans-serif; cursor: pointer;
+  background: var(--green); color: #000; transition: all 0.2s;
+}
+.connect-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.addr-pill {
+  padding: 6px 14px; background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px; font-size: 12px; color: var(--text-dim); cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.content { flex: 1; overflow-y: auto; padding: 0; display: flex; }
+.game-area { flex: 1; overflow-y: auto; padding: 28px 32px; }
+.info-panel {
+  width: 220px; min-width: 220px; background: var(--bg-main);
+  border-left: 1px solid var(--border); overflow-y: auto; padding: 20px 16px;
+}
+
+.section-label {
+  font-size: 11px; font-weight: 700; color: var(--text-muted);
+  letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px;
+}
+
+.hero-title { font-size: 11px; color: var(--text-muted); letter-spacing: 2px; font-weight: 600; margin-bottom: 4px; }
+.hero-big {
+  font-size: 36px; font-weight: 900; letter-spacing: -1px;
+  background: linear-gradient(135deg, var(--text) 0%, var(--text-dim) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-bottom: 16px;
+}
+
+.stats-row { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+.stat-item { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.stat-label { color: var(--text-muted); }
+.stat-val { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+.stat-green { color: var(--green); }
+.stat-gold { color: var(--gold); }
+
+.tier-bar { display: flex; gap: 6px; margin-bottom: 28px; }
+.tier-btn {
+  flex: 1; padding: 12px 0; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg-card); color: var(--text-dim); font-size: 13px; font-weight: 600;
+  font-family: 'JetBrains Mono', monospace; cursor: pointer; transition: all 0.2s;
+}
+.tier-btn:hover { border-color: var(--border-light); background: var(--bg-card-hover); }
+.tier-btn.active {
+  border-color: var(--green); color: var(--green); background: #10b98108;
+  box-shadow: 0 0 20px var(--green-glow), inset 0 0 20px #10b98105;
+}
+
+.coin-stage {
+  background: radial-gradient(ellipse at 50% 30%, #111d2e 0%, var(--bg-deep) 70%);
+  border: 1px solid var(--border); border-radius: 16px;
+  height: 300px; margin-bottom: 20px; position: relative; overflow: hidden;
+}
+.coin-stage::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 50%, var(--green-glow) 0%, transparent 60%);
+  opacity: 0.3; pointer-events: none;
+}
+
+.flip-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 28px; }
+.flip-btn {
+  padding: 18px 0; border-radius: 12px; border: none; cursor: pointer;
+  font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 700;
+  letter-spacing: 0.5px; transition: all 0.2s; position: relative; overflow: hidden;
+}
+.flip-btn::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 50%);
+  pointer-events: none;
+}
+.flip-btn:hover { transform: translateY(-2px); }
+.flip-btn:active { transform: translateY(0); }
+.flip-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.flip-btn-pvp {
+  background: linear-gradient(135deg, #0d7a56, #10b981);
+  color: #fff; box-shadow: 0 4px 24px var(--green-glow);
+}
+.flip-btn-treasury {
+  background: linear-gradient(135deg, #92680a, #f59e0b);
+  color: #000; box-shadow: 0 4px 24px var(--gold-glow);
+}
+.flip-sub { font-size: 11px; font-weight: 500; opacity: 0.7; margin-top: 4px; }
+
+.games-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;
+}
+.games-count { font-size: 13px; font-weight: 700; color: var(--green); font-family: 'JetBrains Mono', monospace; }
+
+.game-row {
+  display: flex; align-items: center; padding: 14px 18px; background: var(--bg-card);
+  border: 1px solid var(--border); border-radius: 10px; margin-bottom: 6px;
+  transition: all 0.2s; gap: 16px;
+}
+.game-row:hover { background: var(--bg-card-hover); border-color: var(--border-light); }
+.game-players { display: flex; align-items: center; gap: 10px; flex: 1; }
+.game-vs { font-size: 11px; color: var(--text-muted); font-weight: 700; }
+.game-avatar {
+  width: 38px; height: 38px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; font-size: 12px;
+  font-weight: 700; color: #fff; font-family: 'JetBrains Mono', monospace;
+  border: 2px solid var(--border);
+}
+.game-avatar-empty {
+  width: 38px; height: 38px; border-radius: 50%; border: 2px dashed var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; color: var(--text-muted);
+}
+.game-amount {
+  font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700;
+  color: var(--text); min-width: 120px; text-align: center;
+}
+.game-amount-eth { font-size: 11px; color: var(--text-muted); margin-left: 4px; }
+.game-status {
+  font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 4px 10px;
+  border-radius: 6px; text-transform: uppercase; min-width: 80px; text-align: center;
+}
+.status-open { background: #10b98118; color: var(--green); border: 1px solid #10b98130; }
+.status-done { background: var(--bg-elevated); color: var(--text-muted); }
+
+.join-btn {
+  padding: 8px 22px; border: none; border-radius: 8px; background: var(--green);
+  color: #000; font-size: 12px; font-weight: 700; cursor: pointer;
+  font-family: 'Outfit', sans-serif; transition: all 0.2s;
+}
+.join-btn:hover { filter: brightness(1.1); }
+.cancel-btn {
+  padding: 8px 16px; border: 1px solid var(--red); border-radius: 8px;
+  background: transparent; color: var(--red); font-size: 11px; font-weight: 600;
+  cursor: pointer; font-family: 'Outfit', sans-serif;
+}
+
+.info-section { margin-bottom: 24px; }
+.info-label { font-size: 10px; color: var(--text-muted); letter-spacing: 1.2px; font-weight: 700; margin-bottom: 8px; }
+.info-balance {
+  font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700;
+  margin-bottom: 12px;
+}
+.quick-btns { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+.quick-btn {
+  padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg-card); color: var(--text-dim); font-size: 10px;
+  font-family: 'JetBrains Mono', monospace; font-weight: 600; cursor: pointer;
+  transition: all 0.15s;
+}
+.quick-btn:hover { border-color: var(--green); color: var(--green); }
+.info-input {
+  width: 100%; background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 12px;
+  font-family: 'JetBrains Mono', monospace; outline: none; margin-bottom: 8px;
+}
+.info-input:focus { border-color: var(--green); }
+.info-actions { display: flex; gap: 6px; }
+.btn-deposit {
+  flex: 1; padding: 8px; border: none; border-radius: 6px; font-size: 11px;
+  font-weight: 700; font-family: 'Outfit', sans-serif; cursor: pointer;
+  background: var(--green); color: #000;
+}
+.btn-deposit:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-withdraw {
+  flex: 1; padding: 8px; border: 1px solid var(--red); border-radius: 6px;
+  font-size: 11px; font-weight: 700; font-family: 'Outfit', sans-serif;
+  cursor: pointer; background: transparent; color: var(--red);
+}
+.btn-withdraw:disabled { opacity: 0.4; cursor: not-allowed; }
+.info-row {
+  display: flex; justify-content: space-between; padding: 5px 0;
+  font-size: 12px; border-bottom: 1px solid #1e2a3a20;
+}
+.info-row-label { color: var(--text-muted); }
+.info-row-val { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+.result-overlay {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; z-index: 10;
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+.result-text {
+  font-size: 32px; font-weight: 900; letter-spacing: 4px;
+  font-family: 'Outfit', sans-serif;
+}
+.result-win { color: var(--green); text-shadow: 0 0 40px var(--green-glow); }
+.result-lose { color: var(--red); text-shadow: 0 0 40px var(--red-glow); }
+
+@keyframes confetti { 0% { transform: translateY(0) rotate(0); opacity: 1; } 100% { transform: translateY(300px) rotate(720deg); opacity: 0; } }
+@keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+.shaking { animation: shake 0.5s ease; }
+
+.toast-container { position: fixed; top: 70px; right: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  padding: 12px 18px; border-radius: 10px; font-size: 12px; font-weight: 500;
+  animation: slideIn 0.3s ease; min-width: 250px; border: 1px solid; cursor: pointer;
+}
+@keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.toast-success { background: #10b98115; border-color: #10b98130; color: var(--green); }
+.toast-error { background: #ef444415; border-color: #ef444430; color: var(--red); }
+.toast-pending { background: #f59e0b15; border-color: #f59e0b30; color: var(--gold); }
+
+.empty-state { text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px; }
+.flip-hint { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+
+@media (max-width: 1024px) {
+  .sidebar { display: none; }
+  .info-panel { display: none; }
+  .game-area { padding: 16px; }
+  .hero-big { font-size: 28px; }
+  .coin-stage { height: 220px; }
+}
+`;
+
+const MOCK_CHAT = [
+  { name: "BasedDegen", level: 12, msg: "LFG", color: "#10b981" },
+  { name: "FlipperKing", level: 34, msg: "just hit 5x streak", color: "#f59e0b" },
+  { name: "0xWhale", level: 8, msg: "bought seat #42", color: "#3b82f6" },
+  { name: "CryptoNova", level: 21, msg: "treasury needs funding", color: "#ec4899" },
+  { name: "SigmaGrind", level: 15, msg: "0.05 tier is the sweet spot", color: "#8b5cf6" },
+  { name: "MoonBoi", level: 5, msg: "wen jackpot", color: "#14b8a6" },
+  { name: "AlphaSeeker", level: 29, msg: "seat yield looking good today", color: "#f97316" },
+  { name: "DegenApe", level: 7, msg: "lost 3 in a row lol", color: "#ef4444" },
+  { name: "BaseMaxi", level: 18, msg: "this is the best coinflip on base", color: "#06b6d4" },
+  { name: "FlipMaster", level: 44, msg: "GG everyone", color: "#a855f7" },
+];
 
 // ═══════════════════════════════════════
 //  3D COIN
 // ═══════════════════════════════════════
-function Coin3D({ state, onComplete, size = 240 }) {
+function Coin3D({ state, onComplete }) {
   const mountRef = useRef(null);
   const sceneRef = useRef({});
   const stateRef = useRef(state);
@@ -36,846 +358,468 @@ function Coin3D({ state, onComplete, size = 240 }) {
   useEffect(() => {
     const el = mountRef.current;
     if (!el) return;
-    const w = size, h = size;
+    const w = el.clientWidth, h = el.clientHeight;
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
     camera.position.set(0, 0, 4);
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(w, h);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.4;
     el.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-    const dir = new THREE.DirectionalLight(0xffffff, 1.2); dir.position.set(3,5,4); scene.add(dir);
-    const rim = new THREE.DirectionalLight(0x00e87b, 0.5); rim.position.set(-3,-2,2); scene.add(rim);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+    const dir = new THREE.DirectionalLight(0xffffff, 1.0); dir.position.set(3, 5, 4); scene.add(dir);
+    const rim = new THREE.DirectionalLight(0x10b981, 0.6); rim.position.set(-3, -2, 3); scene.add(rim);
+    const accent = new THREE.PointLight(0x10b981, 0.8, 10); accent.position.set(0, 0, 3); scene.add(accent);
 
-    const g = new THREE.Group(); scene.add(g);
-    const r = 1.1, th = 0.12, seg = 64;
-    const mat = new THREE.MeshStandardMaterial({ color: 0x00c868, metalness: 0.9, roughness: 0.15, emissive: 0x003318, emissiveIntensity: 0.15 });
-    const edge = new THREE.MeshStandardMaterial({ color: 0x009950, metalness: 0.95, roughness: 0.1 });
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(r,r,th,seg), mat);
-    body.rotation.x = Math.PI/2; g.add(body);
-    g.add(new THREE.Mesh(new THREE.TorusGeometry(r, th/2, 16, seg), edge));
+    const coinGroup = new THREE.Group(); scene.add(coinGroup);
+    const r = 1.1, th = 0.1, seg = 64;
+    const mat = new THREE.MeshStandardMaterial({ color: 0x10b981, metalness: 0.85, roughness: 0.2, emissive: 0x042f22, emissiveIntensity: 0.15 });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, th, seg), mat);
+    body.rotation.x = Math.PI / 2; coinGroup.add(body);
+    const edgeMat = new THREE.MeshStandardMaterial({ color: 0x059669, metalness: 0.9, roughness: 0.15 });
+    coinGroup.add(new THREE.Mesh(new THREE.TorusGeometry(r, th / 2, 16, seg), edgeMat));
 
-    const mkFace = (letter, z, rot) => {
-      const cv = document.createElement("canvas"); cv.width=256; cv.height=256;
-      const cx = cv.getContext("2d"); cx.fillStyle="#00000000"; cx.fillRect(0,0,256,256);
-      cx.fillStyle="#003318"; cx.font="bold 130px monospace"; cx.textAlign="center"; cx.textBaseline="middle";
-      cx.fillText(letter,128,128);
-      const m = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, metalness: 0.6, roughness: 0.3, color: 0x00b05a });
-      const mesh = new THREE.Mesh(new THREE.CircleGeometry(r*0.82, seg), m);
-      mesh.position.z = z; if (rot) mesh.rotation.y = Math.PI; g.add(mesh);
+    const makeLabel = (text, z, flip) => {
+      const c = document.createElement("canvas"); c.width = 256; c.height = 256;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#04201580"; ctx.fillRect(0,0,256,256);
+      ctx.fillStyle = "#ffffff"; ctx.font = "bold 120px 'Arial'";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(text, 128, 128);
+      const fMat = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(c), transparent: true, metalness: 0.5, roughness: 0.4 });
+      const face = new THREE.Mesh(new THREE.CircleGeometry(r * 0.8, seg), fMat);
+      face.position.z = z; if (flip) face.rotation.y = Math.PI; coinGroup.add(face);
     };
-    mkFace("F", th/2+0.001, false); mkFace("R", -(th/2+0.001), true);
-    g.rotation.x = 0.3;
-    sceneRef.current = { scene, camera, renderer, g, startTime: null, phase: "idle" };
+    makeLabel("W", th / 2 + 0.001, false);
+    makeLabel("L", -(th / 2 + 0.001), true);
+    coinGroup.rotation.x = 0.25;
+    sceneRef.current = { scene, camera, renderer, coinGroup, phase: "idle" };
 
     let raf;
     const animate = () => {
       raf = requestAnimationFrame(animate);
-      const s = sceneRef.current, t = performance.now()/1000;
-      if (s.phase==="idle") { s.g.rotation.y=Math.sin(t*0.8)*0.15; s.g.position.y=Math.sin(t*1.2)*0.04; }
-      else if (s.phase==="spinning") {
-        const el2=t-s.startTime, sp=Math.max(0,25-el2*4);
-        s.g.rotation.x+=sp*0.016; s.g.position.y=Math.sin(el2*3)*0.12*Math.max(0,1-el2/4);
-        if (sp<=0.5) { s.phase="landing"; s.startTime=t; const tx=stateRef.current==="win"?0:Math.PI; s.targetR=tx+Math.round(s.g.rotation.x/(Math.PI*2))*Math.PI*2; }
-      } else if (s.phase==="landing") {
-        const p=Math.min(1,(t-s.startTime)/0.6);
-        s.g.rotation.x+=(s.targetR-s.g.rotation.x)*0.08; s.g.position.y=Math.sin(p*Math.PI)*-0.08;
-        if (p>=1&&s.phase!=="done") { s.phase="done"; onComplete?.(); }
-      } else if (s.phase==="done") { s.g.position.y=Math.sin(t*2)*0.02; }
-      renderer.render(scene,camera);
+      const s = sceneRef.current, t = performance.now() / 1000;
+      if (s.phase === "idle") { s.coinGroup.rotation.y = Math.sin(t * 0.6) * 0.12; s.coinGroup.position.y = Math.sin(t * 1.0) * 0.04; }
+      else if (s.phase === "spinning") {
+        const el2 = t - s.startTime, spd = Math.max(0, 28 - el2 * 5);
+        s.coinGroup.rotation.x += spd * 0.016;
+        s.coinGroup.position.y = Math.sin(el2 * 3) * 0.12 * Math.max(0, 1 - el2 / 4);
+        if (spd <= 0.3) { s.phase = "landing"; s.startTime = t; const tx = stateRef.current === "win" ? 0 : Math.PI; s.targetRotation = tx + Math.round(s.coinGroup.rotation.x / (Math.PI * 2)) * Math.PI * 2; }
+      } else if (s.phase === "landing") {
+        s.coinGroup.rotation.x += (s.targetRotation - s.coinGroup.rotation.x) * 0.1;
+        if ((t - s.startTime) >= 0.5 && s.phase !== "done") { s.phase = "done"; onComplete?.(); }
+      } else if (s.phase === "done") { s.coinGroup.position.y = Math.sin(t * 2) * 0.015; }
+      renderer.render(scene, camera);
     };
     animate();
     return () => { cancelAnimationFrame(raf); renderer.dispose(); if (el.contains(renderer.domElement)) el.removeChild(renderer.domElement); };
-  }, [size]);
+  }, []);
 
   useEffect(() => {
-    if (state==="spinning") { sceneRef.current.phase="spinning"; sceneRef.current.startTime=performance.now()/1000; }
-    else if (state==="idle") sceneRef.current.phase="idle";
+    if (state === "spinning") { sceneRef.current.phase = "spinning"; sceneRef.current.startTime = performance.now() / 1000; }
+    else if (state === "idle") sceneRef.current.phase = "idle";
   }, [state]);
 
-  return <div ref={mountRef} style={{ width: size, height: size }} />;
+  return <div ref={mountRef} style={{ width: "100%", height: "100%", position: "relative", zIndex: 1 }} />;
 }
 
-// ═══════════════════════════════════════
-//  CONFETTI
-// ═══════════════════════════════════════
-function Confetti() {
-  return <div style={{ position:"absolute", inset:0, pointerEvents:"none", overflow:"hidden", zIndex:20 }}>
-    {Array.from({length:20},(_,i) => <div key={i} style={{
-      position:"absolute", left:`${Math.random()*100}%`, top:-10,
-      width:5+Math.random()*5, height:5+Math.random()*5,
-      background:["#00e87b","#f0c040","#3b7dff","#1abc9c"][i%4],
-      borderRadius: Math.random()>0.5?"50%":"2px",
-      animation:`confetti ${1.5+Math.random()*1.5}s ease-out ${i*0.04}s forwards`
-    }} />)}
-  </div>;
-}
-
-// ═══════════════════════════════════════
-//  TOAST
-// ═══════════════════════════════════════
-function Toasts({ toasts, remove }) {
-  return <div style={{ position:"fixed", top:12, right:12, zIndex:9999, display:"flex", flexDirection:"column", gap:6, maxWidth:340 }}>
-    {toasts.map(t => <div key={t.id} onClick={() => remove(t.id)} style={{
-      padding:"10px 14px", borderRadius:8, cursor:"pointer", animation:"fadeIn .3s", fontSize:12,
-      background: t.type==="success"?"#00e87b12":t.type==="error"?"#ff444412":"#f0c04012",
-      border:`1px solid ${t.type==="success"?"#00e87b30":t.type==="error"?"#ff444430":"#f0c04030"}`,
-      color: t.type==="success"?"#00e87b":t.type==="error"?"#ff4444":"#f0c040",
-    }}>
-      {t.type==="pending" && <span style={{animation:"pulse 1s infinite"}}>... </span>}{t.message}
-      {t.txHash && <a href={`${EXPLORER}/tx/${t.txHash}`} target="_blank" rel="noreferrer" style={{display:"block",fontSize:9,color:"#484f58",marginTop:3}}>View tx</a>}
-    </div>)}
-  </div>;
-}
-
-// ═══════════════════════════════════════
-//  MOCK CHAT
-// ═══════════════════════════════════════
-const MOCK_CHAT = [
-  { user: "BasedDegen", msg: "LFG", lvl: 12 },
-  { user: "FlipperKing", msg: "just hit 5x streak", lvl: 34 },
-  { user: "0xWhale", msg: "bought seat #42", lvl: 8 },
-  { user: "CryptoNova", msg: "treasury needs funding", lvl: 21 },
-  { user: "SigmaGrind", msg: "0.05 tier is the sweet spot", lvl: 15 },
-  { user: "MoonBoi", msg: "wen jackpot", lvl: 5 },
-  { user: "AlphaSeeker", msg: "seat yield looking good today", lvl: 29 },
-  { user: "DegenApe", msg: "lost 3 in a row lol", lvl: 7 },
-  { user: "BaseMaxi", msg: "this is the best coinflip on base", lvl: 18 },
-  { user: "FlipMaster", msg: "GG everyone", lvl: 44 },
-];
-
-function ChatSidebar() {
-  return <aside className="sidebar-left">
-    <div className="sidebar-header">
-      <span>General Chat</span>
-      <span className="online-badge">
-        <span className="online-dot" /> {Math.floor(Math.random()*30)+12}
-      </span>
+function GameAvatar({ address, size = 38 }) {
+  const color = addrColor(address);
+  return (
+    <div className="game-avatar" style={{ width: size, height: size, background: `linear-gradient(135deg, ${color}, ${color}99)` }}>
+      {address ? address.slice(2, 4).toUpperCase() : "??"}
     </div>
-    <div className="chat-messages">
-      {MOCK_CHAT.map((m,i) => <div key={i} className="chat-msg">
-        <Avatar address={`0x${m.user.slice(0,6).padEnd(40,'0')}`} size={24} />
-        <div>
-          <span className="chat-user">{m.user}</span>
-          <span className="chat-lvl">{m.lvl}</span>
-          <div className="chat-text">{m.msg}</div>
-        </div>
-      </div>)}
-    </div>
-    <div className="chat-input-row">
-      <input className="chat-input" placeholder="Type message..." disabled />
-    </div>
-  </aside>;
+  );
 }
 
 // ═══════════════════════════════════════
 //  MAIN APP
 // ═══════════════════════════════════════
 export default function FlipperRooms() {
-  const [tab, setTab] = useState("flip");
+  const wallet = useWallet();
+  const { connected, address, contract, connect, disconnect, sessionBalance, refreshBalance, ready, isEmbedded } = wallet;
+  const flipHook = useFlip(contract, address, refreshBalance);
+  const seatHook = useSeats(contract, address, refreshBalance);
+  const protocol = useProtocol(contract);
+  const { toasts, remove: removeToast } = useToasts();
+
+  const [view, setView] = useState("flip");
   const [tier, setTier] = useState(1);
   const [coinState, setCoinState] = useState("idle");
+  const [flipResult, setFlipResult] = useState(null);
   const [showResult, setShowResult] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
-  const [flipModal, setFlipModal] = useState(null); // {type, challengeId?}
-  const [selectedSeat, setSelectedSeat] = useState(null);
-  const [seatDetail, setSeatDetail] = useState(null);
-  const [seatView, setSeatView] = useState("grid");
-  const [seatSort, setSeatSort] = useState("price");
   const [depositAmt, setDepositAmt] = useState("");
   const [isDepositing, setIsDepositing] = useState(false);
+  const [shaking, setShaking] = useState(false);
+  const [confetti, setConfetti] = useState([]);
   const [playerStats, setPlayerStats] = useState(null);
-  const [jackpotWin, setJackpotWin] = useState(null);
-  const [showExplainer, setShowExplainer] = useState(true);
-  const [sessionFlips, setSessionFlips] = useState(0);
-  const [sessionPnl, setSessionPnl] = useState(0);
-  const [adminAmt, setAdminAmt] = useState("");
-  const [showChat, setShowChat] = useState(false);
 
-  const isMobile = useIsMobile();
-  const { toasts, remove: removeToast } = useToasts();
-  const wallet = useWallet();
-  const { connected, address, contract, sessionBalance, refreshBalance, connect, disconnect, ready, authenticated, isEmbedded } = wallet;
-  const flip = useFlip(contract, address, refreshBalance);
-  const seats = useSeats(contract, address, refreshBalance);
-  const proto = useProtocol(contract);
+  // Load data
+  useEffect(() => {
+    if (!contract) return;
+    flipHook.refreshChallenges();
+    flipHook.refreshHistory();
+    protocol.refreshStats();
+  }, [contract]);
 
-  const [referralSeat] = useState(() => {
-    const u = parseInt(new URLSearchParams(window.location.search).get("ref")) || 0;
-    if (u > 0) { localStorage.setItem("flipper_ref", String(u)); return u; }
-    return parseInt(localStorage.getItem("flipper_ref")) || 0;
-  });
+  // Polling
+  useEffect(() => {
+    if (!contract) return;
+    const iv = setInterval(() => {
+      refreshBalance();
+      protocol.refreshStats();
+      flipHook.refreshChallenges();
+      flipHook.refreshHistory();
+    }, 15000);
+    return () => clearInterval(iv);
+  }, [contract, refreshBalance]);
 
-  // Data loading
-  useEffect(() => { if (!contract) return; flip.refreshChallenges(); flip.refreshHistory(); seats.refreshSeats(); proto.refreshStats(); }, [contract]);
-  useEffect(() => { if (!contract) return; const iv = setInterval(() => { refreshBalance(); proto.refreshStats(); flip.refreshChallenges(); flip.refreshHistory(); }, 15000); return () => clearInterval(iv); }, [contract, refreshBalance]);
-  useEffect(() => { if (!contract || !address) return; getPlayerInfo(contract, address).then(setPlayerStats).catch(()=>{}); }, [contract, address, sessionBalance]);
-  useEffect(() => { if (!contract || !selectedSeat) { setSeatDetail(null); return; } getSeatInfoFn(contract, selectedSeat.id).then(setSeatDetail).catch(()=>{}); }, [contract, selectedSeat]);
+  // Player stats
+  useEffect(() => {
+    if (!contract || !address) return;
+    import("./contract.js").then(({ getPlayerInfo }) => {
+      getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
+    });
+  }, [contract, address, sessionBalance]);
 
-  const balNum = parseFloat(sessionBalance || "0");
-  const treasuryMax = proto.stats ? Number(proto.stats.treasury) * 0.05 : 0;
-  const isAdmin = address?.toLowerCase() === OWNER;
-  const ownedCount = seats.seats.filter(s => s.active).length;
-  const seatPoolEth = proto.stats ? proto.stats.seatPool : "0";
-  const estYield = ownedCount > 0 && proto.stats ? (Number(proto.stats.totalVolume) * 0.025) / ownedCount : 0;
-
-  // ─── Flip Logic ───
-  const processResult = (result) => {
-    if (!result) { setCoinState("idle"); return; }
-    const won = result.winner.toLowerCase() === address?.toLowerCase();
-    if (won) { playWinSound(); if (result.winnerStreak >= 3) playStreakSound(result.winnerStreak); }
-    else playLoseSound();
-    setCoinState(won ? "win" : "lose");
-    setSessionFlips(p => p + 1);
-    setSessionPnl(p => p + (won ? parseFloat(result.payout) - parseFloat(result.amount) : -parseFloat(result.amount)));
-    if (result.jackpotAmount) { setJackpotWin(result.jackpotAmount); playJackpotSound(); }
-    refreshBalance();
-  };
-
-  const doFlipTreasury = async () => {
-    if (coinState !== "idle" || !connected) return;
-    playClickSound();
-    if (isEmbedded) { setCoinState("spinning"); playFlipSound(); }
-    const result = await flip.flipTreasury(TIERS[tier].wei, referralSeat);
-    if (!result) { setCoinState("idle"); return; }
-    if (!isEmbedded) { setCoinState("spinning"); playFlipSound(); await new Promise(r => setTimeout(r, 1500)); }
-    processResult(result);
-  };
-
-  const doFlipPvp = async () => {
-    if (coinState !== "idle" || !connected) return;
-    playClickSound();
-    if (isEmbedded) { setCoinState("spinning"); playFlipSound(); }
-    const result = await flip.flipPvp(TIERS[tier].wei, referralSeat);
-    setCoinState("idle");
-    if (result) refreshBalance();
-  };
-
-  const doAccept = async (id) => {
-    if (coinState !== "idle" || !connected) return;
-    playClickSound();
-    if (isEmbedded) { setCoinState("spinning"); playFlipSound(); }
-    const result = await flip.acceptCh(id, referralSeat);
-    if (!result) { setCoinState("idle"); return; }
-    if (!isEmbedded) { setCoinState("spinning"); playFlipSound(); await new Promise(r => setTimeout(r, 1500)); }
-    processResult(result);
-  };
-
-  const onCoinDone = useCallback(() => {
+  const onFlipDone = useCallback(() => {
     setShowResult(true);
-    if (flip.lastResult === "win") { setShowConfetti(true); setTimeout(() => setShowConfetti(false), 2500); }
-    setTimeout(() => { setCoinState("idle"); setShowResult(false); flip.setLastFlipDetails(null); }, 4000);
-  }, [flip.lastResult]);
+    if (flipResult === "win") {
+      playWinSound();
+      setConfetti(Array.from({ length: 20 }, (_, i) => ({
+        id: i, left: Math.random() * 100, delay: Math.random() * 0.5,
+        color: Math.random() > 0.5 ? "var(--green)" : "var(--gold)",
+      })));
+    } else {
+      playLoseSound();
+      setShaking(true);
+      setTimeout(() => setShaking(false), 500);
+    }
+    setTimeout(() => { setCoinState("idle"); setShowResult(false); setFlipResult(null); setConfetti([]); refreshBalance(); }, 3500);
+  }, [flipResult, refreshBalance]);
 
-  const doDeposit = async () => {
-    if (!contract || !depositAmt || isDepositing) return;
-    playClickSound(); setIsDepositing(true);
-    try { await depositFn(contract, depositAmt); playDepositSound(); setDepositAmt(""); refreshBalance(); }
-    catch (err) { addToast("error", decodeError(err)); }
-    finally { setIsDepositing(false); }
+  const handleFlipTreasury = async () => {
+    if (coinState !== "idle" || !connected) return;
+    playClickSound();
+    if (isEmbedded) { setCoinState("spinning"); playFlipSound(); }
+    const result = await flipHook.flipTreasury(TIERS[tier].wei, 0);
+    if (!result) { setCoinState("idle"); return; }
+    if (!isEmbedded) { setCoinState("spinning"); playFlipSound(); }
+    const won = result.winner.toLowerCase() === address?.toLowerCase();
+    setFlipResult(won ? "win" : "lose");
+    setCoinState(won ? "win" : "lose");
+    if (won && result.winnerStreak >= 3) playStreakSound(result.winnerStreak);
   };
 
-  const doWithdraw = async () => {
-    if (!contract || !depositAmt || isDepositing) return;
-    playClickSound(); setIsDepositing(true);
-    try { await withdrawFn(contract, depositAmt); setDepositAmt(""); refreshBalance(); }
-    catch (err) { addToast("error", decodeError(err)); }
-    finally { setIsDepositing(false); }
+  const handleFlipPvp = async () => {
+    if (coinState !== "idle" || !connected) return;
+    playClickSound();
+    if (isEmbedded) { setCoinState("spinning"); playFlipSound(); }
+    await flipHook.flipPvp(TIERS[tier].wei, 0);
+    setCoinState("idle");
   };
 
-  // ─── RENDER ───
+  const handleAccept = async (challengeId) => {
+    if (coinState !== "idle" || !connected) return;
+    playClickSound();
+    if (isEmbedded) { setCoinState("spinning"); playFlipSound(); }
+    const result = await flipHook.acceptCh(challengeId, 0);
+    if (!result) { setCoinState("idle"); return; }
+    if (!isEmbedded) { setCoinState("spinning"); playFlipSound(); }
+    const won = result.winner.toLowerCase() === address?.toLowerCase();
+    setFlipResult(won ? "win" : "lose");
+    setCoinState(won ? "win" : "lose");
+  };
+
+  const handleDeposit = async () => {
+    if (!depositAmt || !contract || isDepositing) return;
+    setIsDepositing(true); playClickSound();
+    try {
+      const tx = await contract.deposit({ value: parseEther(depositAmt) });
+      await tx.wait(); playDepositSound();
+      addToast("success", `Deposited ${depositAmt} ETH`);
+      setDepositAmt(""); refreshBalance();
+    } catch (err) { addToast("error", decodeError(err)); }
+    setIsDepositing(false);
+  };
+
+  const handleWithdraw = async () => {
+    if (!depositAmt || !contract || isDepositing) return;
+    setIsDepositing(true);
+    try {
+      const tx = await contract.withdraw(parseEther(depositAmt));
+      await tx.wait();
+      addToast("success", `Withdrew ${depositAmt} ETH`);
+      setDepositAmt(""); refreshBalance();
+    } catch (err) { addToast("error", decodeError(err)); }
+    setIsDepositing(false);
+  };
+
+  const stats = protocol.stats;
+  const tierEth = TIERS[tier]?.label || "0.005";
+  const bal = sessionBalance || "0";
+
   return (
-    <div className="app">
+    <>
       <style>{CSS}</style>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-      <Toasts toasts={toasts} remove={removeToast} />
+      <div className="app">
 
-      {/* Jackpot overlay */}
-      {jackpotWin && <div className="jackpot-overlay" onClick={() => setJackpotWin(null)}>
-        <div className="jackpot-title">JACKPOT</div>
-        <div className="jackpot-amount">+{jackpotWin} ETH</div>
-        <div style={{fontSize:12,color:"#484f58",marginTop:20}}>Click to close</div>
-      </div>}
-
-      {/* HEADER */}
-      <header className="header">
-        <div className="header-left">
-          {isMobile && <button className="btn-icon" onClick={() => setShowChat(p=>!p)}>&#9776;</button>}
-          <div className="logo"><span className="logo-f">FLIPPER</span><span className="logo-r">ROOMS</span></div>
-          <span className="chain-badge">BASE</span>
-        </div>
-        <nav className="header-nav">
-          {["flip","board","fair"].map(t => (
-            <button key={t} className={`nav-tab ${tab===t?"active":""}`} onClick={() => { playClickSound(); setTab(t); }}>
-              {t==="flip"?"Coinflip":t==="board"?"Board":"Fair"}
-            </button>
-          ))}
-        </nav>
-        <div className="header-right">
-          {connected && <div className="bal-pill mono">{balNum > 0 ? `${balNum.toFixed(4)} ETH` : "0 ETH"}</div>}
-          {!ready ? <span className="text-muted">...</span>
-           : connected ? <button className="btn-addr" onClick={disconnect}>{isEmbedded && <span className="auto-badge">AUTO</span>}{short(address)}</button>
-           : authenticated ? <span className="text-gold pulse">Connecting...</span>
-           : <button className="btn-connect" onClick={() => { playClickSound(); connect(); }}>Connect</button>
-          }
-        </div>
-      </header>
-
-      <div className="layout">
         {/* LEFT SIDEBAR */}
-        {(!isMobile || showChat) && <ChatSidebar />}
-
-        {/* MAIN */}
-        <main className="main">
-
-          {/* ════ COINFLIP TAB ════ */}
-          {tab === "flip" && <div className="fade-in">
-
-            {/* Referral */}
-            {referralSeat > 0 && <div className="referral-bar">Referred by Seat #{referralSeat}</div>}
-
-            {/* Create Flip Section */}
-            <div className="card create-flip-card">
-              <div className="text-muted" style={{fontSize:11,letterSpacing:1,marginBottom:4}}>PLAY COINFLIP ON BASE</div>
-              <h2 className="section-title" style={{fontSize:22,marginBottom:16}}>COINFLIP</h2>
-
-              {/* Streak bar */}
-              {connected && playerStats && (
-                <div className="streak-bar">
-                  <span className="text-muted">W/L</span>
-                  <span><span className="text-green">{playerStats.wins}</span>/<span className="text-red">{playerStats.losses}</span></span>
-                  <span className="divider-v" />
-                  <span className="text-muted">Streak</span>
-                  <span className={`streak-num ${playerStats.streak>=5?"fire-hot":playerStats.streak>=3?"fire":""}`}>
-                    {playerStats.streak > 0 ? `${playerStats.streak}x` : "—"}
-                  </span>
-                  <span className="divider-v" />
-                  <span className="text-muted">Best</span>
-                  <span>{playerStats.bestStreak}</span>
-                </div>
-              )}
-
-              {/* Bet amount */}
-              <div style={{fontSize:11,color:"#8b949e",marginBottom:6}}>Bet Amount (ETH)</div>
-              <div className="tier-row">
-                {TIERS.map((t,i) => {
-                  const tooHigh = treasuryMax > 0 && Number(t.label) > treasuryMax;
-                  return <button key={t.wei} className={`tier-btn ${tier===i?"active":""}`}
-                    onClick={() => { playClickSound(); setTier(i); }}
-                    title={tooHigh?"Treasury too low":""}
-                    style={tooHigh?{opacity:0.3}:{}}>{t.label}</button>;
-                })}
-              </div>
-
-              {/* 3D Coin */}
-              <div className="coin-area" style={{ position: "relative" }}>
-                {showConfetti && <Confetti />}
-                <Coin3D state={coinState} onComplete={onCoinDone} size={isMobile ? 180 : 220} />
-
-                {coinState === "spinning" && !showResult && (
-                  <div className="coin-overlay"><span className="text-gold pulse" style={{fontSize:13,letterSpacing:3,fontWeight:700}}>FLIPPING...</span></div>
-                )}
-                {showResult && flip.lastResult && (
-                  <div className={`coin-overlay result-overlay ${flip.lastResult}`}>
-                    <div className="result-text">{flip.lastResult === "win" ? "YOU WIN" : "YOU LOSE"}</div>
-                    {flip.lastFlipDetails && <div className="result-details">
-                      <span className={flip.lastFlipDetails.won?"text-green":"text-red"}>
-                        {flip.lastFlipDetails.won?"+":"-"}{flip.lastFlipDetails.won?flip.lastFlipDetails.payout:flip.lastFlipDetails.amount} ETH
-                      </span>
-                      {flip.lastFlipDetails.winnerStreak >= 3 && <span className="text-gold"> {flip.lastFlipDetails.winnerStreak}x streak</span>}
-                      {flip.lastFlipDetails.txHash && <a href={`${EXPLORER}/tx/${flip.lastFlipDetails.txHash}`} target="_blank" rel="noreferrer" className="tx-link">View TX</a>}
-                    </div>}
-                  </div>
-                )}
-              </div>
-
-              {/* Flip buttons */}
-              <div className="flip-btns">
-                <button className="btn-flip green" disabled={coinState!=="idle"||!connected||flip.isFlipping} onClick={doFlipPvp}>
-                  PVP FLIP<span className="btn-sub">{TIERS[tier].label} ETH · Create</span>
-                </button>
-                <button className="btn-flip gold" disabled={coinState!=="idle"||!connected||flip.isFlipping} onClick={doFlipTreasury}>
-                  VS TREASURY<span className="btn-sub">{TIERS[tier].label} ETH · Instant</span>
-                </button>
-              </div>
-              {connected && !isEmbedded && <div className="text-muted" style={{textAlign:"center",fontSize:10,marginTop:6}}>Login with email for instant flips</div>}
-              {sessionFlips > 0 && <div className="session-stats">Session: {sessionFlips} flips <span className={sessionPnl>=0?"text-green":"text-red"}>{sessionPnl>=0?"+":""}{sessionPnl.toFixed(4)} ETH</span></div>}
-            </div>
-
-            {/* All Games */}
-            <div className="section-label">ALL GAMES <span className="text-green">{flip.challenges.length} open</span></div>
-            {flip.challenges.length === 0 && <div className="empty">No open challenges</div>}
-            {flip.challenges.map(c => (
-              <div key={c.id} className="game-row">
-                <div className="game-left">
-                  <Avatar address={c.creator} size={32} />
-                  <div>
-                    <div className="mono" style={{fontSize:12}}>{short(c.creator)}</div>
-                    <div className="text-muted" style={{fontSize:10}}>#{c.id}</div>
-                  </div>
-                </div>
-                <div className="game-center mono">{c.amount} ETH</div>
-                <div className="game-right">
-                  <span className="status-badge joinable">JOINABLE</span>
-                  {c.creator.toLowerCase() === address?.toLowerCase()
-                    ? <button className="btn-sm red" disabled={flip.isFlipping} onClick={() => { playClickSound(); flip.cancelCh(c.id); }}>Cancel</button>
-                    : <button className="btn-sm green" disabled={flip.isFlipping} onClick={() => doAccept(c.id)}>Join</button>
-                  }
+        <div className="sidebar">
+          <div className="sidebar-header">
+            <h3>General Chat</h3>
+            <div className="online-badge"><div className="online-dot" />{Math.floor(Math.random() * 20) + 15}</div>
+          </div>
+          <div className="chat-messages">
+            {MOCK_CHAT.map((m, i) => (
+              <div className="chat-msg" key={i}>
+                <div className="chat-avatar" style={{ background: m.color }}>{m.name.slice(0, 2).toUpperCase()}</div>
+                <div>
+                  <div><span className="chat-name" style={{ color: m.color }}>{m.name}</span><span className="chat-level">{m.level}</span></div>
+                  <div className="chat-text">{m.msg}</div>
                 </div>
               </div>
             ))}
+          </div>
+          <div className="chat-input-wrap"><input placeholder="Type message..." /></div>
+        </div>
 
-            {/* Recent flips */}
-            <div className="section-label" style={{marginTop:16}}>RECENT FLIPS</div>
-            {flip.history.length === 0 && <div className="empty">No recent flips</div>}
-            {flip.history.slice(0,10).map((h,i) => {
-              const won = address ? h.winner.toLowerCase() === address.toLowerCase() : null;
-              return <div key={i} className="game-row compact">
-                <div className="game-left">
-                  <div className={`dot ${won===null?"gray":won?"green":"red"}`} />
-                  <span className={`mono ${won===null?"":"text-"+(won?"green":"red")}`} style={{fontSize:11,fontWeight:600}}>
-                    {won===null?"FLIP":won?"WON":"LOST"}
-                  </span>
-                  <span className="text-muted" style={{fontSize:10}}>
-                    {h.vsTreasury?"vs Treasury":`${short(h.winner)} vs ${short(h.loser)}`}
-                  </span>
-                </div>
-                <div className="mono" style={{fontSize:11}}>{h.amount} ETH {h.winnerStreak>=3 && <span className="text-gold">{h.winnerStreak}x</span>}</div>
-              </div>;
-            })}
-          </div>}
-
-          {/* ════ BOARD TAB ════ */}
-          {tab === "board" && <div className="fade-in">
-            {showExplainer && <div className="explainer-card">
-              <button className="btn-close" onClick={() => setShowExplainer(false)}>x</button>
-              <div style={{fontWeight:700,fontSize:13,marginBottom:6}}>How Seats Work</div>
-              <div className="text-secondary" style={{fontSize:10,lineHeight:1.7}}>
-                <b className="text-green">Own a seat</b> — earn from every flip (2.5% fee pool).
-                <b className="text-gold"> Harberger Tax:</b> set your price, pay 5%/week.
-                <b className="text-blue"> Referrals:</b> share your link for bonus yield.
-              </div>
-            </div>}
-
-            {/* Reward pool + distribute */}
-            <div className="reward-pool-row">
-              <div><div className="text-muted" style={{fontSize:9,letterSpacing:1.5}}>REWARD POOL</div><div className="mono text-green" style={{fontSize:14,fontWeight:700}}>{Number(seatPoolEth).toFixed(4)} ETH</div></div>
-              <button className="btn-sm green" disabled={!connected||parseFloat(seatPoolEth)<0.0001} onClick={async () => {
-                playClickSound();
-                try { const tx = await contract.distributeRewards(); await tx.wait(); addToast("success","Rewards distributed!"); seats.refreshSeats(); proto.refreshStats(); }
-                catch(e) { addToast("error",decodeError(e)); }
-              }}>Distribute</button>
+        {/* MAIN COLUMN */}
+        <div className="main-col">
+          <div className="topbar">
+            <div className="logo">
+              <span className="logo-text"><span className="logo-green">FLIPPER</span><span className="logo-dim">ROOMS</span></span>
+              <span className="logo-badge">BASE</span>
             </div>
-
-            {/* Admin */}
-            {isAdmin && <div className="admin-card">
-              <div className="text-muted" style={{fontSize:9,letterSpacing:1.5,marginBottom:4}}>ADMIN</div>
-              <div style={{display:"flex",gap:6}}>
-                <input className="input-sm" placeholder="ETH" type="number" step="0.01" value={adminAmt} onChange={e=>setAdminAmt(e.target.value)} />
-                <button className="btn-sm gold" onClick={async () => {
-                  if (!adminAmt) return;
-                  try { const tx=await contract.fundTreasury({value:parseEther(adminAmt)}); await tx.wait(); addToast("success",`Funded ${adminAmt} ETH`); setAdminAmt(""); proto.refreshStats(); }
-                  catch(e) { addToast("error",decodeError(e)); }
-                }}>Fund Treasury</button>
-              </div>
-            </div>}
-
-            {/* Stats */}
-            <div className="board-stats">
-              {[
-                {l:"OWNED",v:`${ownedCount}/256`,c:"green"},{l:"FLOOR",v:"0.001 Ξ",c:"gold"},
-                {l:"SEAT POOL",v:`${Number(seatPoolEth).toFixed(4)} Ξ`,c:"blue"},{l:"MY SEATS",v:`${seats.mySeats.length}`,c:"red"},
-              ].map((s,i) => <div key={i} className="stat-card"><div className="text-muted" style={{fontSize:8,letterSpacing:1.5}}>{s.l}</div><div className={`stat-val text-${s.c}`}>{s.v}</div></div>)}
+            <div className="nav">
+              {["flip", "board", "fair"].map(v => (
+                <button key={v} className={`nav-btn ${view === v ? "active" : ""}`} onClick={() => { setView(v); playClickSound(); }}>
+                  {v === "flip" ? "Coinflip" : v === "board" ? "Board" : "Fair"}
+                </button>
+              ))}
             </div>
-
-            {/* View toggle */}
-            <div className="view-tabs">
-              {["grid","list","my seats"].map(v => <button key={v} className={`vtab ${seatView===v?"active":""}`} onClick={() => { playClickSound(); setSeatView(v); }}>{v}</button>)}
-            </div>
-
-            {seatView === "grid" && <div className={`grid-layout ${selectedSeat && !isMobile ? "with-detail" : ""}`}>
-              <div className={`seat-grid ${isMobile?"mobile":""}`}>
-                {seats.seats.map(s => {
-                  const sel = selectedSeat?.id === s.id;
-                  const mine = s.active && address && s.owner.toLowerCase() === address.toLowerCase();
-                  const runway = s.active && Number(s.price) > 0 ? (Number(s.deposit) / (Number(s.price) * 0.05)) * 7 : 99;
-                  const isLow = s.active && runway < 3;
-                  return <div key={s.id} className={`seat-cell ${sel?"selected":""} ${mine?"mine":""} ${s.active?"active":""} ${isLow?"low":""}`}
-                    onClick={() => setSelectedSeat(s)}>{s.id}</div>;
-                })}
-              </div>
-              {selectedSeat && <SeatPanel seat={selectedSeat} detail={seatDetail} address={address} connected={connected}
-                seats={seats} estYield={estYield} onClose={() => { setSelectedSeat(null); setSeatDetail(null); }} />}
-            </div>}
-
-            {seatView === "list" && <div>
-              <div className="sort-row">
-                <span className="text-muted" style={{fontSize:9}}>SORT:</span>
-                {["price","deposit","name"].map(s => <button key={s} className={`vtab sm ${seatSort===s?"active":""}`} onClick={()=>setSeatSort(s)}>{s}</button>)}
-              </div>
-              <div className="list-table">
-                {seats.seats.filter(s=>s.active).sort((a,b) => {
-                  if (seatSort==="deposit") return parseFloat(b.deposit)-parseFloat(a.deposit);
-                  if (seatSort==="name") return (a.name||"").localeCompare(b.name||"");
-                  return b.priceWei>a.priceWei?1:b.priceWei<a.priceWei?-1:0;
-                }).slice(0,50).map(s => <div key={s.id} className="list-row" onClick={() => { setSelectedSeat(s); setSeatView("grid"); }}>
-                  <span className="mono" style={{width:40,fontWeight:700,color:"#484f58"}}>{s.id}</span>
-                  <span className="text-secondary" style={{flex:1}}>{short(s.owner)}</span>
-                  <span className="mono text-gold" style={{width:80,textAlign:"right"}}>{Number(s.price).toFixed(4)}</span>
-                  {!isMobile && <span className="mono text-blue" style={{width:80,textAlign:"right"}}>{Number(s.deposit).toFixed(4)}</span>}
-                  <span className="text-muted" style={{width:60,textAlign:"right"}}>{s.name}</span>
-                </div>)}
-              </div>
-            </div>}
-
-            {seatView === "my seats" && <div>
-              {seats.mySeats.length === 0 ? <div className="empty">You don't own any seats</div>
-              : seats.mySeats.map(id => {
-                const s = seats.seats.find(x => x.id === id);
-                if (!s) return null;
-                return <div key={id} className="game-row">
-                  <div><span className="text-blue" style={{fontWeight:700,fontSize:14}}>#{id}</span> <span className="text-muted">{s.name}</span> <span className="mono text-gold">{Number(s.price).toFixed(4)} Ξ</span></div>
-                  <div style={{display:"flex",gap:4}}>
-                    <button className="btn-sm green" onClick={() => { playClickSound(); seats.claim(id); }}>Claim</button>
-                    <button className="btn-sm red" onClick={() => { playClickSound(); seats.abandon(id); }}>Abandon</button>
-                    <button className="btn-sm blue" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}?ref=${id}`); addToast("success",`Ref link copied for #${id}`); }}>Ref Link</button>
+            <div className="header-right">
+              {connected ? (
+                <>
+                  <div className="balance-pill">
+                    <span style={{ color: "var(--green)" }}>{parseFloat(bal).toFixed(4)}</span>
+                    <span style={{ color: "var(--text-muted)" }}>ETH</span>
                   </div>
-                </div>;
-              })}
-            </div>}
-          </div>}
-
-          {/* ════ FAIR TAB ════ */}
-          {tab === "fair" && <div className="fade-in" style={{maxWidth:600}}>
-            <h2 className="section-title">Provably Fair</h2>
-            <p className="text-secondary" style={{lineHeight:1.8,marginBottom:20}}>
-              Every flip uses on-chain randomness via <b className="text-primary">block.prevrandao</b> combined with player addresses, timestamps, and counters.
-            </p>
-            <div className="code-block">
-              <div className="text-green">// Flip resolution (on-chain)</div>
-              {"rand = keccak256(abi.encodePacked("}<br/>
-              {"  block.prevrandao,"}<br/>
-              {"  playerA, playerB,"}<br/>
-              {"  block.timestamp,"}<br/>
-              {"  challengeId, totalFlips"}<br/>
-              {"));"}<br/><br/>
-              {"winner = (rand % 2 == 0) ? playerA : playerB;"}
-            </div>
-            <div className="section-label" style={{marginTop:20}}>FEE STRUCTURE (5% total)</div>
-            <div className="fee-grid">
-              {[{l:"Seat Pool",v:"2.5%",c:"green"},{l:"Referral",v:"1.0%",c:"blue"},{l:"Protocol",v:"0.75%",c:"gold"},{l:"Buyback",v:"0.5%",c:"red"},{l:"Jackpot",v:"0.25%",c:"red"}].map((f,i) =>
-                <div key={i} className="fee-item"><span className="text-muted">{f.l}</span><span className={`text-${f.c} mono`} style={{fontWeight:700}}>{f.v}</span></div>
+                  <div className="addr-pill" onClick={disconnect}>{shortAddr(address)}</div>
+                </>
+              ) : (
+                <button className="connect-btn" onClick={connect}>Connect</button>
               )}
             </div>
-            <p className="text-muted" style={{fontSize:11,marginTop:16}}>
-              All TXs verifiable on <a href={`${EXPLORER}/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noreferrer" className="text-blue">BaseScan</a>.
-            </p>
-          </div>}
-        </main>
-
-        {/* RIGHT SIDEBAR */}
-        {!isMobile && <aside className="sidebar-right">
-          <div className="sidebar-header">Account</div>
-
-          {/* Balance */}
-          <div className="info-section">
-            <div className="text-muted" style={{fontSize:9,letterSpacing:1.5}}>SESSION BALANCE</div>
-            <div className="mono" style={{fontSize:16,fontWeight:700,marginTop:2}}>{balNum > 0 ? `${balNum.toFixed(4)}` : "0"} <span className="text-muted">ETH</span></div>
           </div>
 
-          {/* Quick amounts */}
-          <div className="quick-btns">
-            {[0.005,0.01,0.05,0.1].map(a => <button key={a} className="btn-quick" onClick={()=>setDepositAmt(String(a))}>{a}</button>)}
-            <button className="btn-quick red" onClick={()=>setDepositAmt(sessionBalance)}>MAX</button>
-          </div>
+          <div className="content">
+            <div className="game-area">
 
-          {/* Deposit/Withdraw */}
-          <div className="info-section">
-            <input className="input-full" placeholder="Amount ETH" type="number" step="0.001" value={depositAmt} onChange={e=>setDepositAmt(e.target.value)} />
-            <div style={{display:"flex",gap:4,marginTop:4}}>
-              <button className="btn-sm green" style={{flex:1}} disabled={!connected||isDepositing} onClick={doDeposit}>{isDepositing?"...":"Deposit"}</button>
-              <button className="btn-sm red" style={{flex:1}} disabled={!connected||isDepositing} onClick={doWithdraw}>{isDepositing?"...":"Withdraw"}</button>
+              {/* ═══ COINFLIP ═══ */}
+              {view === "flip" && (
+                <div className={shaking ? "shaking" : ""}>
+                  <div className="hero-title">PLAY COINFLIP ON BASE</div>
+                  <div className="hero-big">COINFLIP</div>
+
+                  {connected && playerStats && (
+                    <div className="stats-row">
+                      <div className="stat-item"><span className="stat-label">W/L</span><span className="stat-val stat-green">{playerStats.wins}</span><span style={{ color: "var(--text-muted)" }}>/</span><span className="stat-val" style={{ color: "var(--red)" }}>{playerStats.losses}</span></div>
+                      <div className="stat-item"><span className="stat-label">Streak</span><span className="stat-val stat-gold">{playerStats.streak > 0 ? `${playerStats.streak}x` : "—"}</span></div>
+                      <div className="stat-item"><span className="stat-label">Best</span><span className="stat-val">{playerStats.bestStreak}</span></div>
+                    </div>
+                  )}
+
+                  <div className="section-label">Bet Amount (ETH)</div>
+                  <div className="tier-bar">
+                    {TIERS.map((t, i) => (
+                      <button key={i} className={`tier-btn ${tier === i ? "active" : ""}`}
+                        onClick={() => { setTier(i); playClickSound(); }}>{t.label}</button>
+                    ))}
+                  </div>
+
+                  <div className="coin-stage" style={{ position: "relative" }}>
+                    <Coin3D state={coinState} onComplete={onFlipDone} />
+                    {showResult && flipResult && (
+                      <div className="result-overlay" style={{ background: flipResult === "win" ? "radial-gradient(circle, #10b98120, transparent 70%)" : "radial-gradient(circle, #ef444420, transparent 70%)" }}>
+                        <div className={`result-text ${flipResult === "win" ? "result-win" : "result-lose"}`}>
+                          {flipResult === "win" ? "YOU WIN" : "YOU LOSE"}
+                        </div>
+                      </div>
+                    )}
+                    {confetti.map(c => (
+                      <div key={c.id} style={{
+                        position: "absolute", top: 0, left: `${c.left}%`, width: 6, height: 6,
+                        background: c.color, borderRadius: 1,
+                        animation: `confetti 1.5s ${c.delay}s ease forwards`, zIndex: 20
+                      }} />
+                    ))}
+                  </div>
+
+                  <div className="flip-buttons">
+                    <button className="flip-btn flip-btn-pvp" disabled={coinState !== "idle" || !connected || flipHook.isFlipping}
+                      onClick={handleFlipPvp}>PVP FLIP<div className="flip-sub">{tierEth} ETH · Create</div></button>
+                    <button className="flip-btn flip-btn-treasury" disabled={coinState !== "idle" || !connected || flipHook.isFlipping}
+                      onClick={handleFlipTreasury}>VS TREASURY<div className="flip-sub">{tierEth} ETH · Instant</div></button>
+                  </div>
+
+                  {isEmbedded && connected && <div className="flip-hint">Auto-flip mode — no wallet popups</div>}
+                  {!isEmbedded && connected && <div className="flip-hint">Login with email for instant flips</div>}
+
+                  {/* CHALLENGES */}
+                  <div className="games-header">
+                    <div className="section-label" style={{ marginBottom: 0 }}>ALL GAMES</div>
+                    <div className="games-count">{flipHook.challenges.length} OPEN</div>
+                  </div>
+                  {flipHook.challenges.length === 0 && <div className="empty-state">No open challenges</div>}
+                  {flipHook.challenges.map(c => (
+                    <div className="game-row" key={c.id}>
+                      <div className="game-players">
+                        <GameAvatar address={c.creator} />
+                        <span className="game-vs">VS</span>
+                        <div className="game-avatar-empty">?</div>
+                      </div>
+                      <div className="game-amount">{c.amount}<span className="game-amount-eth">ETH</span></div>
+                      <div className="game-status status-open">JOINABLE</div>
+                      {c.creator?.toLowerCase() === address?.toLowerCase()
+                        ? <button className="cancel-btn" onClick={() => { playClickSound(); flipHook.cancelCh(c.id); }}>CANCEL</button>
+                        : <button className="join-btn" onClick={() => handleAccept(c.id)}>Join</button>
+                      }
+                    </div>
+                  ))}
+
+                  {/* HISTORY */}
+                  <div className="section-label" style={{ marginTop: 28 }}>RECENT FLIPS</div>
+                  {flipHook.history.length === 0 && <div className="empty-state">No recent flips</div>}
+                  {flipHook.history.slice(0, 8).map((h, i) => {
+                    const won = address ? h.winner.toLowerCase() === address.toLowerCase() : null;
+                    return (
+                      <div className="game-row" key={i}>
+                        <div className="game-players">
+                          <GameAvatar address={h.winner} size={30} />
+                          <span className="game-vs">VS</span>
+                          <GameAvatar address={h.loser} size={30} />
+                        </div>
+                        <div className="game-amount" style={{ fontSize: 14 }}>{h.amount}<span className="game-amount-eth">ETH</span></div>
+                        <div className={`game-status ${won ? "status-open" : "status-done"}`}>{won === null ? "FLIP" : won ? "WON" : "LOST"}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* ═══ BOARD ═══ */}
+              {view === "board" && (
+                <div>
+                  <div className="hero-title">REVENUE SEATS</div>
+                  <div className="hero-big">THE BOARD</div>
+                  <div className="empty-state">Board tab — 256 seats with Harberger tax yield<br/>Coming in next update</div>
+                </div>
+              )}
+
+              {/* ═══ FAIR ═══ */}
+              {view === "fair" && (
+                <div>
+                  <div className="hero-title">PROVABLY FAIR</div>
+                  <div className="hero-big">FAIRNESS</div>
+                  <div style={{ maxWidth: 560 }}>
+                    <p style={{ fontSize: 13, color: "var(--text-dim)", lineHeight: 1.8, marginBottom: 20 }}>
+                      Every flip uses on-chain randomness via <code style={{ background: "var(--bg-card)", padding: "2px 6px", borderRadius: 4, fontSize: 12 }}>block.prevrandao</code> combined with player addresses, timestamps, and counters.
+                    </p>
+                    <div style={{ padding: 18, background: "var(--bg-card)", borderRadius: 10, border: "1px solid var(--border)", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 2, color: "var(--text-dim)" }}>
+                      <span style={{ color: "var(--green)" }}>// on-chain resolution</span><br />
+                      rand = keccak256(abi.encodePacked(<br />
+                      &nbsp;&nbsp;block.prevrandao, playerA, playerB,<br />
+                      &nbsp;&nbsp;block.timestamp, challengeId, totalFlips<br />
+                      ));<br />
+                      winner = (rand % 2 == 0) ? playerA : playerB;
+                    </div>
+                    <div className="section-label" style={{ marginTop: 24 }}>Fee Breakdown (5% total)</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                      {[{ l: "Seat Pool", v: "2.5%", c: "var(--green)" }, { l: "Referral", v: "1.0%", c: "var(--blue)" }, { l: "Protocol", v: "0.75%", c: "var(--gold)" }, { l: "Buyback", v: "0.5%", c: "#f97316" }, { l: "Jackpot", v: "0.25%", c: "var(--red)" }].map((f, i) => (
+                        <div key={i} className="game-row" style={{ padding: "10px 14px", marginBottom: 0 }}>
+                          <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{f.l}</span>
+                          <span style={{ color: f.c, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>{f.v}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 16 }}>
+                      Verify on <a href={`${EXPLORER}/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noreferrer" style={{ color: "var(--blue)" }}>BaseScan</a>
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* RIGHT INFO PANEL */}
+            <div className="info-panel">
+              <div className="info-section">
+                <div className="info-label">SESSION BALANCE</div>
+                <div className="info-balance" style={{ color: parseFloat(bal) > 0 ? "var(--green)" : "var(--text-dim)" }}>
+                  {parseFloat(bal).toFixed(4)} <span style={{ fontSize: 12, color: "var(--text-muted)" }}>ETH</span>
+                </div>
+                <div className="quick-btns">
+                  {["0.005", "0.01", "0.05", "0.1"].map(v => (
+                    <button key={v} className="quick-btn" onClick={() => setDepositAmt(v)}>{v}</button>
+                  ))}
+                  <button className="quick-btn" onClick={() => setDepositAmt(bal)} style={{ color: "var(--gold)" }}>MAX</button>
+                </div>
+                <input className="info-input" placeholder="Amount ETH" type="number" step="0.001" value={depositAmt} onChange={e => setDepositAmt(e.target.value)} />
+                <div className="info-actions">
+                  <button className="btn-deposit" onClick={handleDeposit} disabled={isDepositing}>{isDepositing ? "..." : "Deposit"}</button>
+                  <button className="btn-withdraw" onClick={handleWithdraw} disabled={isDepositing}>{isDepositing ? "..." : "Withdraw"}</button>
+                </div>
+              </div>
+
+              <div className="info-section">
+                <div className="info-label">PROTOCOL</div>
+                {[
+                  { l: "Total Bets", v: stats ? stats.totalFlips.toLocaleString() : "..." },
+                  { l: "Treasury", v: stats ? `${Number(stats.treasury).toFixed(4)} Ξ` : "..." },
+                  { l: "Jackpot", v: stats ? `${Number(stats.jackpot).toFixed(4)} Ξ` : "..." },
+                  { l: "Volume", v: stats ? `${Number(stats.totalVolume).toFixed(3)} Ξ` : "..." },
+                ].map((r, i) => (
+                  <div className="info-row" key={i}>
+                    <span className="info-row-label">{r.l}</span>
+                    <span className="info-row-val">{r.v}</span>
+                  </div>
+                ))}
+              </div>
+
+              {connected && playerStats && (
+                <div className="info-section">
+                  <div className="info-label">YOUR STATS</div>
+                  {[
+                    { l: "Wins", v: playerStats.wins },
+                    { l: "Losses", v: playerStats.losses },
+                    { l: "Streak", v: playerStats.streak },
+                    { l: "Best", v: playerStats.bestStreak },
+                    { l: "Wagered", v: `${Number(playerStats.wagered).toFixed(3)} Ξ` },
+                  ].map((r, i) => (
+                    <div className="info-row" key={i}>
+                      <span className="info-row-label">{r.l}</span>
+                      <span className="info-row-val">{r.v}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Stats */}
-          <div className="info-section">
-            <div className="text-muted" style={{fontSize:9,letterSpacing:1.5,marginBottom:6}}>PROTOCOL</div>
-            {[
-              {l:"Total Bets",v:proto.stats?proto.stats.totalFlips.toLocaleString():"..."},
-              {l:"Treasury",v:proto.stats?`${Number(proto.stats.treasury).toFixed(4)} Ξ`:"..."},
-              {l:"Jackpot",v:proto.stats?`${Number(proto.stats.jackpot).toFixed(4)} Ξ`:"..."},
-              {l:"Volume",v:proto.stats?`${Number(proto.stats.totalVolume).toFixed(3)} Ξ`:"..."},
-            ].map((s,i) => <div key={i} className="stat-row"><span>{s.l}</span><span className="mono">{s.v}</span></div>)}
-          </div>
-          {connected && playerStats && <div className="info-section">
-            <div className="text-muted" style={{fontSize:9,letterSpacing:1.5,marginBottom:6}}>YOUR STATS</div>
-            {[
-              {l:"Wins",v:playerStats.wins},{l:"Losses",v:playerStats.losses},
-              {l:"Streak",v:playerStats.streak},{l:"Best",v:playerStats.bestStreak},
-              {l:"Wagered",v:`${Number(playerStats.wagered).toFixed(3)} Ξ`},
-            ].map((s,i) => <div key={i} className="stat-row"><span>{s.l}</span><span className="mono">{s.v}</span></div>)}
-          </div>}
-        </aside>}
+        </div>
       </div>
-    </div>
+
+      {/* TOASTS */}
+      <div className="toast-container">
+        {toasts.map(t => (
+          <div key={t.id} className={`toast toast-${t.type}`} onClick={() => removeToast(t.id)}>
+            {t.message}
+            {t.txHash && <a href={`${EXPLORER}/tx/${t.txHash}`} target="_blank" rel="noreferrer" style={{ display: "block", fontSize: 9, color: "var(--text-muted)", marginTop: 3 }}>View tx</a>}
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
-
-// ═══════════════════════════════════════
-//  SEAT DETAIL PANEL
-// ═══════════════════════════════════════
-function SeatPanel({ seat, detail, address, connected, seats, estYield, onClose }) {
-  const [buyName, setBuyName] = useState("");
-  const [buyDeposit, setBuyDeposit] = useState("0.002");
-  const [newPrice, setNewPrice] = useState("");
-  const [ownerPrice, setOwnerPrice] = useState("");
-  const [ownerDep, setOwnerDep] = useState("");
-
-  const isOwner = address && seat.active && seat.owner.toLowerCase() === address.toLowerCase();
-  const isEmpty = !seat.active;
-
-  return <div className="seat-panel">
-    <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
-      <span className="section-title" style={{fontSize:18}}>#{seat.id}</span>
-      <button className="btn-close" onClick={onClose}>x</button>
-    </div>
-    <div className="seat-info">
-      {[
-        {l:"Owner",v:isEmpty?"Available":(detail?short(detail.owner):"..."),c:isEmpty?"text-green":""},
-        {l:"Price",v:detail?`${Number(detail.price).toFixed(4)} Ξ`:`${seat.price} Ξ`,c:"text-gold"},
-        {l:"Deposit",v:detail?`${Number(detail.deposit).toFixed(4)} Ξ`:"...",c:"text-blue"},
-        {l:"Rewards",v:detail?`${Number(detail.rewards).toFixed(5)} Ξ`:"...",c:"text-green"},
-        {l:"Tax Owed",v:detail?`${Number(detail.pendingTax).toFixed(5)} Ξ`:"...",c:"text-red"},
-        {l:"Runway",v:detail?(detail.runway>0?`${Math.floor(detail.runway/86400)}d`:"..."):"..",c:""},
-        {l:"Est. yield/wk",v:`~${estYield.toFixed(5)} Ξ`,c:"text-green"},
-      ].map((r,i) => <div key={i} className="seat-row"><span className="text-muted">{r.l}</span><span className={`mono ${r.c}`}>{r.v}</span></div>)}
-    </div>
-
-    {connected && !isOwner && <div className="seat-actions">
-      <input className="input-full" placeholder="Name (max 32)" maxLength={32} value={buyName} onChange={e=>setBuyName(e.target.value)} />
-      <input className="input-full" placeholder="List price (ETH)" value={newPrice} onChange={e=>setNewPrice(e.target.value)} />
-      <input className="input-full" placeholder="Deposit (ETH)" value={buyDeposit} onChange={e=>setBuyDeposit(e.target.value)} />
-      <button className="btn-full green" onClick={() => {
-        playClickSound();
-        const price = isEmpty ? parseEther("0.001") : seat.priceWei;
-        seats.buySeat(seat.id, newPrice || (isEmpty ? "0.001" : seat.price), buyName.slice(0,32), price, buyDeposit);
-      }}>{isEmpty ? "Claim · 0.001 Ξ + deposit" : `Buyout · ${seat.price} Ξ + deposit`}</button>
-    </div>}
-
-    {connected && isOwner && <div className="seat-actions">
-      <button className="btn-full green" onClick={() => { playClickSound(); seats.claim(seat.id); }}>Claim Rewards</button>
-      <div style={{display:"flex",gap:4}}>
-        <input className="input-sm" placeholder="New price" value={ownerPrice} onChange={e=>setOwnerPrice(e.target.value)} />
-        <button className="btn-sm gold" onClick={() => { if(ownerPrice){playClickSound();seats.updatePrice(seat.id,ownerPrice);setOwnerPrice("");} }}>Set</button>
-      </div>
-      <div style={{display:"flex",gap:4}}>
-        <input className="input-sm" placeholder="Add deposit" value={ownerDep} onChange={e=>setOwnerDep(e.target.value)} />
-        <button className="btn-sm blue" onClick={() => { if(ownerDep){playClickSound();seats.addDeposit(seat.id,ownerDep);setOwnerDep("");} }}>Add</button>
-      </div>
-      <button className="btn-full red" onClick={() => { playClickSound(); seats.abandon(seat.id); }}>Abandon</button>
-      <button className="btn-full blue" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}?ref=${seat.id}`); addToast("success","Ref link copied"); }}>Copy Ref Link</button>
-    </div>}
-  </div>;
-}
-
-// ═══════════════════════════════════════
-//  HOOKS
-// ═══════════════════════════════════════
-function useIsMobile() {
-  const [m, setM] = useState(typeof window !== "undefined" && window.innerWidth < 1024);
-  useEffect(() => { const h = () => setM(window.innerWidth < 1024); window.addEventListener("resize",h); return () => window.removeEventListener("resize",h); }, []);
-  return m;
-}
-
-// ═══════════════════════════════════════
-//  CSS
-// ═══════════════════════════════════════
-const CSS = `
-* { box-sizing: border-box; }
-@keyframes fadeIn { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:translateY(0) } }
-@keyframes pulse { 0%,100% { opacity:.6 } 50% { opacity:1 } }
-@keyframes confetti { 0% { transform:translateY(0) rotate(0); opacity:1 } 100% { transform:translateY(350px) rotate(720deg); opacity:0 } }
-@keyframes pulseRed { 0%,100% { box-shadow:none } 50% { box-shadow:0 0 6px #ff444440 } }
-
-.app { min-height:100vh; background:#0d1117; color:#e0e0e0; font-family:'Inter',system-ui,sans-serif; font-size:13px; }
-.fade-in { animation: fadeIn .35s ease; }
-.mono { font-family:'JetBrains Mono',monospace; }
-.text-green { color:#00e87b; } .text-red { color:#ff4444; } .text-gold { color:#f0c040; } .text-blue { color:#3b7dff; }
-.text-primary { color:#e0e0e0; } .text-secondary { color:#8b949e; } .text-muted { color:#484f58; }
-.pulse { animation: pulse 1.5s infinite; }
-
-/* HEADER */
-.header { display:flex; align-items:center; justify-content:space-between; height:52px; padding:0 16px; background:#0d1117; border-bottom:1px solid #1b2838; position:sticky; top:0; z-index:50; }
-.header-left { display:flex; align-items:center; gap:10px; }
-.header-right { display:flex; align-items:center; gap:8px; }
-.header-nav { display:flex; gap:2px; }
-.logo { font-family:'Sora',sans-serif; font-size:17px; font-weight:800; letter-spacing:-0.5px; }
-.logo-f { color:#00e87b; } .logo-r { color:#484f58; }
-.chain-badge { font-size:8px; padding:2px 7px; border-radius:4px; background:#0052ff15; color:#3b7dff; border:1px solid #0052ff30; font-weight:700; letter-spacing:1.5px; }
-.nav-tab { background:none; border:none; padding:8px 14px; cursor:pointer; font-family:inherit; font-size:12px; font-weight:600; color:#484f58; border-radius:6px; transition:all .15s; }
-.nav-tab:hover { color:#8b949e; } .nav-tab.active { color:#00e87b; background:#00e87b0a; }
-.bal-pill { font-size:12px; padding:5px 10px; background:#131a24; border:1px solid #1b2838; border-radius:6px; font-weight:600; }
-.btn-connect { padding:7px 16px; border-radius:6px; background:#00e87b; color:#0d1117; border:none; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; }
-.btn-connect:hover { background:#00d070; }
-.btn-addr { padding:6px 10px; border-radius:6px; background:#131a24; border:1px solid #1b2838; color:#8b949e; font-size:11px; cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:5px; }
-.auto-badge { font-size:8px; color:#00e87b; font-weight:700; }
-.btn-icon { background:none; border:none; color:#8b949e; font-size:18px; cursor:pointer; padding:4px 8px; }
-
-/* LAYOUT */
-.layout { display:flex; min-height:calc(100vh - 52px); }
-.main { flex:1; padding:20px; max-width:800px; overflow-y:auto; }
-@media(max-width:1024px) { .main { max-width:100%; padding:12px; } }
-
-/* SIDEBARS */
-.sidebar-left { width:220px; background:#0a0f16; border-right:1px solid #1b2838; display:flex; flex-direction:column; flex-shrink:0; }
-.sidebar-right { width:200px; background:#0a0f16; border-left:1px solid #1b2838; padding:12px; display:flex; flex-direction:column; gap:12px; flex-shrink:0; overflow-y:auto; }
-.sidebar-header { padding:10px 12px; font-size:12px; font-weight:600; color:#8b949e; border-bottom:1px solid #1b2838; display:flex; justify-content:space-between; align-items:center; }
-@media(max-width:1024px) { .sidebar-left { position:fixed; left:0; top:52px; bottom:0; z-index:40; } }
-
-/* CHAT */
-.chat-messages { flex:1; overflow-y:auto; padding:8px; }
-.chat-msg { display:flex; gap:8px; padding:5px 0; align-items:flex-start; }
-.chat-user { font-size:11px; font-weight:600; color:#8b949e; }
-.chat-lvl { font-size:9px; color:#484f58; margin-left:4px; background:#131a24; padding:1px 4px; border-radius:3px; }
-.chat-text { font-size:11px; color:#e0e0e0; margin-top:1px; }
-.chat-input-row { padding:8px; border-top:1px solid #1b2838; }
-.chat-input { width:100%; padding:7px 10px; background:#131a24; border:1px solid #1b2838; border-radius:6px; color:#e0e0e0; font-size:11px; font-family:inherit; }
-.chat-input:focus { outline:none; border-color:#00e87b40; }
-.online-badge { display:flex; align-items:center; gap:5px; font-size:10px; color:#8b949e; }
-.online-dot { width:6px; height:6px; border-radius:50%; background:#1abc9c; }
-
-/* CARDS */
-.card { background:#131a24; border:1px solid #1b2838; border-radius:12px; padding:20px; margin-bottom:16px; }
-.section-title { font-family:'Sora',sans-serif; font-weight:700; color:#e0e0e0; margin:0; }
-.section-label { font-size:10px; color:#484f58; letter-spacing:2px; font-weight:600; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; text-transform:uppercase; }
-
-/* STREAK */
-.streak-bar { display:flex; align-items:center; gap:10px; justify-content:center; margin-bottom:14px; font-size:12px; }
-.streak-num { font-weight:800; font-size:16px; font-family:'Sora',sans-serif; }
-.streak-num.fire { color:#f0c040; text-shadow:0 0 8px #f0c04060; }
-.streak-num.fire-hot { color:#ff4400; text-shadow:0 0 10px #ff440060; }
-.divider-v { width:1px; height:20px; background:#1b2838; }
-
-/* TIERS */
-.tier-row { display:flex; gap:5px; margin-bottom:14px; }
-.tier-btn { flex:1; padding:8px 0; border:1px solid #1b2838; background:#0d1117; color:#8b949e; border-radius:6px; cursor:pointer; font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:600; transition:all .15s; }
-.tier-btn:hover { border-color:#1b2838; color:#e0e0e0; }
-.tier-btn.active { border-color:#00e87b; color:#00e87b; background:#00e87b08; }
-
-/* COIN */
-.coin-area { display:flex; justify-content:center; align-items:center; min-height:220px; position:relative; }
-.coin-overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-.result-overlay.win { background:radial-gradient(circle,#00e87b12,transparent 70%); }
-.result-overlay.lose { background:radial-gradient(circle,#ff444412,transparent 70%); }
-.result-text { font-size:24px; font-weight:800; font-family:'Sora',sans-serif; letter-spacing:4px; animation:fadeIn .4s; }
-.result-overlay.win .result-text { color:#00e87b; text-shadow:0 0 30px #00e87b50; }
-.result-overlay.lose .result-text { color:#ff4444; text-shadow:0 0 30px #ff444450; }
-.result-details { margin-top:6px; font-size:11px; text-align:center; animation:fadeIn .5s; }
-.tx-link { color:#484f58; font-size:9px; margin-left:8px; }
-
-/* FLIP BUTTONS */
-.flip-btns { display:flex; gap:8px; }
-.btn-flip { flex:1; padding:14px; border:none; border-radius:10px; cursor:pointer; font-family:inherit; font-size:13px; font-weight:700; letter-spacing:1.5px; transition:all .15s; }
-.btn-flip:hover { transform:translateY(-1px); } .btn-flip:active { transform:translateY(0); }
-.btn-flip:disabled { opacity:.35; cursor:not-allowed; transform:none; }
-.btn-flip.green { background:linear-gradient(135deg,#00e87b18,#00e87b08); border:1px solid #00e87b40; color:#00e87b; }
-.btn-flip.gold { background:linear-gradient(135deg,#f0c04018,#f0c04008); border:1px solid #f0c04040; color:#f0c040; }
-.btn-sub { display:block; font-size:10px; font-weight:400; margin-top:3px; opacity:.6; letter-spacing:0; }
-.session-stats { text-align:center; font-size:10px; color:#484f58; margin-top:8px; }
-
-/* GAME ROWS */
-.game-row { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:#131a24; border:1px solid #1b2838; border-radius:8px; margin-bottom:4px; gap:10px; }
-.game-row.compact { padding:7px 14px; background:transparent; border:none; border-bottom:1px solid #1b283840; border-radius:0; margin:0; }
-.game-left { display:flex; align-items:center; gap:10px; }
-.game-center { font-weight:700; }
-.game-right { display:flex; align-items:center; gap:8px; }
-.status-badge { font-size:9px; font-weight:700; letter-spacing:1px; padding:3px 8px; border-radius:4px; }
-.status-badge.joinable { background:#00e87b15; color:#00e87b; }
-.dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
-.dot.green { background:#00e87b; } .dot.red { background:#ff4444; } .dot.gray { background:#484f58; }
-.empty { text-align:center; padding:20px; color:#484f58; font-size:12px; }
-.referral-bar { text-align:center; font-size:10px; color:#f0c040; margin-bottom:8px; }
-
-/* BUTTONS */
-.btn-sm { padding:5px 12px; border-radius:5px; font-size:10px; font-weight:700; cursor:pointer; font-family:inherit; border:1px solid; }
-.btn-sm.green { background:#00e87b12; border-color:#00e87b30; color:#00e87b; }
-.btn-sm.red { background:#ff444412; border-color:#ff444430; color:#ff4444; }
-.btn-sm.gold { background:#f0c04012; border-color:#f0c04030; color:#f0c040; }
-.btn-sm.blue { background:#3b7dff12; border-color:#3b7dff30; color:#3b7dff; }
-.btn-sm:disabled { opacity:.35; cursor:not-allowed; }
-.btn-full { width:100%; padding:9px 0; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit; border:1px solid; margin-top:4px; }
-.btn-full.green { background:#00e87b15; border-color:#00e87b40; color:#00e87b; }
-.btn-full.red { background:#ff444415; border-color:#ff444440; color:#ff4444; }
-.btn-full.blue { background:#3b7dff15; border-color:#3b7dff40; color:#3b7dff; }
-.btn-close { background:none; border:none; color:#484f58; font-size:16px; cursor:pointer; }
-
-/* INPUTS */
-.input-full { width:100%; padding:7px 10px; background:#0d1117; border:1px solid #1b2838; border-radius:6px; color:#e0e0e0; font-size:11px; font-family:inherit; margin-bottom:4px; box-sizing:border-box; }
-.input-full:focus { outline:none; border-color:#00e87b40; }
-.input-sm { flex:1; padding:7px 8px; background:#0d1117; border:1px solid #1b2838; border-radius:5px; color:#e0e0e0; font-size:10px; font-family:inherit; }
-.input-sm:focus { outline:none; border-color:#00e87b40; }
-
-/* INFO SIDEBAR */
-.info-section { padding-bottom:10px; border-bottom:1px solid #1b283860; }
-.quick-btns { display:flex; gap:3px; flex-wrap:wrap; }
-.btn-quick { padding:4px 8px; border-radius:4px; background:#131a24; border:1px solid #1b2838; color:#8b949e; font-size:10px; cursor:pointer; font-family:'JetBrains Mono',monospace; }
-.btn-quick:hover { border-color:#1b2838; color:#e0e0e0; }
-.btn-quick.red { border-color:#ff444430; color:#ff4444; }
-.stat-row { display:flex; justify-content:space-between; font-size:11px; padding:3px 0; }
-.stat-row span:first-child { color:#8b949e; }
-
-/* BOARD */
-.board-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:12px; }
-@media(max-width:1024px) { .board-stats { grid-template-columns:repeat(2,1fr); } }
-.stat-card { padding:10px; background:#131a24; border:1px solid #1b2838; border-radius:8px; text-align:center; }
-.stat-val { font-size:15px; font-weight:700; margin-top:3px; font-family:'Sora',sans-serif; }
-.view-tabs { display:flex; gap:3px; margin-bottom:10px; }
-.vtab { padding:5px 12px; border-radius:4px; border:none; cursor:pointer; font-family:inherit; font-size:10px; font-weight:600; letter-spacing:.5px; text-transform:uppercase; background:transparent; color:#484f58; }
-.vtab.active { background:#1b2838; color:#e0e0e0; }
-.vtab.sm { padding:3px 8px; font-size:9px; }
-.sort-row { display:flex; align-items:center; gap:4px; margin-bottom:6px; }
-
-/* SEAT GRID */
-.grid-layout { display:grid; grid-template-columns:1fr; gap:12px; }
-.grid-layout.with-detail { grid-template-columns:1fr 240px; }
-.seat-grid { display:grid; grid-template-columns:repeat(16,1fr); gap:2px; }
-.seat-grid.mobile { grid-template-columns:repeat(8,1fr); }
-.seat-cell { aspect-ratio:1; border-radius:3px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:7px; font-weight:600; color:#1b2838; background:#0d1117; border:1px solid #1b283840; transition:all .12s; }
-.seat-cell:hover { transform:scale(1.25); z-index:10; box-shadow:0 0 8px #00e87b20; }
-.seat-cell.active { color:#484f58; background:#131a24; border-color:#1b2838; }
-.seat-cell.mine { border-color:#3b7dff; background:#3b7dff10; }
-.seat-cell.selected { border-color:#00e87b; background:#00e87b10; }
-.seat-cell.low { animation:pulseRed 2s infinite; }
-
-/* SEAT PANEL */
-.seat-panel { background:#0a0f16; border:1px solid #1b2838; border-radius:10px; padding:14px; font-size:11px; position:sticky; top:16px; }
-.seat-info { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
-.seat-row { display:flex; justify-content:space-between; }
-.seat-actions { display:flex; flex-direction:column; gap:4px; }
-
-/* LIST TABLE */
-.list-table { background:#131a24; border:1px solid #1b2838; border-radius:8px; overflow:hidden; max-height:460px; overflow-y:auto; }
-.list-row { display:flex; align-items:center; padding:8px 12px; border-bottom:1px solid #1b283840; cursor:pointer; font-size:11px; gap:8px; }
-.list-row:hover { background:#1b283830; }
-
-/* EXPLAINER */
-.explainer-card { padding:14px; background:#131a2480; border:1px solid #1b2838; border-radius:10px; margin-bottom:12px; position:relative; }
-.reward-pool-row { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:#131a24; border:1px solid #1b2838; border-radius:8px; margin-bottom:10px; }
-.admin-card { padding:10px; background:#1a0a0a; border:1px solid #ff444420; border-radius:8px; margin-bottom:10px; }
-
-/* FAIR */
-.code-block { padding:16px; background:#0a0f16; border:1px solid #1b2838; border-radius:8px; font-family:'JetBrains Mono',monospace; font-size:11px; line-height:1.8; color:#8b949e; }
-.fee-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
-.fee-item { display:flex; justify-content:space-between; padding:8px 12px; background:#131a24; border:1px solid #1b2838; border-radius:6px; font-size:11px; }
-
-/* JACKPOT */
-.jackpot-overlay { position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.93); display:flex; flex-direction:column; align-items:center; justify-content:center; animation:fadeIn .5s; cursor:pointer; }
-.jackpot-title { font-size:48px; font-weight:800; font-family:'Sora',sans-serif; background:linear-gradient(135deg,#f0c040,#ff8844); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:12px; }
-.jackpot-amount { font-size:28px; font-weight:700; color:#f0c040; font-family:'JetBrains Mono',monospace; }
-
-::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-track { background:#0d1117; } ::-webkit-scrollbar-thumb { background:#1b2838; border-radius:2px; }
-`;
