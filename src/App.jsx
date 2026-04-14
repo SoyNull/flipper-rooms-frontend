@@ -618,13 +618,19 @@ function GameAvatar({ address, size = 40 }) {
 // ═══════════════════════════════════════
 function ChatSidebar() {
   const [message, setMessage] = useState("");
+  const timestamps = ["2m", "5m", "8m", "12m", "15m", "20m", "25m", "30m", "32m", "35m"];
   return (
     <div className="chat-sidebar">
-      <div className="chat-header">
-        <h2>General Chat</h2>
-        <div className="online-badge">
-          <div className="online-dot" />
-          <span>24 online</span>
+      <div style={{
+        padding: "16px 18px", borderBottom: "1px solid var(--border)",
+        background: "linear-gradient(180deg, #151a2210, transparent)",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", letterSpacing: 0.5 }}>General Chat</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 8px #22c55e60" }} />
+            <span style={{ fontSize: 11, color: "#22c55e", fontWeight: 600 }}>24</span>
+          </div>
         </div>
       </div>
       <div className="chat-messages">
@@ -632,19 +638,35 @@ function ChatSidebar() {
           <div className="chat-msg" key={i}>
             <div className="chat-avatar" style={{ background: `${m.color}30`, color: m.color }}>{m.name.charAt(0)}</div>
             <div className="chat-msg-content">
-              <div>
+              <div style={{ display: "flex", alignItems: "center" }}>
                 <span className="chat-name" style={{ color: m.color }}>{m.name}</span>
                 <span className="chat-level">LVL {m.level}</span>
+                <span style={{ fontSize: 9, color: "var(--text-muted)", marginLeft: "auto", whiteSpace: "nowrap" }}>{timestamps[i] || "30m+"}</span>
               </div>
               <div className="chat-text">{m.msg}</div>
             </div>
           </div>
         ))}
       </div>
-      <div className="chat-input-area">
-        <div className="chat-input-wrap">
-          <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Type a message..." />
-          <button className="chat-send-btn">{"\u27A4"}</button>
+      <div style={{
+        padding: "12px 16px", borderTop: "1px solid var(--border)",
+        background: "linear-gradient(180deg, transparent, #0d101510)",
+      }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8,
+          background: "var(--bg-card)", borderRadius: 10,
+          border: "1px solid var(--border)", padding: "8px 12px",
+        }}>
+          <input type="text" value={message} onChange={(e) => setMessage(e.target.value)}
+            placeholder="Type a message..."
+            style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--text)", fontSize: 12, fontFamily: "inherit" }} />
+          <button style={{
+            width: 32, height: 32, borderRadius: 8,
+            background: "linear-gradient(135deg, #b8860b, #f7b32b)",
+            border: "none", cursor: "pointer", display: "flex",
+            alignItems: "center", justifyContent: "center",
+            fontSize: 14, color: "#0b0e11",
+          }}>{"\u25B6"}</button>
         </div>
       </div>
     </div>
@@ -663,7 +685,12 @@ function StatsSidebar({ sessionBalance, connected, playerStats, protocolStats, t
     <div className="stats-sidebar">
       <div className="stats-section">
         <div className="stats-label">Session Balance</div>
-        <div className={`balance-display ${parseFloat(bal) > 0 ? "has-bal" : ""}`}>{parseFloat(bal).toFixed(4)}</div>
+        <div style={{
+          fontSize: 32, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+          color: parseFloat(bal) > 0 ? "#f7b32b" : "var(--text-muted)",
+          textShadow: parseFloat(bal) > 0 ? "0 0 20px #f7b32b30" : "none",
+          letterSpacing: -1, transition: "all 0.3s",
+        }}>{parseFloat(bal).toFixed(4)}</div>
         <div className="balance-unit">ETH</div>
       </div>
 
@@ -695,11 +722,11 @@ function StatsSidebar({ sessionBalance, connected, playerStats, protocolStats, t
         <div className="stats-label">Protocol Stats</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {[
-            { l: "Total Bets", v: protocolStats ? protocolStats.totalFlips.toLocaleString() : "0" },
-            { l: "Treasury", v: protocolStats ? `${Number(protocolStats.treasury).toFixed(4)} \u039E` : "0.0000 \u039E" },
-            { l: "Max Bet", v: treasuryMax ? `${parseFloat(treasuryMax).toFixed(4)} \u039E` : "0.0000 \u039E" },
-            { l: "Jackpot", v: protocolStats ? `${Number(protocolStats.jackpot).toFixed(4)} \u039E` : "0.0000 \u039E" },
-            { l: "Volume", v: protocolStats ? `${Number(protocolStats.totalVolume).toFixed(3)} \u039E` : "0.000 \u039E" },
+            { l: "\u{1F4CA} Total Bets", v: protocolStats ? protocolStats.totalFlips.toLocaleString() : "0" },
+            { l: "\u{1F3E6} Treasury", v: protocolStats ? `${Number(protocolStats.treasury).toFixed(4)} \u039E` : "0.0000 \u039E" },
+            { l: "\u{1F3AF} Max Bet", v: treasuryMax ? `${parseFloat(treasuryMax).toFixed(4)} \u039E` : "0.0000 \u039E" },
+            { l: "\u{1F3C6} Jackpot", v: protocolStats ? `${Number(protocolStats.jackpot).toFixed(4)} \u039E` : "0.0000 \u039E" },
+            { l: "\u{1F4C8} Volume", v: protocolStats ? `${Number(protocolStats.totalVolume).toFixed(3)} \u039E` : "0.000 \u039E" },
           ].map((r, i) => (
             <div className="protocol-row" key={i}>
               <span className="protocol-row-label">{r.l}</span>
@@ -712,16 +739,28 @@ function StatsSidebar({ sessionBalance, connected, playerStats, protocolStats, t
       {connected && playerStats && (
         <div className="stats-section">
           <div className="stats-label">Your Stats</div>
-          <div className="player-stats-grid">
-            <div className="player-stat-card"><div className="player-stat-val" style={{ color: "var(--green)" }}>{playerStats.wins}</div><div className="player-stat-label">Wins</div></div>
-            <div className="player-stat-card"><div className="player-stat-val" style={{ color: "var(--red)" }}>{playerStats.losses}</div><div className="player-stat-label">Losses</div></div>
-            <div className="player-stat-card"><div className="player-stat-val" style={{ color: "var(--gold)" }}>{playerStats.streak > 0 ? `${playerStats.streak}W` : "\u2014"}</div><div className="player-stat-label">Streak</div></div>
-            <div className="player-stat-card"><div className="player-stat-val" style={{ color: "var(--text)" }}>{playerStats.bestStreak}W</div><div className="player-stat-label">Best</div></div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div style={{ background: "var(--bg-card)", borderRadius: 10, padding: "14px 8px", textAlign: "center", border: "1px solid #22c55e15" }}>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#22c55e", fontFamily: "'JetBrains Mono', monospace" }}>{playerStats.wins}</div>
+              <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Wins</div>
+            </div>
+            <div style={{ background: "var(--bg-card)", borderRadius: 10, padding: "14px 8px", textAlign: "center", border: "1px solid #ef444415" }}>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#ef4444", fontFamily: "'JetBrains Mono', monospace" }}>{playerStats.losses}</div>
+              <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Losses</div>
+            </div>
           </div>
-          {playerStats.streak >= 3 && (
-            <div className="streak-banner">
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}>{"\u{1F525}"} Hot Streak!</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>{playerStats.streak} wins in a row - keep it going!</div>
+          {playerStats.streak > 0 && (
+            <div style={{
+              marginTop: 12, padding: "10px 14px", borderRadius: 10,
+              background: "linear-gradient(135deg, #f7b32b10, #f7b32b05)",
+              border: "1px solid #f7b32b25",
+              display: "flex", alignItems: "center", gap: 10,
+            }}>
+              <span style={{ fontSize: 20 }}>{"\u{1F525}"}</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#f7b32b" }}>{playerStats.streak} Win Streak!</div>
+                <div style={{ fontSize: 10, color: "var(--text-muted)" }}>Best: {playerStats.bestStreak}</div>
+              </div>
             </div>
           )}
         </div>
@@ -1104,6 +1143,38 @@ export default function FlipperRooms() {
   const [coinState, setCoinState] = useState("idle");
   const [result, setResult] = useState(null);
   const [showResult, setShowResult] = useState(false);
+  const pendingResultRef = useRef(null);
+
+  // Called by Coin3D when landing animation completes
+  const onFlipDone = useCallback(() => {
+    const pending = pendingResultRef.current;
+    if (!pending) return;
+    pendingResultRef.current = null;
+
+    setShowResult(true);
+    setResult(pending.won ? "win" : "lose");
+
+    if (pending.won) {
+      playWinSound();
+      addToast("success", "Won " + pending.payout + " ETH!");
+    } else {
+      playLoseSound();
+      addToast("error", "Lost " + pending.amount + " ETH");
+    }
+    refreshBalance();
+    flipHook.refreshHistory();
+    getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
+
+    if (pending.flipModalUpdate) {
+      setFlipModal(prev => prev ? { ...prev, ...pending.flipModalUpdate } : null);
+    }
+
+    setTimeout(() => {
+      setCoinState("idle");
+      setShowResult(false);
+      setResult(null);
+    }, 3000);
+  }, [address, refreshBalance, contract]);
 
   // Load data
   useEffect(() => {
@@ -1155,14 +1226,10 @@ export default function FlipperRooms() {
     }
 
     try {
-      // Send TX — wallet popup appears here, user confirms
       const tx = await contract.flipVsTreasury(tierWei, ref);
-
-      // AFTER user confirms: start animation
       setCoinState("spinning");
       playFlipSound();
 
-      // Wait for on-chain confirmation
       const receipt = await tx.wait();
 
       let won = false;
@@ -1180,23 +1247,12 @@ export default function FlipperRooms() {
         } catch {}
       }
 
-      setTimeout(() => {
-        setCoinState(won ? "win" : "lose");
-        setResult(won ? "win" : "lose");
-        setShowResult(true);
-        if (won) { playWinSound(); addToast("success", "Won " + payoutStr + " ETH!"); }
-        else { playLoseSound(); addToast("error", "Lost " + amountStr + " ETH"); }
-        refreshBalance();
-        flipHook.refreshHistory();
-        getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
-
-        setTimeout(() => { setCoinState("idle"); setShowResult(false); setResult(null); }, 3500);
-      }, 2000);
+      // Store result — onFlipDone fires when coin lands
+      pendingResultRef.current = { won, payout: payoutStr, amount: amountStr };
+      setCoinState(won ? "win" : "lose");
 
     } catch (err) {
       setCoinState("idle");
-      setShowResult(false);
-      setResult(null);
       const msg = decodeError(err);
       if (msg.includes("TreasuryBetTooHigh") || msg.includes("treasury") || msg.includes("Treasury")) {
         addToast("error", "Treasury can't cover this bet. Try a smaller tier.");
@@ -1241,10 +1297,8 @@ export default function FlipperRooms() {
 
     try {
       const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
-      // Send TX — wallet popup appears here
       const tx = await contract.acceptChallenge(challengeId, ref);
 
-      // AFTER user confirms: start animation
       setCoinState("spinning");
       playFlipSound();
       setFlipModal({ playerA: address, playerB: creatorAddr || "Opponent", amount: amt, state: "spinning", winner: null, txHash: null });
@@ -1265,20 +1319,12 @@ export default function FlipperRooms() {
         } catch {}
       }
 
-      setTimeout(() => {
-        setCoinState(won ? "win" : "lose");
-        setResult(won ? "win" : "lose");
-        setShowResult(true);
-        if (won) { playWinSound(); addToast("success", `Won ${payoutStr} ETH!`); }
-        else { playLoseSound(); addToast("error", `Lost ${amt} ETH`); }
-        setFlipModal(prev => prev ? { ...prev, state: won ? "win" : "lose", winner: won ? prev.playerA : prev.playerB, txHash } : null);
-        refreshBalance();
-        flipHook.refreshChallenges();
-        flipHook.refreshHistory();
-        getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
-
-        setTimeout(() => { setCoinState("idle"); setShowResult(false); setResult(null); }, 3500);
-      }, 1500);
+      pendingResultRef.current = {
+        won, payout: payoutStr, amount: amt,
+        flipModalUpdate: { state: won ? "win" : "lose", winner: won ? address : creatorAddr, txHash },
+      };
+      flipHook.refreshChallenges();
+      setCoinState(won ? "win" : "lose");
 
     } catch (err) {
       setCoinState("idle");
@@ -1377,7 +1423,7 @@ export default function FlipperRooms() {
                         <div style={{ position: "absolute", bottom: 0, left: "50%", width: 6, height: 6, marginLeft: -3, borderRadius: "50%", background: "var(--gold-bright)", boxShadow: "0 0 10px #ffd70080" }} />
                       </div>
                       <div style={{ width: "100%", height: "100%" }}>
-                        <Coin3D state={coinState} onComplete={() => {}} />
+                        <Coin3D state={coinState} onComplete={onFlipDone} />
                       </div>
                       {showResult && (
                         <div className="result-overlay" style={{
@@ -1389,6 +1435,32 @@ export default function FlipperRooms() {
                         </div>
                       )}
                     </div>
+
+                    {/* Result ticker */}
+                    {connected && flipHook.history && flipHook.history.length > 0 && (
+                      <div style={{
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        gap: 6, padding: "12px 0", marginBottom: 16, overflowX: "auto",
+                      }}>
+                        <span style={{ fontSize: 10, color: "var(--text-muted)", marginRight: 8, whiteSpace: "nowrap" }}>LAST FLIPS</span>
+                        {flipHook.history.slice(0, 20).map((h, i) => {
+                          const isWin = address && h.winner?.toLowerCase() === address.toLowerCase();
+                          return (
+                            <div key={i} style={{
+                              width: 24, height: 24, borderRadius: "50%",
+                              background: isWin ? "#22c55e25" : "#ef444425",
+                              border: "2px solid " + (isWin ? "#22c55e" : "#ef4444"),
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              fontSize: 10, fontWeight: 800, color: isWin ? "#22c55e" : "#ef4444",
+                              flexShrink: 0,
+                              animation: i === 0 ? "fadeIn 0.3s ease" : "none",
+                            }}>
+                              {isWin ? "W" : "L"}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
 
                     {/* Streak */}
                     {connected && playerStats && playerStats.streak > 0 && (
