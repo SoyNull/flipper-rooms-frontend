@@ -83,29 +83,34 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 @keyframes searchPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
 @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes spin { to { transform: rotate(360deg); } }
-@keyframes spinBorder { to { transform: rotate(360deg); } }
 @keyframes flashBright { 0%, 100% { opacity: 0.1; } 50% { opacity: 0.6; } }
 @keyframes scrollTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
 /* ═══ COIN STAGE — DUEL LAYOUT ═══ */
-@property --border-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-
 .coin-wrapper {
   position: relative; border-radius: 16px; padding: 3px;
   margin: 0 auto 20px; max-width: 620px;
 }
-.coin-wrapper .border-trace {
-  position: absolute; inset: 0; border-radius: 16px; opacity: 0;
-  background: conic-gradient(from var(--border-angle, 0deg), transparent 0deg, #b8860b 15deg, #f7b32b 40deg, #ffd700 70deg, #f7b32b 100deg, #b8860b 130deg, transparent 150deg, transparent 360deg);
-  transition: opacity 0.4s;
-}
-.coin-wrapper.spinning .border-trace { opacity: 1; animation: spinBorder 0.6s linear infinite; }
-@keyframes spinBorder { to { --border-angle: 360deg; } }
 
+/* Spinning border: oversized pseudo-element rotated with transform */
+.coin-wrapper .border-spin {
+  position: absolute; inset: -2px; border-radius: 18px;
+  opacity: 0; overflow: hidden; transition: opacity 0.3s;
+}
+.coin-wrapper.spinning .border-spin { opacity: 1; }
+.coin-wrapper .border-spin::before {
+  content: ''; position: absolute; inset: -50%;
+  background: conic-gradient(
+    transparent 0deg, transparent 60deg,
+    #b8860b 120deg, #f7b32b 160deg, #ffd700 200deg,
+    #f7b32b 240deg, #b8860b 280deg,
+    transparent 300deg, transparent 360deg
+  );
+  animation: spinBorderReal 0.8s linear infinite;
+}
+@keyframes spinBorderReal { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* Result flash */
 .coin-wrapper .border-flash { position: absolute; inset: 0; border-radius: 16px; opacity: 0; }
 .coin-wrapper.result-win .border-flash { animation: flashToGreen 1.8s ease forwards; }
 .coin-wrapper.result-lose .border-flash { animation: flashToRed 1.8s ease forwards; }
@@ -139,7 +144,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 .coin-wrapper.result-lose .glow-bg { background: radial-gradient(ellipse at 50% 45%, #ef444412 0%, transparent 55%); }
 
 .connector-line {
-  position: absolute; top: 30px; left: 0; right: 0; height: 1px; z-index: 1;
+  position: absolute; top: 50%; left: 0; right: 0; height: 1px; z-index: 1;
   background: linear-gradient(90deg, transparent 5%, #f7b32b10 25%, #f7b32b10 75%, transparent 95%);
   transition: all 0.5s;
 }
@@ -151,7 +156,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 .coin-wrapper.result-win .connector-line { background: linear-gradient(90deg, transparent 5%, #22c55e18 25%, #22c55e18 75%, transparent 95%); }
 .coin-wrapper.result-lose .connector-line { background: linear-gradient(90deg, transparent 5%, #ef444415 25%, #ef444415 75%, transparent 95%); }
 
-.arena { display: flex; align-items: flex-start; justify-content: center; position: relative; z-index: 2; padding-top: 4px; }
+.arena { display: flex; align-items: center; justify-content: space-between; padding: 20px 10px; position: relative; z-index: 2; min-height: 200px; }
 .arena-player { display: flex; flex-direction: column; align-items: center; width: 120px; flex-shrink: 0; transition: all 0.6s ease; }
 .arena-player.winner { transform: scale(1.06); }
 .arena-player.loser { transform: scale(0.9); opacity: 0.45; }
@@ -182,11 +187,11 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 .arena-bet.bet-win { border-color: #22c55e30; color: #22c55e; background: #22c55e08; }
 .arena-bet.bet-lose { border-color: #ef444425; color: #ef4444; background: #ef444408; }
 
-.vs-area { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 120px; max-width: 200px; padding: 0 8px; }
+.vs-area { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 160px; max-width: 240px; padding: 0 8px; }
 .vs-text { font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700; color: #374151; letter-spacing: 4px; margin-bottom: 8px; height: 14px; transition: opacity 0.3s; }
 .coin-wrapper.spinning .vs-text { opacity: 0; }
 
-.coin-3d-container { width: 120px; height: 120px; position: relative; }
+.coin-3d-container { width: 160px; height: 160px; position: relative; }
 
 .prize-pool { margin-top: 10px; text-align: center; }
 .prize-label { font-size: 8px; color: #374151; letter-spacing: 2px; font-weight: 700; }
@@ -1651,7 +1656,7 @@ export default function FlipperRooms() {
 
                       return (
                         <div className={`coin-wrapper ${wrapperClass}`}>
-                          <div className="border-trace" />
+                          <div className="border-spin" />
                           <div className="border-flash" />
                           <div className="coin-stage-inner">
                             <div className="grid-overlay" />
