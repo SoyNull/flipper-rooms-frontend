@@ -9,8 +9,8 @@ import {
   getSeatInfo as getSeatInfoFn,
   decodeError,
 } from "./contract.js";
-import { parseEther, formatEther } from "ethers";
-import { playClickSound, playFlipSound, playWinSound, playLoseSound, playDepositSound, playStreakSound, playJackpotSound } from "./sounds.js";
+import { parseEther } from "ethers";
+import { playClickSound, playFlipSound, playWinSound, playLoseSound, playDepositSound, playStreakSound } from "./sounds.js";
 
 /* ═══════════════════════════════════════
    3D COIN COMPONENT (Three.js)
@@ -332,7 +332,8 @@ export default function FlipperRooms() {
   };
 
   const ownedCount = seatHook.seats.filter(s => s.active).length;
-  const balDisplay = Number(sessionBalance) > 0 ? `${Number(sessionBalance).toFixed(4)} ETH` : "No balance";
+  const balNum = parseFloat(sessionBalance || "0");
+  const balDisplay = balNum > 0 ? `${balNum.toFixed(4)} ETH` : "0 ETH";
   const treasuryMax = protocolHook.stats ? Number(protocolHook.stats.treasury) * 0.05 : 0;
 
   const leaderboard = useMemo(() => {

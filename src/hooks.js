@@ -2,17 +2,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import {
   getContract,
-  getSessionBalance,
-  getPlayerInfo,
   getProtocolStats as getProtocolStatsFn,
   getAllSeats as getAllSeatsFn,
-  getSeatInfo as getSeatInfoFn,
   getOpenChallenges,
   getChallengeInfo,
-  getOwnerSeats as getOwnerSeatsFn,
-  getTreasuryMaxBet as getTreasuryMaxBetFn,
-  deposit as depositFn,
-  withdraw as withdrawFn,
   createChallenge as createChallengeFn,
   acceptChallenge as acceptChallengeFn,
   cancelChallenge as cancelChallengeFn,
@@ -22,12 +15,11 @@ import {
   addSeatDeposit as addSeatDepositFn,
   abandonSeat as abandonSeatFn,
   claimSeatRewards as claimSeatRewardsFn,
-  distributeRewards as distributeRewardsFn,
   parseFlipResolved,
   decodeError,
   EXPLORER,
 } from "./contract.js";
-import { TIERS, CONTRACT_ADDRESS } from "./config.js";
+import { TIERS } from "./config.js";
 import { parseEther, formatEther, BrowserProvider } from "ethers";
 
 // ═══════════════════════════════════════
@@ -76,15 +68,19 @@ export function useWallet() {
   const [address, setAddress] = useState(null);
   const [sessionBalance, setSessionBalance] = useState("0");
   const [isEmbedded, setIsEmbedded] = useState(false);
+  const setupRef = useRef(null); // track which wallet address we've set up
 
   // Auto-connect when Privy session exists (page load or login)
   useEffect(() => {
     if (!authenticated || !ready) return;
     if (wallets.length === 0) return;
 
+    const wallet = wallets[0];
+    // Skip if we already set up this exact wallet
+    if (setupRef.current === wallet.address) return;
+
     async function setup() {
       try {
-        const wallet = wallets[0];
         setIsEmbedded(wallet.walletClientType === "privy");
 
         try { await wallet.switchChain(84532); }
@@ -96,6 +92,7 @@ export function useWallet() {
         const addr = await sgnr.getAddress();
         const ctr = getContract(sgnr);
 
+        setupRef.current = wallet.address;
         setProvider(ethProvider);
         setSigner(sgnr);
         setContract(ctr);
@@ -114,6 +111,19 @@ export function useWallet() {
     }
     setup();
   }, [ready, authenticated, wallets]);
+
+  // Reset on logout
+  useEffect(() => {
+    if (!authenticated) {
+      setupRef.current = null;
+      setContract(null);
+      setAddress(null);
+      setSigner(null);
+      setProvider(null);
+      setSessionBalance("0");
+      setIsEmbedded(false);
+    }
+  }, [authenticated]);
 
   const refreshBalance = useCallback(async () => {
     if (!contract || !address) return;
