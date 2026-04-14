@@ -1289,6 +1289,13 @@ export default function FlipperRooms() {
   const [borderState, setBorderState] = useState("idle");
   const spinStartRef = useRef(0);
 
+  const resetFlip = useCallback(() => {
+    setCoinState("idle");
+    setBorderState("idle");
+    setShowResult(false);
+    setResult(null);
+  }, []);
+
   // Called by Coin3D when landing animation completes
   const onFlipDone = useCallback(() => {
     const pending = pendingResultRef.current;
@@ -1314,13 +1321,7 @@ export default function FlipperRooms() {
     if (pending.flipModalUpdate) {
       setFlipModal(prev => prev ? { ...prev, ...pending.flipModalUpdate } : null);
     }
-
-    setTimeout(() => {
-      setCoinState("idle");
-      setBorderState("idle");
-      setShowResult(false);
-      setResult(null);
-    }, 5000);
+    // Result stays visible until user clicks Rematch/Double/Change
   }, [address, refreshBalance, contract]);
 
   // Load data
@@ -1360,7 +1361,9 @@ export default function FlipperRooms() {
 
   // ═══ FLIP VS TREASURY — SINGLE TX ═══
   const handleFlip = async () => {
-    if (!contract || !connected || coinState !== "idle") return;
+    if (!contract || !connected) return;
+    if (showResult) { resetFlip(); return; }
+    if (coinState !== "idle") return;
     playClickSound();
 
     const tierWei = TIERS[tier].wei;
@@ -1733,11 +1736,16 @@ export default function FlipperRooms() {
                                 {result === "win" ? `+${lastPayout} ETH` : result === "lose" ? `-${tierEth} ETH` : ""}
                               </div>
                               <div className={`result-actions ${showResult ? "visible" : ""}`}>
-                                <button className="action-btn btn-rematch" onClick={handleFlip}>Rematch</button>
+                                <button className="action-btn btn-rematch" onClick={() => { resetFlip(); setTimeout(() => handleFlip(), 100); }}>Rematch</button>
                                 {result === "win" && (
-                                  <button className="action-btn btn-double" onClick={handleFlip}>Double or nothing</button>
+                                  <button className="action-btn btn-double" onClick={() => {
+                                    resetFlip();
+                                    const nextTier = Math.min(TIERS.length - 1, tier + 1);
+                                    setTier(nextTier);
+                                    setTimeout(() => handleFlip(), 100);
+                                  }}>Double or nothing</button>
                                 )}
-                                <button className="action-btn btn-change" onClick={() => tierBarRef.current?.scrollIntoView({ behavior: "smooth" })}>Change tier</button>
+                                <button className="action-btn btn-change" onClick={resetFlip}>Change tier</button>
                               </div>
                             </div>
 
