@@ -28,7 +28,7 @@ const addrColor = (a) => {
 //  CASINO CSS — No Tailwind
 // ═══════════════════════════════════════
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root {
   --bg-deep: #0b0e11;
@@ -36,8 +36,8 @@ const CSS = `
   --bg-card: #151a22;
   --bg-card-hover: #1c232e;
   --bg-elevated: #1f2937;
-  --border: #1f2937;
-  --border-light: #2d3748;
+  --border: #1a1f2e;
+  --border-light: #252d3d;
 
   --gold: #f7b32b;
   --gold-bright: #ffd700;
@@ -49,16 +49,13 @@ const CSS = `
   --red: #ef4444;
   --red-glow: #ef444440;
 
-  --blue: #3b82f6;
-  --teal: #14b8a6;
-
   --text: #f1f5f9;
   --text-dim: #94a3b8;
   --text-muted: #475569;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sans-serif; }
+body { background: var(--bg-deep); color: var(--text); font-family: 'Rajdhani', sans-serif; }
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-card); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -92,16 +89,22 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   display: grid;
   grid-template-columns: 280px 1fr 300px;
   background:
-    radial-gradient(ellipse at 15% 50%, #f7b32b08 0%, transparent 40%),
-    radial-gradient(ellipse at 85% 20%, #22c55e06 0%, transparent 35%),
-    radial-gradient(ellipse at 50% 90%, #ef444406 0%, transparent 30%),
+    radial-gradient(ellipse at 20% 80%, #f7b32b04 0%, transparent 40%),
+    radial-gradient(ellipse at 80% 20%, #f7b32b03 0%, transparent 35%),
     var(--bg-deep);
+  position: relative;
+}
+.app-root::before {
+  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  opacity: 0.015;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
 }
 
 /* ═══ CHAT SIDEBAR (LEFT) ═══ */
 .chat-sidebar {
   display: flex; flex-direction: column; height: 100%;
   background: var(--bg-card); border-right: 1px solid var(--border);
+  position: relative; z-index: 1;
 }
 .chat-header {
   padding: 16px; border-bottom: 1px solid var(--border);
@@ -134,7 +137,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 }
 .chat-input-wrap input {
   flex: 1; background: transparent; border: none; outline: none;
-  font-size: 12px; color: var(--text); font-family: 'Outfit', sans-serif;
+  font-size: 12px; color: var(--text); font-family: 'Rajdhani', sans-serif;
 }
 .chat-input-wrap input::placeholder { color: var(--text-muted); }
 .chat-send-btn {
@@ -147,6 +150,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .game-center {
   border-left: 1px solid var(--border); border-right: 1px solid var(--border);
   overflow: hidden; display: flex; flex-direction: column;
+  position: relative; z-index: 1;
 }
 .game-topbar {
   height: 52px; display: flex; align-items: center; justify-content: space-between;
@@ -164,12 +168,12 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .logo-dim { color: var(--text-muted); }
 .logo-badge {
   font-size: 8px; font-weight: 800; letter-spacing: 1.5px; padding: 3px 8px;
-  border-radius: 4px; background: #3b82f615; color: var(--blue); border: 1px solid #3b82f630;
+  border-radius: 4px; background: #f7b32b15; color: var(--gold); border: 1px solid #f7b32b30;
 }
 .nav { display: flex; gap: 4px; }
 .nav-btn {
   padding: 8px 18px; border: none; background: none; color: var(--text-dim);
-  font-size: 13px; font-weight: 600; font-family: 'Outfit', sans-serif;
+  font-size: 13px; font-weight: 600; font-family: 'Rajdhani', sans-serif;
   cursor: pointer; border-radius: 6px; transition: all 0.2s; position: relative;
 }
 .nav-btn:hover { color: var(--text); background: var(--bg-card); }
@@ -181,7 +185,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .header-right { display: flex; align-items: center; gap: 10px; }
 .connect-btn {
   padding: 8px 20px; border: none; border-radius: 8px; font-size: 13px;
-  font-weight: 700; font-family: 'Outfit', sans-serif; cursor: pointer;
+  font-weight: 700; font-family: 'Rajdhani', sans-serif; cursor: pointer;
   background: linear-gradient(135deg, #b8860b, #f7b32b); color: #0b0e11;
   box-shadow: 0 0 25px #f7b32b40; transition: all 0.2s;
 }
@@ -237,7 +241,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   width: 100%; max-width: 400px; padding: 24px 0; border-radius: 14px; border: none;
   background: linear-gradient(135deg, #b8860b, #f7b32b, #ffd700);
   color: #0b0e11; font-size: 20px; font-weight: 800; cursor: pointer;
-  font-family: 'Outfit', sans-serif; letter-spacing: 1px;
+  font-family: 'Rajdhani', sans-serif; letter-spacing: 1px;
   box-shadow: 0 0 30px #f7b32b40, 0 0 60px #f7b32b15;
   transition: all 0.2s; position: relative; overflow: hidden;
 }
@@ -319,14 +323,14 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   padding: 8px 20px; border: none; border-radius: 8px;
   background: linear-gradient(135deg, #b8860b, #f7b32b);
   color: #0b0e11; font-size: 12px; font-weight: 700; cursor: pointer;
-  font-family: 'Outfit', sans-serif; transition: all 0.2s;
+  font-family: 'Rajdhani', sans-serif; transition: all 0.2s;
   box-shadow: 0 0 12px #f7b32b30;
 }
 .join-btn:hover { box-shadow: 0 0 20px #f7b32b50; transform: scale(1.05); }
 .cancel-btn {
   padding: 8px 16px; border: 1px solid var(--red); border-radius: 8px;
   background: transparent; color: var(--red); font-size: 11px; font-weight: 600;
-  cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.2s;
+  cursor: pointer; font-family: 'Rajdhani', sans-serif; transition: all 0.2s;
 }
 .cancel-btn:hover { background: #ef444410; }
 
@@ -334,7 +338,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .stats-sidebar {
   display: flex; flex-direction: column; height: 100%;
   background: var(--bg-card); border-left: 1px solid var(--border);
-  overflow-y: auto;
+  overflow-y: auto; position: relative; z-index: 1;
 }
 .stats-section { padding: 16px; border-bottom: 1px solid var(--border); }
 .stats-label {
@@ -369,7 +373,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .btn-deposit {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 10px; border-radius: 8px; font-size: 12px;
-  font-weight: 700; font-family: 'Outfit', sans-serif; cursor: pointer;
+  font-weight: 700; font-family: 'Rajdhani', sans-serif; cursor: pointer;
   background: #f7b32b20; color: var(--gold); border: 1px solid #f7b32b30;
   transition: all 0.2s;
 }
@@ -378,7 +382,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .btn-withdraw {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 10px; border: 1px solid #ef444430; border-radius: 8px; font-size: 12px;
-  font-weight: 700; font-family: 'Outfit', sans-serif; cursor: pointer;
+  font-weight: 700; font-family: 'Rajdhani', sans-serif; cursor: pointer;
   background: #ef444420; color: var(--red); transition: all 0.2s;
 }
 .btn-withdraw:hover { background: #ef444430; }
@@ -423,7 +427,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .toast-success { background: #22c55e18; border-color: #22c55e30; color: var(--green); }
 .toast-error { background: #ef444418; border-color: #ef444430; color: var(--red); }
 .toast-pending { background: #f7b32b18; border-color: #f7b32b30; color: var(--gold); }
-.toast-info { background: #3b82f618; border-color: #3b82f630; color: var(--blue); }
+.toast-info { background: #f7b32b18; border-color: #f7b32b30; color: var(--gold); }
 
 .empty-state { text-align: center; padding: 30px 20px; color: var(--text-muted); font-size: 13px; }
 
@@ -474,7 +478,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .seat-modal-input {
   width: 100%; padding: 10px 14px; background: var(--bg-deep);
   border: 1px solid var(--border); border-radius: 8px; color: var(--text);
-  font-size: 12px; font-family: 'Outfit', sans-serif; outline: none;
+  font-size: 12px; font-family: 'Rajdhani', sans-serif; outline: none;
   margin-bottom: 8px; transition: border-color 0.2s;
 }
 .seat-modal-input:focus { border-color: var(--gold); }
@@ -482,12 +486,12 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   width: 100%; padding: 12px 0; border-radius: 10px; border: none;
   background: linear-gradient(135deg, #b8860b, #f7b32b);
   color: #0b0e11; font-size: 14px; font-weight: 700;
-  cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.2s;
+  cursor: pointer; font-family: 'Rajdhani', sans-serif; transition: all 0.2s;
 }
 .seat-modal-btn:hover { filter: brightness(1.1); }
 .seat-action-btn {
   width: 100%; padding: 10px 0; border-radius: 8px; font-size: 12px;
-  font-weight: 700; cursor: pointer; font-family: 'Outfit', sans-serif;
+  font-weight: 700; cursor: pointer; font-family: 'Rajdhani', sans-serif;
   transition: all 0.2s;
 }
 
@@ -712,7 +716,7 @@ function StatsSidebar({ sessionBalance, connected, playerStats, protocolStats, t
             <div className="player-stat-card"><div className="player-stat-val" style={{ color: "var(--green)" }}>{playerStats.wins}</div><div className="player-stat-label">Wins</div></div>
             <div className="player-stat-card"><div className="player-stat-val" style={{ color: "var(--red)" }}>{playerStats.losses}</div><div className="player-stat-label">Losses</div></div>
             <div className="player-stat-card"><div className="player-stat-val" style={{ color: "var(--gold)" }}>{playerStats.streak > 0 ? `${playerStats.streak}W` : "\u2014"}</div><div className="player-stat-label">Streak</div></div>
-            <div className="player-stat-card"><div className="player-stat-val" style={{ color: "#a855f7" }}>{playerStats.bestStreak}W</div><div className="player-stat-label">Best</div></div>
+            <div className="player-stat-card"><div className="player-stat-val" style={{ color: "var(--text)" }}>{playerStats.bestStreak}W</div><div className="player-stat-label">Best</div></div>
           </div>
           {playerStats.streak >= 3 && (
             <div className="streak-banner">
@@ -1002,10 +1006,10 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
             <div style={{ marginBottom: 20 }}>
               {[
                 { l: "Price", v: `${parseFloat(seatDetail?.price || selectedSeat.price).toFixed(4)} ETH`, c: "var(--gold)" },
-                { l: "Deposit", v: `${parseFloat(seatDetail?.deposit || selectedSeat.deposit).toFixed(4)} ETH`, c: "var(--blue)" },
+                { l: "Deposit", v: `${parseFloat(seatDetail?.deposit || selectedSeat.deposit).toFixed(4)} ETH`, c: "var(--text-dim)" },
                 ...(seatDetail ? [
                   { l: "Rewards", v: `${parseFloat(seatDetail.rewards).toFixed(4)} ETH`, c: "var(--green)" },
-                  { l: "Total Earned", v: `${parseFloat(seatDetail.earned).toFixed(4)} ETH`, c: "var(--teal)" },
+                  { l: "Total Earned", v: `${parseFloat(seatDetail.earned).toFixed(4)} ETH`, c: "var(--gold)" },
                   { l: "Pending Tax", v: `${parseFloat(seatDetail.pendingTax).toFixed(4)} ETH`, c: "var(--red)" },
                   { l: "Runway", v: seatDetail.runway > 0 ? `${Math.floor(seatDetail.runway / 86400)}d ${Math.floor((seatDetail.runway % 86400) / 3600)}h` : "\u2014", c: "var(--text-dim)" },
                 ] : []),
@@ -1046,7 +1050,7 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
                   onClick={async () => { await seatHook.abandon(selectedSeat.id); setSelectedSeat(null); }}>
                   ABANDON SEAT
                 </button>
-                <button className="seat-action-btn" style={{ background: "#3b82f620", border: "1px solid #3b82f640", color: "var(--blue)" }}
+                <button className="seat-action-btn" style={{ background: "#f7b32b20", border: "1px solid #f7b32b40", color: "var(--gold)" }}
                   onClick={() => {
                     navigator.clipboard.writeText(`${window.location.origin}?ref=${selectedSeat.id}`);
                     addToast("success", "Referral link copied!");
@@ -1150,11 +1154,15 @@ export default function FlipperRooms() {
       return;
     }
 
-    setCoinState("spinning");
-    playFlipSound();
-
     try {
+      // Send TX — wallet popup appears here, user confirms
       const tx = await contract.flipVsTreasury(tierWei, ref);
+
+      // AFTER user confirms: start animation
+      setCoinState("spinning");
+      playFlipSound();
+
+      // Wait for on-chain confirmation
       const receipt = await tx.wait();
 
       let won = false;
@@ -1176,14 +1184,14 @@ export default function FlipperRooms() {
         setCoinState(won ? "win" : "lose");
         setResult(won ? "win" : "lose");
         setShowResult(true);
-        if (won) { playWinSound(); addToast("success", `Won ${payoutStr} ETH!`); }
-        else { playLoseSound(); addToast("error", `Lost ${amountStr} ETH`); }
+        if (won) { playWinSound(); addToast("success", "Won " + payoutStr + " ETH!"); }
+        else { playLoseSound(); addToast("error", "Lost " + amountStr + " ETH"); }
         refreshBalance();
         flipHook.refreshHistory();
         getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
 
         setTimeout(() => { setCoinState("idle"); setShowResult(false); setResult(null); }, 3500);
-      }, 1500);
+      }, 2000);
 
     } catch (err) {
       setCoinState("idle");
@@ -1231,13 +1239,16 @@ export default function FlipperRooms() {
     const c = flipHook.challenges.find(ch => ch.id === challengeId);
     const amt = c ? c.amount : "?";
 
-    setCoinState("spinning");
-    playFlipSound();
-    setFlipModal({ playerA: address, playerB: creatorAddr || "Opponent", amount: amt, state: "spinning", winner: null, txHash: null });
-
     try {
       const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
+      // Send TX — wallet popup appears here
       const tx = await contract.acceptChallenge(challengeId, ref);
+
+      // AFTER user confirms: start animation
+      setCoinState("spinning");
+      playFlipSound();
+      setFlipModal({ playerA: address, playerB: creatorAddr || "Opponent", amount: amt, state: "spinning", winner: null, txHash: null });
+
       const receipt = await tx.wait();
 
       let won = false;
@@ -1392,10 +1403,11 @@ export default function FlipperRooms() {
                         Connect Wallet
                       </button>
                     ) : (
-                      <div style={{ width: "100%", maxWidth: 400 }}>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: "100%", maxWidth: 500, margin: "0 auto" }}>
                         <button className="flip-btn-main"
                           disabled={coinState !== "idle"}
-                          onClick={handleFlip}>
+                          onClick={handleFlip}
+                          style={{ maxWidth: 500 }}>
                           <div style={{ position: "relative", zIndex: 1 }}>
                             FLIP NOW
                             <div className="flip-sub">{tierEth} ETH {"\u00B7"} 2x Payout</div>
@@ -1405,7 +1417,7 @@ export default function FlipperRooms() {
                           disabled={coinState !== "idle"}
                           onClick={handleCreatePvp}
                           style={{
-                            width: "100%", padding: "12px 0", borderRadius: 10, marginTop: 8,
+                            width: "100%", padding: "12px 0", borderRadius: 10,
                             background: "transparent", border: "1px solid var(--border)",
                             color: "var(--text-dim)", fontSize: 13, fontWeight: 600,
                             cursor: coinState !== "idle" ? "not-allowed" : "pointer",
@@ -1482,21 +1494,35 @@ export default function FlipperRooms() {
                   {flipHook.history.length === 0 && <div className="empty-state">No recent flips yet</div>}
                   {flipHook.history.slice(0, 8).map((h, i) => {
                     const won = address ? h.winner.toLowerCase() === address.toLowerCase() : null;
+                    const isTreasuryW = h.winner?.toLowerCase() === CONTRACT_ADDRESS.toLowerCase();
+                    const isTreasuryL = h.loser?.toLowerCase() === CONTRACT_ADDRESS.toLowerCase();
                     return (
                       <div className="game-row" key={i}>
                         <div className="game-players">
-                          <GameAvatar address={h.winner} size={32} />
+                          {isTreasuryW ? (
+                            <div className="game-avatar" style={{ width: 32, height: 32, background: "linear-gradient(135deg, var(--gold), var(--gold-dark))", fontSize: 14 }}>TR</div>
+                          ) : (
+                            <GameAvatar address={h.winner} size={32} />
+                          )}
                           <span className="game-vs">VS</span>
-                          <GameAvatar address={h.loser} size={32} />
+                          {isTreasuryL ? (
+                            <div className="game-avatar" style={{ width: 32, height: 32, background: "linear-gradient(135deg, var(--gold), var(--gold-dark))", fontSize: 14 }}>TR</div>
+                          ) : (
+                            <GameAvatar address={h.loser} size={32} />
+                          )}
                         </div>
                         <div className="game-amount">
                           <div className="game-amount-val" style={{ fontSize: 14 }}>{h.amount} ETH</div>
                           {h.winnerStreak > 1 && <div style={{ fontSize: 10, color: "var(--gold)" }}>{"\u{1F525}"} {h.winnerStreak}x</div>}
                         </div>
                         <div className="game-actions">
-                          <span className={`game-status ${won ? "status-open" : won === false ? "status-done" : "status-searching"}`}>
-                            {won === null ? "FLIP" : won ? "WON" : "LOST"}
-                          </span>
+                          {won === null ? (
+                            <span className="game-status" style={{ background: "#f7b32b18", color: "var(--gold)", border: "1px solid #f7b32b30" }}>FLIP</span>
+                          ) : won ? (
+                            <span className="game-status" style={{ background: "#22c55e18", color: "var(--green)", border: "1px solid #22c55e30" }}>WON</span>
+                          ) : (
+                            <span className="game-status" style={{ background: "#ef444418", color: "var(--red)", border: "1px solid #ef444430" }}>LOST</span>
+                          )}
                         </div>
                       </div>
                     );
@@ -1536,7 +1562,7 @@ export default function FlipperRooms() {
                 <div className="fee-grid">
                   {[
                     { l: "Seat Pool", v: "2.5%", c: "var(--green)" },
-                    { l: "Referral", v: "1.0%", c: "var(--blue)" },
+                    { l: "Referral", v: "1.0%", c: "var(--gold)" },
                     { l: "Protocol", v: "0.75%", c: "var(--gold)" },
                     { l: "Buyback", v: "0.5%", c: "#f97316" },
                     { l: "Jackpot", v: "0.25%", c: "var(--red)" },
@@ -1548,7 +1574,7 @@ export default function FlipperRooms() {
                   ))}
                 </div>
                 <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 16 }}>
-                  Verify on <a href={`${EXPLORER}/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noreferrer" style={{ color: "var(--blue)" }}>BaseScan</a>
+                  Verify on <a href={`${EXPLORER}/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noreferrer" style={{ color: "var(--gold)" }}>BaseScan</a>
                 </p>
               </div>
             )}
