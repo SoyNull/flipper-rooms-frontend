@@ -28,7 +28,7 @@ const addrColor = (a) => {
 //  CASINO CSS — No Tailwind
 // ═══════════════════════════════════════
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Bebas+Neue&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root {
   --bg-deep: #0b0e11;
@@ -55,7 +55,7 @@ const CSS = `
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: var(--bg-deep); color: var(--text); font-family: 'DM Sans', sans-serif; }
+body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petch', sans-serif; }
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-card); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -83,6 +83,25 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'DM Sans', s
 @keyframes searchPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
 @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spinBorder { to { transform: rotate(360deg); } }
+@keyframes flashBright { 0%, 100% { opacity: 0.1; } 50% { opacity: 0.6; } }
+@keyframes scrollTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* ═══ COIN WRAPPER ═══ */
+.coin-wrapper { position: relative; border-radius: 18px; margin: 0 auto 20px; width: 204px; height: 204px; }
+.coin-wrapper.spinning::before {
+  content: ''; position: absolute; inset: -2px; border-radius: 18px;
+  background: conic-gradient(from 0deg, transparent 0deg, #f7b32b 30deg, #ffd700 60deg, transparent 90deg, transparent 360deg);
+  animation: spinBorder 1.2s linear infinite; z-index: 0;
+}
+.coin-wrapper.result-win::before {
+  content: ''; position: absolute; inset: -2px; border-radius: 18px;
+  background: #22c55e; animation: flashBright 0.4s ease 3; z-index: 0;
+}
+.coin-wrapper.result-lose::before {
+  content: ''; position: absolute; inset: -2px; border-radius: 18px;
+  background: #ef4444; animation: flashBright 0.4s ease 3; z-index: 0;
+}
 
 /* ═══ 3-COLUMN LAYOUT ═══ */
 .app-root {
@@ -116,8 +135,8 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'DM Sans', s
 .online-badge { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
 .online-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px #22c55e60; animation: blink 2s infinite; }
 
-.chat-messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 0; }
-.chat-msg { display: flex; align-items: flex-start; gap: 8px; padding: 10px 0; border-bottom: 1px solid #111820; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 0; display: flex; flex-direction: column; gap: 0; background: linear-gradient(180deg, #090c12, #0b0e14, #090c12); }
+.chat-msg { display: flex; align-items: flex-start; gap: 8px; padding: 10px 18px; border-bottom: 1px solid #0e1219; }
 .chat-avatar {
   width: 32px; height: 32px; min-width: 32px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
@@ -139,7 +158,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'DM Sans', s
 }
 .chat-input-wrap input {
   flex: 1; background: transparent; border: none; outline: none;
-  font-size: 12px; color: var(--text); font-family: 'DM Sans', sans-serif;
+  font-size: 12px; color: var(--text); font-family: 'Chakra Petch', sans-serif;
 }
 .chat-input-wrap input::placeholder { color: var(--text-muted); }
 .chat-send-btn {
@@ -165,7 +184,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'DM Sans', s
   background: linear-gradient(90deg, transparent 5%, #f7b32b30 30%, #b8860b30 50%, #f7b32b30 70%, transparent 95%);
 }
 .logo { display: flex; align-items: center; gap: 8px; }
-.logo-text { font-family: 'Bebas Neue', sans-serif; font-size: 22px; font-weight: 400; letter-spacing: 3px; }
+.logo-text { font-family: 'Orbitron', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: 3px; }
 .logo-gold { color: var(--gold); text-shadow: 0 0 30px #f7b32b40; }
 .logo-dim { color: var(--text-muted); }
 .logo-badge {
@@ -175,7 +194,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'DM Sans', s
 .nav { display: flex; gap: 4px; }
 .nav-btn {
   padding: 8px 18px; border: none; background: none; color: var(--text-dim);
-  font-size: 13px; font-weight: 600; font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 600; font-family: 'Chakra Petch', sans-serif;
   cursor: pointer; border-radius: 6px; transition: all 0.2s; position: relative;
 }
 .nav-btn:hover { color: var(--text); background: var(--bg-card); }
@@ -187,7 +206,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'DM Sans', s
 .header-right { display: flex; align-items: center; gap: 10px; }
 .connect-btn {
   padding: 8px 20px; border: none; border-radius: 8px; font-size: 13px;
-  font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer;
+  font-weight: 700; font-family: 'Chakra Petch', sans-serif; cursor: pointer;
   background: linear-gradient(135deg, #b8860b, #f7b32b); color: #0b0e11;
   box-shadow: 0 0 25px #f7b32b40; transition: all 0.2s;
 }
@@ -217,15 +236,16 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'DM Sans', s
 }
 .hero-inner { position: relative; z-index: 1; }
 .hero-title-text {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 56px; font-weight: 400; letter-spacing: 6px; margin-bottom: 4px;
-  color: #f7b32b; text-shadow: 0 0 30px #f7b32b25;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 48px; font-weight: 900; letter-spacing: 8px; margin-bottom: 4px;
+  color: #f7b32b; text-shadow: 0 0 30px #f7b32b20;
 }
 .hero-sub { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; letter-spacing: 1px; }
 
 /* Coin stage */
 .coin-stage {
-  position: relative; width: 200px; height: 200px; margin: 0 auto 24px;
+  position: relative; width: 200px; height: 200px;
+  z-index: 1; border-radius: 16px; background: var(--bg-deep);
 }
 .coin-stage-glow {
   position: absolute; inset: 0; border-radius: 50%;
@@ -241,7 +261,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'DM Sans', s
   width: 100%; max-width: 400px; padding: 24px 0; border-radius: 14px; border: none;
   background: linear-gradient(135deg, #b8860b, #f7b32b, #ffd700);
   color: #0b0e11; font-size: 20px; font-weight: 800; cursor: pointer;
-  font-family: 'DM Sans', sans-serif; letter-spacing: 1px;
+  font-family: 'Chakra Petch', sans-serif; letter-spacing: 1px;
   box-shadow: 0 0 30px #f7b32b40, 0 0 60px #f7b32b15;
   transition: all 0.2s; position: relative; overflow: hidden;
 }
@@ -323,14 +343,14 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'DM Sans', s
   padding: 8px 20px; border: none; border-radius: 8px;
   background: linear-gradient(135deg, #b8860b, #f7b32b);
   color: #0b0e11; font-size: 12px; font-weight: 700; cursor: pointer;
-  font-family: 'DM Sans', sans-serif; transition: all 0.2s;
+  font-family: 'Chakra Petch', sans-serif; transition: all 0.2s;
   box-shadow: 0 0 12px #f7b32b30;
 }
 .join-btn:hover { box-shadow: 0 0 20px #f7b32b50; transform: scale(1.05); }
 .cancel-btn {
   padding: 8px 16px; border: 1px solid var(--red); border-radius: 8px;
   background: transparent; color: var(--red); font-size: 11px; font-weight: 600;
-  cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s;
+  cursor: pointer; font-family: 'Chakra Petch', sans-serif; transition: all 0.2s;
 }
 .cancel-btn:hover { background: #ef444410; }
 
@@ -374,7 +394,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'DM Sans', s
 .btn-deposit {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 10px; border-radius: 8px; font-size: 12px;
-  font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer;
+  font-weight: 700; font-family: 'Chakra Petch', sans-serif; cursor: pointer;
   background: #f7b32b20; color: var(--gold); border: 1px solid #f7b32b30;
   transition: all 0.2s;
 }
@@ -383,7 +403,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'DM Sans', s
 .btn-withdraw {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 10px; border: 1px solid #ef444430; border-radius: 8px; font-size: 12px;
-  font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer;
+  font-weight: 700; font-family: 'Chakra Petch', sans-serif; cursor: pointer;
   background: #ef444420; color: var(--red); transition: all 0.2s;
 }
 .btn-withdraw:hover { background: #ef444430; }
@@ -393,6 +413,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'DM Sans', s
   display: flex; align-items: center; justify-content: space-between; padding: 6px 0;
 }
 .protocol-row-label { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 13px; }
+.protocol-row-label::before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: #f7b32b40; flex-shrink: 0; }
 .protocol-row-val { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; color: var(--text); }
 
 .player-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -479,7 +500,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'DM Sans', s
 .seat-modal-input {
   width: 100%; padding: 10px 14px; background: var(--bg-deep);
   border: 1px solid var(--border); border-radius: 8px; color: var(--text);
-  font-size: 12px; font-family: 'DM Sans', sans-serif; outline: none;
+  font-size: 12px; font-family: 'Chakra Petch', sans-serif; outline: none;
   margin-bottom: 8px; transition: border-color 0.2s;
 }
 .seat-modal-input:focus { border-color: var(--gold); }
@@ -487,12 +508,12 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'DM Sans', s
   width: 100%; padding: 12px 0; border-radius: 10px; border: none;
   background: linear-gradient(135deg, #b8860b, #f7b32b);
   color: #0b0e11; font-size: 14px; font-weight: 700;
-  cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s;
+  cursor: pointer; font-family: 'Chakra Petch', sans-serif; transition: all 0.2s;
 }
 .seat-modal-btn:hover { filter: brightness(1.1); }
 .seat-action-btn {
   width: 100%; padding: 10px 0; border-radius: 8px; font-size: 12px;
-  font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif;
+  font-weight: 700; cursor: pointer; font-family: 'Chakra Petch', sans-serif;
   transition: all 0.2s;
 }
 
@@ -622,9 +643,10 @@ function ChatSidebar() {
   const timestamps = ["2m", "5m", "8m", "12m", "15m", "20m", "25m", "30m", "32m", "35m"];
   return (
     <div className="chat-sidebar">
+      <div style={{ height: 2, background: "linear-gradient(90deg, transparent, #f7b32b30, transparent)" }} />
       <div style={{
-        padding: "14px 18px", borderBottom: "1px solid #151b25",
-        background: "linear-gradient(180deg, #111820, transparent)",
+        padding: "16px 18px", borderBottom: "1px solid #151b25",
+        background: "#0c1019",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", letterSpacing: 0.5 }}>General Chat</span>
@@ -650,8 +672,8 @@ function ChatSidebar() {
         ))}
       </div>
       <div style={{
-        padding: "12px 16px", borderTop: "1px solid var(--border)",
-        background: "linear-gradient(180deg, transparent, #0d101510)",
+        padding: "12px 16px", borderTop: "1px solid #151b25",
+        background: "#0c1019",
       }}>
         <div style={{
           display: "flex", alignItems: "center", gap: 8,
@@ -686,7 +708,8 @@ function StatsSidebar({ sessionBalance, connected, playerStats, protocolStats, t
     <div className="stats-sidebar">
       <div style={{
         padding: "20px 16px", borderBottom: "1px solid #151b25",
-        background: "linear-gradient(135deg, #f7b32b05, transparent)",
+        borderLeft: "3px solid #f7b32b30",
+        background: "linear-gradient(135deg, #f7b32b04, transparent)",
       }}>
         <div className="stats-label">Session Balance</div>
         <div style={{
@@ -755,16 +778,12 @@ function StatsSidebar({ sessionBalance, connected, playerStats, protocolStats, t
           </div>
           {playerStats.streak > 0 && (
             <div style={{
-              marginTop: 12, padding: "10px 14px", borderRadius: 10,
-              background: "linear-gradient(135deg, #f7b32b10, #f7b32b05)",
-              border: "1px solid #f7b32b25",
-              display: "flex", alignItems: "center", gap: 10,
+              marginTop: 12, padding: "12px 14px", borderRadius: 10,
+              background: "linear-gradient(135deg, #f7b32b08, transparent)",
+              borderLeft: "3px solid #f7b32b",
             }}>
-              <span style={{ fontSize: 20 }}>{"\u{1F525}"}</span>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#f7b32b" }}>{playerStats.streak} Win Streak!</div>
-                <div style={{ fontSize: 10, color: "var(--text-muted)" }}>Best: {playerStats.bestStreak}</div>
-              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#f7b32b" }}>{playerStats.streak} Win Streak</div>
+              <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Best: {playerStats.bestStreak}</div>
             </div>
           )}
         </div>
@@ -1436,34 +1455,40 @@ export default function FlipperRooms() {
             </div>
           </div>
 
-          {/* ═══ RESULTS TICKER BAR ═══ */}
+          {/* ═══ SCROLLING RESULTS TICKER ═══ */}
           {flipHook.history && flipHook.history.length > 0 && (
             <div style={{
-              height: 36, display: "flex", alignItems: "center",
+              height: 40, display: "flex", alignItems: "center",
               borderBottom: "1px solid var(--border)",
               background: "var(--bg-main)",
-              padding: "0 20px", gap: 12, overflow: "hidden",
-              flexShrink: 0,
+              overflow: "hidden", flexShrink: 0, position: "relative",
             }}>
-              <span style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 700, letterSpacing: 1, whiteSpace: "nowrap" }}>RESULTS</span>
-              <div style={{ width: 1, height: 16, background: "var(--border)" }} />
+              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 40, background: "linear-gradient(90deg, var(--bg-main), transparent)", zIndex: 2 }} />
+              <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 40, background: "linear-gradient(-90deg, var(--bg-main), transparent)", zIndex: 2 }} />
               <div style={{
-                display: "flex", gap: 4, overflow: "hidden", flex: 1,
-                maskImage: "linear-gradient(90deg, black 80%, transparent 100%)",
-                WebkitMaskImage: "linear-gradient(90deg, black 80%, transparent 100%)",
+                display: "flex", gap: 8,
+                animation: flipHook.history.length > 5 ? "scrollTicker 30s linear infinite" : "none",
+                paddingLeft: 50,
               }}>
-                {flipHook.history.slice(0, 30).map((h, i) => {
+                {[...(flipHook.history || []), ...(flipHook.history || [])].slice(0, 40).map((h, i) => {
                   const isWin = address && h.winner?.toLowerCase() === address.toLowerCase();
                   return (
                     <div key={i} style={{
-                      minWidth: 22, height: 22, borderRadius: 4,
-                      background: isWin ? "#22c55e20" : "#ef444420",
-                      border: "1px solid " + (isWin ? "#22c55e50" : "#ef444450"),
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 9, fontWeight: 800, color: isWin ? "#22c55e" : "#ef4444",
-                      fontFamily: "'JetBrains Mono', monospace",
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "4px 10px", borderRadius: 6,
+                      background: isWin ? "#22c55e10" : "#ef444410",
+                      border: "1px solid " + (isWin ? "#22c55e25" : "#ef444425"),
+                      whiteSpace: "nowrap", flexShrink: 0,
                     }}>
-                      {isWin ? "W" : "L"}
+                      <span style={{ fontSize: 10, fontWeight: 800, color: isWin ? "#22c55e" : "#ef4444", fontFamily: "'JetBrains Mono', monospace" }}>
+                        {isWin ? "W" : "L"}
+                      </span>
+                      <span style={{ fontSize: 10, color: "var(--text-dim)", fontFamily: "'JetBrains Mono', monospace" }}>
+                        {h.amount} ETH
+                      </span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: isWin ? "#22c55e" : "#ef4444", fontFamily: "'JetBrains Mono', monospace" }}>
+                        {isWin ? "2x" : "0x"}
+                      </span>
                     </div>
                   );
                 })}
@@ -1491,36 +1516,38 @@ export default function FlipperRooms() {
                     </div>
 
                     {/* Coin Area */}
-                    <div className="coin-stage">
-                      <div className="coin-stage-glow" />
-                      <div style={{ width: "100%", height: "100%" }}>
-                        <Coin3D state={coinState} onComplete={onFlipDone} />
-                      </div>
-                      {showResult && (
-                        <div className="result-overlay" style={{
-                          background: result === "win" ? "radial-gradient(ellipse, #22c55e20, transparent 70%)" : "radial-gradient(ellipse, #ef444420, transparent 70%)",
-                        }}>
-                          <div className={`result-text ${result === "win" ? "result-win" : "result-lose"}`}>
-                            {result === "win" ? "YOU WON!" : "YOU LOST"}
-                          </div>
+                    <div className={`coin-wrapper ${coinState === "spinning" ? "spinning" : ""} ${showResult ? (result === "win" ? "result-win" : "result-lose") : ""}`}>
+                      <div className="coin-stage">
+                        <div className="coin-stage-glow" />
+                        <div style={{ width: "100%", height: "100%" }}>
+                          <Coin3D state={coinState} onComplete={onFlipDone} />
                         </div>
-                      )}
-                      {waitingConfirm && (
-                        <div style={{
-                          position: "absolute", inset: 0, zIndex: 20, borderRadius: 16,
-                          background: "rgba(11,14,17,0.9)",
-                          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                        }}>
+                        {showResult && (
+                          <div className="result-overlay" style={{
+                            background: result === "win" ? "radial-gradient(ellipse, #22c55e20, transparent 70%)" : "radial-gradient(ellipse, #ef444420, transparent 70%)",
+                          }}>
+                            <div className={`result-text ${result === "win" ? "result-win" : "result-lose"}`}>
+                              {result === "win" ? "YOU WON!" : "YOU LOST"}
+                            </div>
+                          </div>
+                        )}
+                        {waitingConfirm && (
                           <div style={{
-                            width: 28, height: 28, border: "3px solid #f7b32b30",
-                            borderTopColor: "#f7b32b", borderRadius: "50%",
-                            animation: "spin 0.8s linear infinite", marginBottom: 12,
-                          }} />
-                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--gold)" }}>
-                            Confirm in wallet...
+                            position: "absolute", inset: 0, zIndex: 20, borderRadius: 16,
+                            background: "rgba(11,14,17,0.9)",
+                            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                          }}>
+                            <div style={{
+                              width: 28, height: 28, border: "3px solid #f7b32b30",
+                              borderTopColor: "#f7b32b", borderRadius: "50%",
+                              animation: "spin 0.8s linear infinite", marginBottom: 12,
+                            }} />
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--gold)" }}>
+                              Confirm in wallet...
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
 
                     {/* FLIP BUTTON / CONNECT */}
@@ -1584,7 +1611,7 @@ export default function FlipperRooms() {
                 {/* All Games */}
                 <div className="games-section" style={{ paddingTop: 20 }}>
                   <div className="games-header">
-                    <h2>{"\u26A1"} ALL GAMES</h2>
+                    <h2>ALL GAMES</h2>
                     <span className="games-count">{flipHook.challenges.length} active</span>
                   </div>
 
@@ -1648,7 +1675,7 @@ export default function FlipperRooms() {
                         </div>
                         <div className="game-amount">
                           <div className="game-amount-val" style={{ fontSize: 14 }}>{h.amount} ETH</div>
-                          {h.winnerStreak > 1 && <div style={{ fontSize: 10, color: "var(--gold)" }}>{"\u{1F525}"} {h.winnerStreak}x</div>}
+                          {h.winnerStreak > 1 && <div style={{ fontSize: 10, color: "var(--gold)", fontFamily: "'JetBrains Mono', monospace" }}>{h.winnerStreak}x streak</div>}
                         </div>
                         <div className="game-actions">
                           {won === null ? (
