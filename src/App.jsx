@@ -28,7 +28,7 @@ const addrColor = (a) => {
 //  CASINO CSS — No Tailwind
 // ═══════════════════════════════════════
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Bebas+Neue&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root {
   --bg-deep: #0b0e11;
@@ -36,8 +36,8 @@ const CSS = `
   --bg-card: #151a22;
   --bg-card-hover: #1c232e;
   --bg-elevated: #1f2937;
-  --border: #1a1f2e;
-  --border-light: #252d3d;
+  --border: #151b25;
+  --border-light: #1c2430;
 
   --gold: #f7b32b;
   --gold-bright: #ffd700;
@@ -55,7 +55,7 @@ const CSS = `
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: var(--bg-deep); color: var(--text); font-family: 'Rajdhani', sans-serif; }
+body { background: var(--bg-deep); color: var(--text); font-family: 'DM Sans', sans-serif; }
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-card); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -104,7 +104,8 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Rajdhani', 
 /* ═══ CHAT SIDEBAR (LEFT) ═══ */
 .chat-sidebar {
   display: flex; flex-direction: column; height: 100%;
-  background: var(--bg-card); border-right: 1px solid var(--border);
+  background: linear-gradient(180deg, #0d1118 0%, #0a0d13 50%, #0d1118 100%);
+  border-right: 1px solid #151b25;
   position: relative; z-index: 1;
 }
 .chat-header {
@@ -115,8 +116,8 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Rajdhani', 
 .online-badge { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
 .online-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px #22c55e60; animation: blink 2s infinite; }
 
-.chat-messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
-.chat-msg { display: flex; align-items: flex-start; gap: 8px; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 0; }
+.chat-msg { display: flex; align-items: flex-start; gap: 8px; padding: 10px 0; border-bottom: 1px solid #111820; }
 .chat-avatar {
   width: 32px; height: 32px; min-width: 32px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
@@ -138,7 +139,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Rajdhani', 
 }
 .chat-input-wrap input {
   flex: 1; background: transparent; border: none; outline: none;
-  font-size: 12px; color: var(--text); font-family: 'Rajdhani', sans-serif;
+  font-size: 12px; color: var(--text); font-family: 'DM Sans', sans-serif;
 }
 .chat-input-wrap input::placeholder { color: var(--text-muted); }
 .chat-send-btn {
@@ -164,7 +165,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Rajdhani', 
   background: linear-gradient(90deg, transparent 5%, #f7b32b30 30%, #b8860b30 50%, #f7b32b30 70%, transparent 95%);
 }
 .logo { display: flex; align-items: center; gap: 8px; }
-.logo-text { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+.logo-text { font-family: 'Bebas Neue', sans-serif; font-size: 22px; font-weight: 400; letter-spacing: 3px; }
 .logo-gold { color: var(--gold); text-shadow: 0 0 30px #f7b32b40; }
 .logo-dim { color: var(--text-muted); }
 .logo-badge {
@@ -174,7 +175,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Rajdhani', 
 .nav { display: flex; gap: 4px; }
 .nav-btn {
   padding: 8px 18px; border: none; background: none; color: var(--text-dim);
-  font-size: 13px; font-weight: 600; font-family: 'Rajdhani', sans-serif;
+  font-size: 13px; font-weight: 600; font-family: 'DM Sans', sans-serif;
   cursor: pointer; border-radius: 6px; transition: all 0.2s; position: relative;
 }
 .nav-btn:hover { color: var(--text); background: var(--bg-card); }
@@ -186,7 +187,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Rajdhani', 
 .header-right { display: flex; align-items: center; gap: 10px; }
 .connect-btn {
   padding: 8px 20px; border: none; border-radius: 8px; font-size: 13px;
-  font-weight: 700; font-family: 'Rajdhani', sans-serif; cursor: pointer;
+  font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer;
   background: linear-gradient(135deg, #b8860b, #f7b32b); color: #0b0e11;
   box-shadow: 0 0 25px #f7b32b40; transition: all 0.2s;
 }
@@ -216,13 +217,11 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Rajdhani', 
 }
 .hero-inner { position: relative; z-index: 1; }
 .hero-title-text {
-  font-size: 48px; font-weight: 900; letter-spacing: -2px; margin-bottom: 4px;
-  background: linear-gradient(90deg, #f1f5f9, #f7b32b, #ffd700, #f1f5f9);
-  background-size: 400% 100%;
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  animation: shimmer 6s linear infinite;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 56px; font-weight: 400; letter-spacing: 6px; margin-bottom: 4px;
+  color: #f7b32b; text-shadow: 0 0 30px #f7b32b25;
 }
-.hero-sub { color: var(--text-dim); font-size: 13px; margin-bottom: 24px; }
+.hero-sub { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; letter-spacing: 1px; }
 
 /* Coin stage */
 .coin-stage {
@@ -242,7 +241,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Rajdhani', 
   width: 100%; max-width: 400px; padding: 24px 0; border-radius: 14px; border: none;
   background: linear-gradient(135deg, #b8860b, #f7b32b, #ffd700);
   color: #0b0e11; font-size: 20px; font-weight: 800; cursor: pointer;
-  font-family: 'Rajdhani', sans-serif; letter-spacing: 1px;
+  font-family: 'DM Sans', sans-serif; letter-spacing: 1px;
   box-shadow: 0 0 30px #f7b32b40, 0 0 60px #f7b32b15;
   transition: all 0.2s; position: relative; overflow: hidden;
 }
@@ -324,21 +323,22 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Rajdhani', 
   padding: 8px 20px; border: none; border-radius: 8px;
   background: linear-gradient(135deg, #b8860b, #f7b32b);
   color: #0b0e11; font-size: 12px; font-weight: 700; cursor: pointer;
-  font-family: 'Rajdhani', sans-serif; transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif; transition: all 0.2s;
   box-shadow: 0 0 12px #f7b32b30;
 }
 .join-btn:hover { box-shadow: 0 0 20px #f7b32b50; transform: scale(1.05); }
 .cancel-btn {
   padding: 8px 16px; border: 1px solid var(--red); border-radius: 8px;
   background: transparent; color: var(--red); font-size: 11px; font-weight: 600;
-  cursor: pointer; font-family: 'Rajdhani', sans-serif; transition: all 0.2s;
+  cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s;
 }
 .cancel-btn:hover { background: #ef444410; }
 
 /* ═══ STATS SIDEBAR (RIGHT) ═══ */
 .stats-sidebar {
   display: flex; flex-direction: column; height: 100%;
-  background: var(--bg-card); border-left: 1px solid var(--border);
+  background: linear-gradient(180deg, #0d1118 0%, #0a0d13 50%, #0d1118 100%);
+  border-left: 1px solid #151b25;
   overflow-y: auto; position: relative; z-index: 1;
 }
 .stats-section { padding: 16px; border-bottom: 1px solid var(--border); }
@@ -374,7 +374,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Rajdhani', 
 .btn-deposit {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 10px; border-radius: 8px; font-size: 12px;
-  font-weight: 700; font-family: 'Rajdhani', sans-serif; cursor: pointer;
+  font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer;
   background: #f7b32b20; color: var(--gold); border: 1px solid #f7b32b30;
   transition: all 0.2s;
 }
@@ -383,7 +383,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Rajdhani', 
 .btn-withdraw {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 10px; border: 1px solid #ef444430; border-radius: 8px; font-size: 12px;
-  font-weight: 700; font-family: 'Rajdhani', sans-serif; cursor: pointer;
+  font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer;
   background: #ef444420; color: var(--red); transition: all 0.2s;
 }
 .btn-withdraw:hover { background: #ef444430; }
@@ -479,7 +479,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Rajdhani', 
 .seat-modal-input {
   width: 100%; padding: 10px 14px; background: var(--bg-deep);
   border: 1px solid var(--border); border-radius: 8px; color: var(--text);
-  font-size: 12px; font-family: 'Rajdhani', sans-serif; outline: none;
+  font-size: 12px; font-family: 'DM Sans', sans-serif; outline: none;
   margin-bottom: 8px; transition: border-color 0.2s;
 }
 .seat-modal-input:focus { border-color: var(--gold); }
@@ -487,12 +487,12 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Rajdhani', 
   width: 100%; padding: 12px 0; border-radius: 10px; border: none;
   background: linear-gradient(135deg, #b8860b, #f7b32b);
   color: #0b0e11; font-size: 14px; font-weight: 700;
-  cursor: pointer; font-family: 'Rajdhani', sans-serif; transition: all 0.2s;
+  cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s;
 }
 .seat-modal-btn:hover { filter: brightness(1.1); }
 .seat-action-btn {
   width: 100%; padding: 10px 0; border-radius: 8px; font-size: 12px;
-  font-weight: 700; cursor: pointer; font-family: 'Rajdhani', sans-serif;
+  font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif;
   transition: all 0.2s;
 }
 
@@ -623,8 +623,8 @@ function ChatSidebar() {
   return (
     <div className="chat-sidebar">
       <div style={{
-        padding: "16px 18px", borderBottom: "1px solid var(--border)",
-        background: "linear-gradient(180deg, #151a2210, transparent)",
+        padding: "14px 18px", borderBottom: "1px solid #151b25",
+        background: "linear-gradient(180deg, #111820, transparent)",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", letterSpacing: 0.5 }}>General Chat</span>
@@ -684,7 +684,10 @@ function StatsSidebar({ sessionBalance, connected, playerStats, protocolStats, t
 
   return (
     <div className="stats-sidebar">
-      <div className="stats-section">
+      <div style={{
+        padding: "20px 16px", borderBottom: "1px solid #151b25",
+        background: "linear-gradient(135deg, #f7b32b05, transparent)",
+      }}>
         <div className="stats-label">Session Balance</div>
         <div style={{
           fontSize: 32, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
@@ -723,11 +726,11 @@ function StatsSidebar({ sessionBalance, connected, playerStats, protocolStats, t
         <div className="stats-label">Protocol Stats</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {[
-            { l: "\u{1F4CA} Total Bets", v: protocolStats ? protocolStats.totalFlips.toLocaleString() : "0" },
-            { l: "\u{1F3E6} Treasury", v: protocolStats ? `${Number(protocolStats.treasury).toFixed(4)} \u039E` : "0.0000 \u039E" },
-            { l: "\u{1F3AF} Max Bet", v: treasuryMax ? `${parseFloat(treasuryMax).toFixed(4)} \u039E` : "0.0000 \u039E" },
-            { l: "\u{1F3C6} Jackpot", v: protocolStats ? `${Number(protocolStats.jackpot).toFixed(4)} \u039E` : "0.0000 \u039E" },
-            { l: "\u{1F4C8} Volume", v: protocolStats ? `${Number(protocolStats.totalVolume).toFixed(3)} \u039E` : "0.000 \u039E" },
+            { l: "Total Bets", v: protocolStats ? protocolStats.totalFlips.toLocaleString() : "0" },
+            { l: "Treasury", v: protocolStats ? `${Number(protocolStats.treasury).toFixed(4)} \u039E` : "0.0000 \u039E" },
+            { l: "Max Bet", v: treasuryMax ? `${parseFloat(treasuryMax).toFixed(4)} \u039E` : "0.0000 \u039E" },
+            { l: "Jackpot", v: protocolStats ? `${Number(protocolStats.jackpot).toFixed(4)} \u039E` : "0.0000 \u039E" },
+            { l: "Volume", v: protocolStats ? `${Number(protocolStats.totalVolume).toFixed(3)} \u039E` : "0.000 \u039E" },
           ].map((r, i) => (
             <div className="protocol-row" key={i}>
               <span className="protocol-row-label">{r.l}</span>
@@ -741,11 +744,11 @@ function StatsSidebar({ sessionBalance, connected, playerStats, protocolStats, t
         <div className="stats-section">
           <div className="stats-label">Your Stats</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <div style={{ background: "var(--bg-card)", borderRadius: 10, padding: "14px 8px", textAlign: "center", border: "1px solid #22c55e15" }}>
+            <div style={{ background: "linear-gradient(135deg, #22c55e08, #0a0d13)", borderRadius: 10, padding: "14px 8px", textAlign: "center", border: "1px solid #22c55e15" }}>
               <div style={{ fontSize: 24, fontWeight: 800, color: "#22c55e", fontFamily: "'JetBrains Mono', monospace" }}>{playerStats.wins}</div>
               <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Wins</div>
             </div>
-            <div style={{ background: "var(--bg-card)", borderRadius: 10, padding: "14px 8px", textAlign: "center", border: "1px solid #ef444415" }}>
+            <div style={{ background: "linear-gradient(135deg, #ef444408, #0a0d13)", borderRadius: 10, padding: "14px 8px", textAlign: "center", border: "1px solid #ef444415" }}>
               <div style={{ fontSize: 24, fontWeight: 800, color: "#ef4444", fontFamily: "'JetBrains Mono', monospace" }}>{playerStats.losses}</div>
               <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Losses</div>
             </div>
@@ -1433,6 +1436,41 @@ export default function FlipperRooms() {
             </div>
           </div>
 
+          {/* ═══ RESULTS TICKER BAR ═══ */}
+          {flipHook.history && flipHook.history.length > 0 && (
+            <div style={{
+              height: 36, display: "flex", alignItems: "center",
+              borderBottom: "1px solid var(--border)",
+              background: "var(--bg-main)",
+              padding: "0 20px", gap: 12, overflow: "hidden",
+              flexShrink: 0,
+            }}>
+              <span style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 700, letterSpacing: 1, whiteSpace: "nowrap" }}>RESULTS</span>
+              <div style={{ width: 1, height: 16, background: "var(--border)" }} />
+              <div style={{
+                display: "flex", gap: 4, overflow: "hidden", flex: 1,
+                maskImage: "linear-gradient(90deg, black 80%, transparent 100%)",
+                WebkitMaskImage: "linear-gradient(90deg, black 80%, transparent 100%)",
+              }}>
+                {flipHook.history.slice(0, 30).map((h, i) => {
+                  const isWin = address && h.winner?.toLowerCase() === address.toLowerCase();
+                  return (
+                    <div key={i} style={{
+                      minWidth: 22, height: 22, borderRadius: 4,
+                      background: isWin ? "#22c55e20" : "#ef444420",
+                      border: "1px solid " + (isWin ? "#22c55e50" : "#ef444450"),
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 9, fontWeight: 800, color: isWin ? "#22c55e" : "#ef4444",
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }}>
+                      {isWin ? "W" : "L"}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="game-scroll">
 
             {/* ═══ COINFLIP VIEW ═══ */}
@@ -1455,12 +1493,6 @@ export default function FlipperRooms() {
                     {/* Coin Area */}
                     <div className="coin-stage">
                       <div className="coin-stage-glow" />
-                      <div className="coin-orbiter coin-orbiter-1">
-                        <div style={{ position: "absolute", top: 0, left: "50%", width: 8, height: 8, marginLeft: -4, borderRadius: "50%", background: "var(--gold)", boxShadow: "0 0 10px #f7b32b80" }} />
-                      </div>
-                      <div className="coin-orbiter coin-orbiter-2">
-                        <div style={{ position: "absolute", bottom: 0, left: "50%", width: 6, height: 6, marginLeft: -3, borderRadius: "50%", background: "var(--gold-bright)", boxShadow: "0 0 10px #ffd70080" }} />
-                      </div>
                       <div style={{ width: "100%", height: "100%" }}>
                         <Coin3D state={coinState} onComplete={onFlipDone} />
                       </div>
@@ -1490,39 +1522,6 @@ export default function FlipperRooms() {
                         </div>
                       )}
                     </div>
-
-                    {/* Result ticker */}
-                    {connected && flipHook.history && flipHook.history.length > 0 && (
-                      <div style={{
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        gap: 6, padding: "12px 0", marginBottom: 16, overflowX: "auto",
-                      }}>
-                        <span style={{ fontSize: 10, color: "var(--text-muted)", marginRight: 8, whiteSpace: "nowrap" }}>LAST FLIPS</span>
-                        {flipHook.history.slice(0, 20).map((h, i) => {
-                          const isWin = address && h.winner?.toLowerCase() === address.toLowerCase();
-                          return (
-                            <div key={i} style={{
-                              width: 24, height: 24, borderRadius: "50%",
-                              background: isWin ? "#22c55e25" : "#ef444425",
-                              border: "2px solid " + (isWin ? "#22c55e" : "#ef4444"),
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                              fontSize: 10, fontWeight: 800, color: isWin ? "#22c55e" : "#ef4444",
-                              flexShrink: 0,
-                              animation: i === 0 ? "fadeIn 0.3s ease" : "none",
-                            }}>
-                              {isWin ? "W" : "L"}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Streak */}
-                    {connected && playerStats && playerStats.streak > 0 && (
-                      <div style={{ marginBottom: 16, fontSize: 14, fontWeight: 700, color: "var(--gold)" }}>
-                        {"\u{1F525}"} {playerStats.streak}x Streak
-                      </div>
-                    )}
 
                     {/* FLIP BUTTON / CONNECT */}
                     {!connected ? (
