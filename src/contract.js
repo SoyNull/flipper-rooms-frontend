@@ -257,29 +257,32 @@ export function parseSeatBought(receipt, contract) {
 
 export function decodeError(err) {
   const msg = err?.reason || err?.message || "Transaction failed";
-  const match = msg.match(/reverted with custom error '(\w+)\(\)'/);
-  if (match) return match[1];
   const errorMap = {
-    InsufficientBalance: "Insufficient balance",
-    InvalidTier: "Invalid bet tier",
-    ChallengeNotOpen: "Challenge not open",
-    CannotPlaySelf: "Cannot play against yourself",
-    SeatNotActive: "Seat not active",
-    NotSeatOwner: "Not seat owner",
-    PriceBelowMinimum: "Price below minimum",
-    InvalidSeatId: "Invalid seat ID",
-    NothingToClaim: "Nothing to claim",
-    TreasuryBetTooHigh: "Bet exceeds treasury max",
-    NoTreasuryAvailable: "Treasury empty",
-    DepositRequired: "Deposit required (send more ETH)",
-    PriceExceedsMax: "Price exceeds your max (front-run protection)",
-    CooldownActive: "Price cooldown active (1h)",
-    NotChallengeCreator: "Not challenge creator",
+    InsufficientBalance: "Not enough balance. Deposit more ETH first.",
+    InvalidTier: "This bet amount is not available.",
+    ChallengeNotOpen: "This challenge is no longer available.",
+    CannotPlaySelf: "You can't play against yourself.",
+    SeatNotActive: "This seat is not active.",
+    NotSeatOwner: "You don't own this seat.",
+    PriceBelowMinimum: "Price must be at least 0.001 ETH.",
+    InvalidSeatId: "Invalid seat ID.",
+    NothingToClaim: "No rewards to claim yet.",
+    TreasuryBetTooHigh: "Treasury can't cover this bet. Try a smaller tier.",
+    NoTreasuryAvailable: "Treasury is empty. Try PvP instead.",
+    DepositRequired: "Send more ETH than the seat price (excess = deposit).",
+    PriceExceedsMax: "Price changed since you loaded. Refresh and retry.",
+    CooldownActive: "Wait 1 hour after buying/repricing.",
+    NotChallengeCreator: "Not your challenge to cancel.",
+    NameTooLong: "Seat name must be 32 characters or less.",
+    ReferralSeatInactive: "Referral seat has no owner.",
+    AlreadyInitialized: "Seats already initialized.",
   };
   for (const [key, val] of Object.entries(errorMap)) {
     if (msg.includes(key)) return val;
   }
-  return msg.length > 120 ? msg.slice(0, 120) + "..." : msg;
+  if (msg.includes("user rejected") || msg.includes("User denied")) return "Transaction cancelled.";
+  if (msg.includes("insufficient funds")) return "Not enough ETH in wallet for gas.";
+  return msg.length > 100 ? msg.slice(0, 100) + "..." : msg;
 }
 
 export { EXPLORER };

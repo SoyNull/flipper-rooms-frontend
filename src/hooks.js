@@ -160,6 +160,7 @@ export function useWallet() {
 export function useFlip(contract, address, refreshBalance) {
   const [isFlipping, setIsFlipping] = useState(false);
   const [lastResult, setLastResult] = useState(null);
+  const [lastFlipDetails, setLastFlipDetails] = useState(null);
   const [challenges, setChallenges] = useState([]);
   const [history, setHistory] = useState([]);
 
@@ -229,6 +230,7 @@ export function useFlip(contract, address, refreshBalance) {
     if (!contract) return null;
     setIsFlipping(true);
     setLastResult(null);
+    setLastFlipDetails(null);
     const pendingId = addToast("pending", "Flipping vs Treasury...");
     try {
       const receipt = await flipVsTreasuryFn(contract, tierWei, referral);
@@ -237,6 +239,7 @@ export function useFlip(contract, address, refreshBalance) {
       if (result) {
         const won = result.winner.toLowerCase() === address?.toLowerCase();
         setLastResult(won ? "win" : "lose");
+        setLastFlipDetails({ ...result, txHash: receipt.hash, won });
         addToast(won ? "success" : "error",
           won ? `Won ${result.payout} ETH!` : `Lost ${result.amount} ETH`,
           receipt.hash
@@ -258,6 +261,7 @@ export function useFlip(contract, address, refreshBalance) {
     if (!contract) return null;
     setIsFlipping(true);
     setLastResult(null);
+    setLastFlipDetails(null);
     const pendingId = addToast("pending", "Accepting challenge...");
     try {
       const receipt = await acceptChallengeFn(contract, challengeId, referral);
@@ -266,6 +270,7 @@ export function useFlip(contract, address, refreshBalance) {
       if (result) {
         const won = result.winner.toLowerCase() === address?.toLowerCase();
         setLastResult(won ? "win" : "lose");
+        setLastFlipDetails({ ...result, txHash: receipt.hash, won });
         addToast(won ? "success" : "error",
           won ? `Won ${result.payout} ETH!` : `Lost ${result.amount} ETH`,
           receipt.hash
@@ -300,7 +305,8 @@ export function useFlip(contract, address, refreshBalance) {
   }, [contract, refreshBalance, refreshChallenges]);
 
   return {
-    isFlipping, lastResult, setLastResult, challenges, history,
+    isFlipping, lastResult, setLastResult, lastFlipDetails, setLastFlipDetails,
+    challenges, history,
     refreshChallenges, refreshHistory,
     flipPvp, flipTreasury, acceptCh, cancelCh,
   };
