@@ -1288,6 +1288,7 @@ export default function FlipperRooms() {
   const tierBarRef = useRef(null);
   const [borderState, setBorderState] = useState("idle");
   const spinStartRef = useRef(0);
+  const forceFlipRef = useRef(false);
 
   const resetFlip = useCallback(() => {
     setCoinState("idle");
@@ -1359,11 +1360,17 @@ export default function FlipperRooms() {
     }
   }, [referral]);
 
+  // Auto-trigger flip after reset from Rematch/Double
+  useEffect(() => {
+    if (forceFlipRef.current && coinState === "idle" && !showResult) {
+      forceFlipRef.current = false;
+      handleFlip();
+    }
+  }, [coinState, showResult]);
+
   // ═══ FLIP VS TREASURY — SINGLE TX ═══
   const handleFlip = async () => {
-    if (!contract || !connected) return;
-    if (showResult) { resetFlip(); return; }
-    if (coinState !== "idle") return;
+    if (!contract || !connected || coinState !== "idle") return;
     playClickSound();
 
     const tierWei = TIERS[tier].wei;
@@ -1735,18 +1742,23 @@ export default function FlipperRooms() {
                               <div className={`result-amount ${showResult ? "visible" : ""} ${result === "win" ? "win-amount" : result === "lose" ? "lose-amount" : ""}`}>
                                 {result === "win" ? `+${lastPayout} ETH` : result === "lose" ? `-${tierEth} ETH` : ""}
                               </div>
-                              <div className={`result-actions ${showResult ? "visible" : ""}`}>
-                                <button className="action-btn btn-rematch" onClick={() => { resetFlip(); setTimeout(() => handleFlip(), 100); }}>Rematch</button>
-                                {result === "win" && (
-                                  <button className="action-btn btn-double" onClick={() => {
+                              {showResult && (
+                                <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "center", animation: "fadeIn 0.4s ease 0.5s both" }}>
+                                  <button className="action-btn btn-rematch" onClick={() => {
+                                    if (!isEmbedded) addToast("info", "Use email login for instant flips");
                                     resetFlip();
-                                    const nextTier = Math.min(TIERS.length - 1, tier + 1);
-                                    setTier(nextTier);
-                                    setTimeout(() => handleFlip(), 100);
-                                  }}>Double or nothing</button>
-                                )}
-                                <button className="action-btn btn-change" onClick={resetFlip}>Change tier</button>
-                              </div>
+                                    forceFlipRef.current = true;
+                                  }}>Rematch</button>
+                                  {result === "win" && (
+                                    <button className="action-btn btn-double" onClick={() => {
+                                      setTier(prev => Math.min(TIERS.length - 1, prev + 1));
+                                      resetFlip();
+                                      forceFlipRef.current = true;
+                                    }}>Double or nothing</button>
+                                  )}
+                                  <button className="action-btn btn-change" onClick={resetFlip}>New bet</button>
+                                </div>
+                              )}
                             </div>
 
                             {/* Streak bar */}
