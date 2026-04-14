@@ -23,20 +23,20 @@ const CSS = `
   --bg-elevated: #1e1e42;
   --border: #2a2a5a;
   --border-light: #3a3a6a;
-  --text: #eee;
-  --text-dim: #9090b0;
+  --text: #f5f5f5;
+  --text-dim: #a0a0c0;
   --text-muted: #505070;
-  --green: #00ffa3;
-  --green-glow: #00ffa350;
+  --green: #00ff88;
+  --green-glow: #00ff8860;
   --green-dark: #006644;
-  --red: #ff3366;
-  --red-glow: #ff336650;
-  --gold: #ffcc00;
-  --gold-glow: #ffcc0050;
+  --red: #ff2d55;
+  --red-glow: #ff2d5550;
+  --gold: #ffe033;
+  --gold-glow: #ffe03360;
   --blue: #4488ff;
-  --purple: #8855ff;
-  --purple-glow: #8855ff40;
-  --teal: #00e5ff;
+  --purple: #a855f7;
+  --purple-glow: #a855f760;
+  --teal: #00ffcc;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -54,15 +54,29 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 @keyframes shake { 0%,100% { transform: translateX(0); } 15% { transform: translateX(-8px); } 30% { transform: translateX(8px); } 45% { transform: translateX(-6px); } 60% { transform: translateX(6px); } 75% { transform: translateX(-3px); } 90% { transform: translateX(3px); } }
 @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes btnPulse {
+  0%, 100% { box-shadow: 0 0 20px var(--purple-glow), 0 0 40px #a855f720; }
+  50% { box-shadow: 0 0 35px var(--purple-glow), 0 0 70px #a855f730; }
+}
+@keyframes btnPulseGold {
+  0%, 100% { box-shadow: 0 0 20px var(--gold-glow), 0 0 40px #ffe03320; }
+  50% { box-shadow: 0 0 35px var(--gold-glow), 0 0 70px #ffe03330; }
+}
+@keyframes borderGlow {
+  0% { box-shadow: 0 0 15px #a855f740, 0 0 30px #a855f720, inset 0 0 30px #a855f708; }
+  33% { box-shadow: 0 0 15px #00ff8840, 0 0 30px #00ff8820, inset 0 0 30px #00ff8808; }
+  66% { box-shadow: 0 0 15px #ffe03340, 0 0 30px #ffe03320, inset 0 0 30px #ffe03308; }
+  100% { box-shadow: 0 0 15px #a855f740, 0 0 30px #a855f720, inset 0 0 30px #a855f708; }
+}
+@keyframes spin { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(360deg); } }
 
 .app {
   display: flex; height: 100vh; overflow: hidden;
   background:
-    radial-gradient(ellipse at 15% 50%, #8855ff08 0%, transparent 40%),
-    radial-gradient(ellipse at 85% 20%, #00ffa306 0%, transparent 35%),
-    radial-gradient(ellipse at 50% 90%, #ffcc0004 0%, transparent 30%),
-    radial-gradient(ellipse at 0% 0%, #4488ff05 0%, transparent 50%),
-    linear-gradient(180deg, #0c0c22 0%, #0a0a1a 30%, #08081a 100%);
+    radial-gradient(ellipse at 15% 50%, #a855f710 0%, transparent 40%),
+    radial-gradient(ellipse at 85% 20%, #00ff8808 0%, transparent 35%),
+    radial-gradient(ellipse at 50% 90%, #ffe03306 0%, transparent 30%),
+    radial-gradient(ellipse at 50% 50%, #0a0a1a 0%, #060612 100%);
 }
 
 /* SIDEBAR */
@@ -152,14 +166,14 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600;
   transition: box-shadow 0.3s;
 }
-.balance-pill.has-bal { background: #00ffa310; border-color: #00ffa330; box-shadow: 0 0 15px #00ffa320; }
+.balance-pill.has-bal { background: #00ff8810; border-color: #00ff8840; box-shadow: 0 0 20px #00ff8830; }
 .connect-btn {
   padding: 8px 20px; border: none; border-radius: 8px; font-size: 13px;
   font-weight: 700; font-family: 'Outfit', sans-serif; cursor: pointer;
-  background: linear-gradient(135deg, #00cc80, #00ffa3); color: #000; transition: all 0.2s;
-  box-shadow: 0 0 20px #00ffa330;
+  background: linear-gradient(135deg, #00cc70, #00ff88); color: #000; transition: all 0.2s;
+  box-shadow: 0 0 25px #00ff8840; text-shadow: 0 0 5px #00000050;
 }
-.connect-btn:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 0 30px #00ffa350; }
+.connect-btn:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 0 35px #00ff8860, 0 0 60px #00ff8830; }
 .addr-pill {
   padding: 6px 14px; background: var(--bg-card); border: 1px solid var(--border);
   border-radius: 8px; font-size: 12px; color: var(--text-dim); cursor: pointer;
@@ -187,13 +201,13 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 }
 
 /* HERO */
-.hero-title { font-size: 12px; color: var(--purple); letter-spacing: 4px; font-weight: 700; margin-bottom: 4px; animation: fadeInUp 0.5s ease 0.1s both; }
+.hero-title { font-size: 12px; color: #a855f7; letter-spacing: 4px; font-weight: 700; margin-bottom: 4px; animation: fadeInUp 0.5s ease 0.1s both; text-shadow: 0 0 15px #a855f740; }
 .hero-big {
   font-size: 48px; font-weight: 900; letter-spacing: -2px;
-  background: linear-gradient(135deg, #fff 0%, #8855ff 30%, #00ffa3 60%, #fff 100%);
-  background-size: 400% 400%;
+  background: linear-gradient(90deg, #f5f5f5, #a855f7, #00ff88, #f5f5f5);
+  background-size: 400% 100%;
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  animation: shimmer 5s ease infinite, fadeInUp 0.5s ease 0.2s both;
+  animation: shimmer 6s linear infinite, fadeInUp 0.5s ease 0.2s both;
   margin-bottom: 24px;
 }
 
@@ -215,10 +229,10 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 }
 .tier-btn:hover { border-color: #3a3a6a; background: #1a1a3e; color: #ccc; }
 .tier-btn.active {
-  border-color: #8855ff; color: #c4a5ff;
-  background: linear-gradient(135deg, #1a1050, #150d40);
-  box-shadow: 0 0 25px #8855ff30, 0 0 60px #8855ff15;
-  text-shadow: 0 0 10px #8855ff50;
+  border-color: #00ff88; color: #00ff88;
+  background: #00ff8812;
+  box-shadow: 0 0 20px #00ff8835, 0 0 50px #00ff8818;
+  text-shadow: 0 0 8px #00ff8860;
   transform: scale(1.02);
 }
 .tier-btn.active::after {
@@ -235,7 +249,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
     #0a0a1a;
   border: 1px solid var(--border); border-radius: 16px;
   height: 320px; margin-bottom: 24px; position: relative; overflow: hidden;
-  animation: fadeInUp 0.5s ease 0.5s both;
+  animation: fadeInUp 0.5s ease 0.5s both, borderGlow 6s ease infinite;
   display: flex; align-items: center; justify-content: center;
 }
 .coin-stage::before {
@@ -278,15 +292,17 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .flip-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .flip-btn:disabled::before { display: none; }
 .flip-btn-pvp {
-  background: linear-gradient(135deg, #6d28d9, #8855ff);
-  color: #fff; box-shadow: 0 0 30px #8855ff40, 0 0 60px #8855ff20;
+  background: linear-gradient(135deg, #7c3aed, #a855f7, #c084fc);
+  color: #fff; box-shadow: 0 0 30px #a855f740, 0 0 60px #a855f720;
 }
-.flip-btn-pvp:hover { box-shadow: 0 0 40px #8855ff60, 0 0 80px #8855ff30; }
+.flip-btn-pvp:not(:disabled) { animation: btnPulse 2s ease infinite; }
+.flip-btn-pvp:hover { box-shadow: 0 0 40px #a855f760, 0 0 80px #a855f730; }
 .flip-btn-treasury {
-  background: linear-gradient(135deg, #b8860b, #ffcc00);
-  color: #000; box-shadow: 0 0 30px #ffcc0040, 0 0 60px #ffcc0020;
+  background: linear-gradient(135deg, #d4a20a, #ffe033, #fff176);
+  color: #000; box-shadow: 0 0 30px #ffe03340, 0 0 60px #ffe03320;
 }
-.flip-btn-treasury:hover { box-shadow: 0 0 40px #ffcc0060, 0 0 80px #ffcc0030; }
+.flip-btn-treasury:not(:disabled) { animation: btnPulseGold 2s ease infinite; }
+.flip-btn-treasury:hover { box-shadow: 0 0 40px #ffe03360, 0 0 80px #ffe03330; }
 .flip-sub { font-size: 11px; font-weight: 500; opacity: 0.7; margin-top: 4px; }
 
 /* GAME ROWS */
@@ -330,12 +346,12 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 
 .join-btn {
   padding: 8px 22px; border: none; border-radius: 8px;
-  background: linear-gradient(135deg, #00cc80, #00ffa3);
+  background: linear-gradient(135deg, #00cc70, #00ff88);
   color: #000; font-size: 12px; font-weight: 700; cursor: pointer;
   font-family: 'Outfit', sans-serif; transition: all 0.2s;
-  box-shadow: 0 0 12px #00ffa330;
+  box-shadow: 0 0 12px #00ff8835; text-shadow: 0 0 3px #00000030;
 }
-.join-btn:hover { box-shadow: 0 0 20px #00ffa350; transform: scale(1.05); }
+.join-btn:hover { box-shadow: 0 0 20px #00ff8850; transform: scale(1.08); }
 .cancel-btn {
   padding: 8px 16px; border: 1px solid var(--red); border-radius: 8px;
   background: transparent; color: var(--red); font-size: 11px; font-weight: 600;
@@ -350,7 +366,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700;
   margin-bottom: 12px; transition: all 0.3s;
 }
-.info-balance.has-bal { color: var(--green); text-shadow: 0 0 25px #00ffa340; }
+.info-balance.has-bal { color: #00ff88; text-shadow: 0 0 20px #00ff8850, 0 0 40px #00ff8830; }
 .quick-btns { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
 .quick-btn {
   padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px;
@@ -460,18 +476,19 @@ function Coin3D({ state, onComplete }) {
     renderer.toneMappingExposure = 1.4;
     el.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.3));
-    const dir = new THREE.DirectionalLight(0xffffff, 1.0); dir.position.set(3, 5, 4); scene.add(dir);
-    const rim = new THREE.DirectionalLight(0x8855ff, 0.8); rim.position.set(-3, -2, 3); scene.add(rim);
-    const accent = new THREE.PointLight(0x8855ff, 1.0, 10); accent.position.set(0, 0, 3); scene.add(accent);
-    const accent2 = new THREE.PointLight(0x00ffa3, 0.3, 10); accent2.position.set(2, -1, 2); scene.add(accent2);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const dir = new THREE.DirectionalLight(0xffffff, 1.4); dir.position.set(3, 5, 4); scene.add(dir);
+    const rim = new THREE.DirectionalLight(0xa855f7, 1.2); rim.position.set(-3, -2, 3); scene.add(rim);
+    const accent = new THREE.PointLight(0xa855f7, 1.5, 10); accent.position.set(0, 0, 3); scene.add(accent);
+    const accent2 = new THREE.PointLight(0x00ff88, 0.3, 10); accent2.position.set(2, -1, 2); scene.add(accent2);
+    const accent3 = new THREE.PointLight(0x00ff88, 0.5, 8); accent3.position.set(-2, 1, 3); scene.add(accent3);
 
     const coinGroup = new THREE.Group(); scene.add(coinGroup);
     const r = 1.1, th = 0.1, seg = 64;
-    const mat = new THREE.MeshStandardMaterial({ color: 0x7c3aed, metalness: 0.9, roughness: 0.12, emissive: 0x2d1065, emissiveIntensity: 0.25 });
+    const mat = new THREE.MeshStandardMaterial({ color: 0xa855f7, metalness: 0.75, roughness: 0.15, emissive: 0x6d28d9, emissiveIntensity: 0.4 });
     const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, th, seg), mat);
     body.rotation.x = Math.PI / 2; coinGroup.add(body);
-    const edgeMat = new THREE.MeshStandardMaterial({ color: 0x6d28d9, metalness: 0.9, roughness: 0.15 });
+    const edgeMat = new THREE.MeshStandardMaterial({ color: 0x9333ea, metalness: 0.9, roughness: 0.15 });
     coinGroup.add(new THREE.Mesh(new THREE.TorusGeometry(r, th / 2, 16, seg), edgeMat));
 
     const makeLabel = (text, z, flip) => {
@@ -481,7 +498,7 @@ function Coin3D({ state, onComplete }) {
       ctx.fillStyle = "#ffffff"; ctx.font = "bold 120px 'Arial'";
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(text, 128, 128);
-      const fMat = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(c), transparent: true, metalness: 0.5, roughness: 0.4, color: 0x5b21b6 });
+      const fMat = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(c), transparent: true, metalness: 0.4, roughness: 0.4, color: 0x7c3aed });
       const face = new THREE.Mesh(new THREE.CircleGeometry(r * 0.8, seg), fMat);
       face.position.z = z; if (flip) face.rotation.y = Math.PI; coinGroup.add(face);
     };
