@@ -600,37 +600,82 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
   border: 1px solid var(--border); border-radius: 20px; overflow: hidden;
 }
 
-/* Seat detail overlay */
-.seat-overlay {
-  position: fixed; inset: 0; z-index: 1000;
-  background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);
-  display: flex; align-items: center; justify-content: center;
-  animation: fadeIn 0.3s ease;
-}
-.seat-modal {
-  width: 400px; max-width: 95vw; background: var(--bg-card);
-  border: 1px solid var(--border); border-radius: 16px; padding: 24px;
-  animation: fadeInUp 0.3s ease;
-}
-.seat-modal-input {
-  width: 100%; padding: 10px 14px; background: var(--bg-deep);
-  border: 1px solid var(--border); border-radius: 8px; color: var(--text);
-  font-size: 12px; font-family: 'Chakra Petch', sans-serif; outline: none;
-  margin-bottom: 8px; transition: border-color 0.2s;
-}
+/* ═══ BOARD ═══ */
+.board-container { display: flex; height: 100%; overflow: hidden; }
+.board-left { width: 200px; min-width: 200px; border-right: 1px solid #151b25; padding: 14px; overflow-y: auto; background: linear-gradient(180deg, #0d1118, #0a0d13); }
+.board-grid-area { flex: 1; padding: 12px; overflow-y: auto; display: flex; flex-direction: column; }
+.board-right { width: 200px; min-width: 200px; border-left: 1px solid #151b25; padding: 14px; overflow-y: auto; background: linear-gradient(180deg, #0d1118, #0a0d13); }
+.board-label { font-size: 9px; color: #475569; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 10px; }
+.board-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 16px; }
+.board-stat-card { background: #131820; border-radius: 8px; padding: 10px 8px; text-align: center; }
+.board-stat-value { font-size: 18px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+.board-stat-label { font-size: 9px; color: #475569; margin-top: 2px; }
+.board-info-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #111820; font-size: 11px; }
+.board-info-label { color: #475569; }
+.board-info-value { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: #e2e8f0; }
+.holder-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #111820; }
+.holder-rank { font-size: 11px; font-weight: 700; color: #475569; width: 16px; }
+.holder-avatar { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 800; color: #fff; }
+.holder-name { font-size: 11px; font-weight: 600; color: #c8d0da; flex: 1; }
+.holder-count { font-size: 11px; font-weight: 700; color: #f7b32b; font-family: 'JetBrains Mono', monospace; }
+.seat-grid { display: grid; grid-template-columns: repeat(16, 1fr); gap: 2px; }
+.seat-tile { aspect-ratio: 1; border-radius: 4px; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; transition: all 0.15s; border: 2px solid transparent; }
+.seat-tile:hover { transform: scale(1.15); z-index: 5; }
+.seat-tile.tile-empty { background: #0d1118; border-color: #131820; }
+.seat-tile.tile-empty:hover { border-color: #1c2430; }
+.seat-tile.tile-owned { border-color: #1c2430; }
+.seat-tile.tile-owned:hover { border-color: #f7b32b50; }
+.seat-tile.tile-mine { border-color: #f7b32b60; }
+.seat-tile.tile-mine:hover { border-color: #f7b32b; }
+.tile-avatar { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 6px; font-weight: 800; color: #fff; margin-bottom: 1px; }
+.tile-id { font-size: 7px; color: #374151; font-weight: 600; }
+.tile-price { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; font-size: 7px; font-weight: 700; color: #f7b32b; font-family: 'JetBrains Mono', monospace; background: #0b0e11cc; padding: 1px 0; border-radius: 0 0 2px 2px; }
+.activity-item { padding: 8px 0; border-bottom: 1px solid #111820; }
+.activity-head { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.activity-avatar { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 6px; font-weight: 800; color: #fff; }
+.activity-name { font-size: 10px; font-weight: 600; color: #c8d0da; }
+.activity-detail { display: flex; justify-content: space-between; font-size: 9px; }
+.activity-action { color: #475569; }
+.activity-price { color: #f7b32b; font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+.my-seat-card { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; margin-bottom: 3px; border-radius: 6px; background: #131820; border: 1px solid #f7b32b15; cursor: pointer; transition: all 0.2s; }
+.my-seat-card:hover { border-color: #f7b32b40; background: #151e2a; }
+
+/* Modal */
+.seat-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 1000; animation: fadeIn 0.2s ease; }
+.seat-modal { background: #131820; border: 1px solid #1c2430; border-radius: 16px; width: 420px; max-width: 95vw; max-height: 90vh; overflow-y: auto; padding: 24px; animation: fadeInUp 0.3s ease; }
+.modal-top-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.modal-top-card { background: #0d1118; border: 1px solid #1c2430; border-radius: 10px; padding: 12px; }
+.mtc-label { font-size: 9px; color: #475569; letter-spacing: 1px; font-weight: 700; margin-bottom: 4px; }
+.mtc-value { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700; }
+.mtc-note { font-size: 9px; color: #475569; margin-top: 2px; }
+.modal-holder { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; padding: 10px 12px; background: #0d1118; border-radius: 8px; border: 1px solid #1c2430; }
+.price-options { display: flex; gap: 6px; margin-bottom: 16px; }
+.price-option { flex: 1; padding: 10px 4px; border-radius: 8px; border: 1px solid #1c2430; background: #0d1118; cursor: pointer; text-align: center; transition: all 0.2s; }
+.price-option:hover { border-color: #f7b32b40; }
+.price-option.active { border-color: #f7b32b; background: #f7b32b08; }
+.price-option-value { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #e2e8f0; }
+.price-option.active .price-option-value { color: #f7b32b; }
+.price-option-mult { font-size: 9px; color: #475569; margin-top: 2px; }
+.price-option.active .price-option-mult { color: #f7b32b90; }
+.duration-options { display: flex; gap: 4px; margin-bottom: 16px; }
+.duration-btn { padding: 3px 10px; border-radius: 5px; border: 1px solid #1c2430; background: #0d1118; color: #475569; font-size: 10px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.duration-btn:hover { border-color: #f7b32b40; }
+.duration-btn.active { border-color: #f7b32b; color: #f7b32b; background: #f7b32b08; }
+.cost-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #1c243030; font-size: 12px; }
+.cost-label { color: #475569; }
+.cost-value { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: #e2e8f0; }
+.total-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; margin-bottom: 16px; }
+.total-label { font-size: 14px; font-weight: 700; color: #e2e8f0; }
+.total-value { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 700; color: #f7b32b; }
+.modal-buy-btn { width: 100%; padding: 14px; border-radius: 10px; border: none; background: linear-gradient(135deg, #b8860b, #f7b32b, #ffd700); color: #0b0e11; font-size: 15px; font-weight: 800; cursor: pointer; font-family: 'Chakra Petch', sans-serif; transition: all 0.2s; }
+.modal-buy-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px #f7b32b30; }
+.modal-buy-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.modal-cancel-btn { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #1c2430; background: transparent; color: #94a3b8; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; }
+.modal-cancel-btn:hover { background: #151a22; }
+.modal-action-btn { width: 100%; padding: 10px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; margin-top: 6px; transition: all 0.2s; }
+.modal-section-label { font-size: 10px; color: #94a3b8; font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; }
+.seat-modal-input { width: 100%; padding: 10px 14px; background: #0d1118; border: 1px solid #1c2430; border-radius: 8px; color: var(--text); font-size: 12px; font-family: 'Chakra Petch', sans-serif; outline: none; margin-bottom: 8px; transition: border-color 0.2s; }
 .seat-modal-input:focus { border-color: var(--gold); }
-.seat-modal-btn {
-  width: 100%; padding: 12px 0; border-radius: 10px; border: none;
-  background: linear-gradient(135deg, #b8860b, #f7b32b);
-  color: #0b0e11; font-size: 14px; font-weight: 700;
-  cursor: pointer; font-family: 'Chakra Petch', sans-serif; transition: all 0.2s;
-}
-.seat-modal-btn:hover { filter: brightness(1.1); }
-.seat-action-btn {
-  width: 100%; padding: 10px 0; border-radius: 8px; font-size: 12px;
-  font-weight: 700; cursor: pointer; font-family: 'Chakra Petch', sans-serif;
-  transition: all 0.2s;
-}
 
 /* ═══ RESPONSIVE ═══ */
 @media (max-width: 1100px) {
@@ -998,117 +1043,76 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
   }, [selectedSeat, selectedMult, selectedDuration]);
 
   return (
-    <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
-      {/* LEFT INFO PANEL */}
-      <div style={{ width: 220, minWidth: 220, padding: 16, overflowY: "auto", borderRight: "1px solid var(--border)" }}>
-        <div style={{ marginBottom: 20 }}>
-          <div className="stats-label">BOARD STATS</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <div style={{ background: "var(--bg-card)", borderRadius: 8, padding: 12, textAlign: "center" }}>
-              <div style={{ fontSize: 18, fontWeight: 700, color: "var(--gold)", fontFamily: "'JetBrains Mono', monospace" }}>{ownedCount}</div>
-              <div style={{ fontSize: 9, color: "var(--text-muted)" }}>OWNED</div>
-            </div>
-            <div style={{ background: "var(--bg-card)", borderRadius: 8, padding: 12, textAlign: "center" }}>
-              <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text)", fontFamily: "'JetBrains Mono', monospace" }}>{256 - ownedCount}</div>
-              <div style={{ fontSize: 9, color: "var(--text-muted)" }}>AVAILABLE</div>
-            </div>
+    <div className="board-container">
+      {/* LEFT PANEL */}
+      <div className="board-left">
+        <div className="board-label">BOARD STATS</div>
+        <div className="board-stats-grid">
+          <div className="board-stat-card">
+            <div className="board-stat-value" style={{ color: "#f7b32b" }}>{ownedCount}</div>
+            <div className="board-stat-label">OWNED</div>
+          </div>
+          <div className="board-stat-card">
+            <div className="board-stat-value" style={{ color: "#e2e8f0" }}>{256 - ownedCount}</div>
+            <div className="board-stat-label">AVAILABLE</div>
           </div>
         </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Floor Price</span>
-            <span style={{ color: "var(--gold)", fontSize: 12, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>{floorPrice} {"\u039E"}</span>
+        {[
+          { l: "Floor Price", v: `${floorPrice} \u039E`, c: "#f7b32b" },
+          { l: "Total Value", v: `${totalValue} \u039E`, c: "#e2e8f0" },
+          { l: "Weekly Tax", v: "5%", c: "#e2e8f0" },
+          { l: "Your Seats", v: `${seatHook.mySeats.length}`, c: "#f7b32b" },
+          { l: "Yield Pool", v: `${protocolStats ? Number(protocolStats.seatPool).toFixed(4) : "0"} \u039E`, c: "#22c55e" },
+          { l: "Est. Yield", v: `${estYieldPerSeat} \u039E/wk`, c: "#94a3b8" },
+        ].map((r, i) => (
+          <div className="board-info-row" key={i}>
+            <span className="board-info-label">{r.l}</span>
+            <span className="board-info-value" style={{ color: r.c }}>{r.v}</span>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Total Value</span>
-            <span style={{ color: "var(--text)", fontSize: 12, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>{totalValue} {"\u039E"}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Weekly Tax</span>
-            <span style={{ color: "var(--text)", fontSize: 12, fontWeight: 600 }}>5%</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Your Seats</span>
-            <span style={{ color: "var(--gold)", fontSize: 12, fontWeight: 600 }}>{seatHook.mySeats.length}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Yield Pool</span>
-            <span style={{ color: "var(--green)", fontSize: 12, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>{protocolStats ? Number(protocolStats.seatPool).toFixed(4) : "0"} {"\u039E"}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Est. Yield/Seat</span>
-            <span style={{ color: "var(--text-dim)", fontSize: 12, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>{estYieldPerSeat} {"\u039E"}/wk</span>
-          </div>
-        </div>
+        ))}
 
-        <div>
-          <div className="stats-label">TOP TILE HOLDERS</div>
-          {topHolders.length === 0 && <div style={{ fontSize: 11, color: "var(--text-muted)" }}>No seats owned yet</div>}
-          {topHolders.map((h, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", width: 18 }}>{i + 1}</span>
-              <div style={{
-                width: 24, height: 24, borderRadius: "50%",
-                background: addrColor(h.address),
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 8, fontWeight: 700, color: "#fff",
-              }}>{h.address.slice(2, 4).toUpperCase()}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text)" }}>{shortAddr(h.address)}</div>
-              </div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", fontFamily: "'JetBrains Mono', monospace" }}>{h.count}</div>
-            </div>
-          ))}
-        </div>
+        <div className="board-label" style={{ marginTop: 16 }}>TOP HOLDERS</div>
+        {topHolders.length === 0 && <div style={{ fontSize: 10, color: "#475569" }}>No seats owned yet</div>}
+        {topHolders.map((h, i) => (
+          <div className="holder-row" key={i}>
+            <span className="holder-rank">{i + 1}</span>
+            <div className="holder-avatar" style={{ background: addrColor(h.address) }}>{h.address.slice(2, 4).toUpperCase()}</div>
+            <span className="holder-name">{shortAddr(h.address)}</span>
+            <span className="holder-count">{h.count}</span>
+          </div>
+        ))}
       </div>
 
-      {/* CENTER GRID 16x16 */}
-      <div style={{ flex: 1, padding: 16, overflowY: "auto" }}>
+      {/* CENTER GRID */}
+      <div className="board-grid-area">
         {seatHook.seats.length === 0 ? (
           <div style={{ textAlign: "center", padding: 40 }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>256 Revenue Seats</div>
-            <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 20 }}>Harberger-taxed seats. Earn from every flip.</div>
-            <button className="seat-modal-btn" style={{ width: "auto", padding: "10px 24px" }}
+            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 20 }}>Harberger-taxed seats. Earn from every flip.</div>
+            <button className="modal-buy-btn" style={{ width: "auto", padding: "10px 24px" }}
               onClick={() => seatHook.refreshSeats()}>
               {seatHook.loading ? "Loading..." : "Load Board"}
             </button>
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(16, 1fr)", gap: 3 }}>
+          <div className="seat-grid">
             {seatHook.seats.map(seat => {
               const isOwned = seat.active && seat.owner !== ZERO_ADDRESS;
               const isMine = isOwned && address && seat.owner.toLowerCase() === address.toLowerCase();
+              const tileClass = isMine ? "tile-mine" : isOwned ? "tile-owned" : "tile-empty";
               return (
-                <div key={seat.id}
-                  onClick={() => { setSelectedSeat(seat); playClickSound(); }}
-                  style={{
-                    aspectRatio: "1", borderRadius: 6, cursor: "pointer", position: "relative",
-                    overflow: "hidden", transition: "all 0.2s",
-                    border: `2px solid ${isMine ? "var(--gold)" : isOwned ? "#22c55e30" : "var(--border)"}`,
-                    background: isOwned ? `linear-gradient(135deg, ${addrColor(seat.owner)}15, var(--bg-card))` : "var(--bg-main)",
-                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--gold)"; e.currentTarget.style.boxShadow = "0 0 10px #f7b32b20"; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = isMine ? "var(--gold)" : isOwned ? "#22c55e30" : "var(--border)"; e.currentTarget.style.boxShadow = "none"; }}
+                <div key={seat.id} className={`seat-tile ${tileClass}`}
+                  onClick={() => { setSelectedSeat(seat); setSelectedMult(0); setSelectedDuration(168); playClickSound(); }}
+                  style={isOwned ? { background: `linear-gradient(135deg, ${addrColor(seat.owner)}12, #0d1118)` } : undefined}
                 >
                   {isOwned && (
-                    <div style={{
-                      width: 24, height: 24, borderRadius: "50%", marginBottom: 2,
-                      background: `linear-gradient(135deg, ${addrColor(seat.owner)}, ${addrColor(seat.owner)}88)`,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 8, fontWeight: 700, color: "#fff",
-                    }}>{seat.owner.slice(2, 4).toUpperCase()}</div>
+                    <div className="tile-avatar" style={{ background: `linear-gradient(135deg, ${addrColor(seat.owner)}, ${addrColor(seat.owner)}88)` }}>
+                      {seat.owner.slice(2, 4).toUpperCase()}
+                    </div>
                   )}
-                  <div style={{ fontSize: 8, color: "var(--text-muted)", fontWeight: 600 }}>#{seat.id}</div>
-                  {isOwned && (
-                    <div style={{
-                      position: "absolute", bottom: 2, left: 0, right: 0,
-                      textAlign: "center", fontSize: 8, fontWeight: 700,
-                      color: "var(--gold)", fontFamily: "'JetBrains Mono', monospace",
-                      background: "#0b0e11cc", padding: "1px 0",
-                    }}>{parseFloat(seat.price).toFixed(4)}</div>
-                  )}
+                  <div className="tile-id">#{seat.id}</div>
+                  {isOwned && <div className="tile-price">{parseFloat(seat.price).toFixed(4)}</div>}
                 </div>
               );
             })}
@@ -1116,68 +1120,34 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
         )}
       </div>
 
-      {/* RIGHT PANEL — ACTIVITY FEED */}
-      <div style={{ width: 220, minWidth: 220, padding: 16, overflowY: "auto", borderLeft: "1px solid var(--border)" }}>
-        <div className="stats-label">RECENT ACTIVITY</div>
-        {recentActivity.length === 0 && (
-          <div style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", padding: "20px 0" }}>No recent activity</div>
-        )}
+      {/* RIGHT PANEL */}
+      <div className="board-right">
+        <div className="board-label">RECENT ACTIVITY</div>
+        {recentActivity.length === 0 && <div style={{ fontSize: 10, color: "#475569", textAlign: "center", padding: "20px 0" }}>No recent activity</div>}
         {recentActivity.map((a, i) => (
-          <div key={i} style={{
-            padding: "10px 0", borderBottom: "1px solid var(--border)",
-            animation: i < 3 ? "fadeInUp 0.3s ease" : "none",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <div style={{
-                width: 22, height: 22, borderRadius: "50%",
-                background: addrColor(a.newOwner),
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 7, fontWeight: 700, color: "#fff",
-              }}>{a.newOwner.slice(2, 4).toUpperCase()}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text)" }}>{shortAddr(a.newOwner)}</div>
-              </div>
+          <div className="activity-item" key={i}>
+            <div className="activity-head">
+              <div className="activity-avatar" style={{ background: addrColor(a.newOwner) }}>{a.newOwner.slice(2, 4).toUpperCase()}</div>
+              <span className="activity-name">{shortAddr(a.newOwner)}</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
-                {a.prevOwner === ZERO_ADDRESS ? "Claimed" : "Bought"} #{a.seatId}
-              </span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--gold)", fontFamily: "'JetBrains Mono', monospace" }}>
-                {parseFloat(a.price).toFixed(4)} {"\u039E"}
-              </span>
+            <div className="activity-detail">
+              <span className="activity-action">{a.prevOwner === ZERO_ADDRESS ? "Claimed" : "Bought"} #{a.seatId}</span>
+              <span className="activity-price">{parseFloat(a.price).toFixed(4)} {"\u039E"}</span>
             </div>
           </div>
         ))}
 
-        {/* My Seats section */}
         {connected && seatHook.mySeats.length > 0 && (
-          <div style={{ marginTop: 20 }}>
-            <div className="stats-label">YOUR SEATS</div>
+          <div style={{ marginTop: 16 }}>
+            <div className="board-label">YOUR SEATS</div>
             {seatHook.mySeats.map(seatId => {
               const seat = seatHook.seats.find(s => s.id === seatId);
               if (!seat) return null;
               return (
-                <div key={seatId}
-                  onClick={() => { setSelectedSeat(seat); playClickSound(); }}
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "8px 10px", marginBottom: 4, borderRadius: 8, cursor: "pointer",
-                    background: "var(--bg-card)", border: "1px solid #f7b32b20",
-                    transition: "all 0.2s",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{
-                      width: 20, height: 20, borderRadius: "50%",
-                      background: `linear-gradient(135deg, var(--gold), var(--gold-dark))`,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 8, fontWeight: 700, color: "#0b0e11",
-                    }}>#{seatId}</div>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text)" }}>{seat.name || `Seat #${seatId}`}</span>
-                  </div>
-                  <span style={{ fontSize: 10, color: "var(--gold)", fontFamily: "'JetBrains Mono', monospace" }}>
-                    {parseFloat(seat.price).toFixed(3)}
-                  </span>
+                <div key={seatId} className="my-seat-card" onClick={() => { setSelectedSeat(seat); playClickSound(); }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "#f7b32b" }}>#{seatId}</span>
+                  <span style={{ fontSize: 10, color: "#e2e8f0" }}>{seat.name || `Seat #${seatId}`}</span>
+                  <span style={{ fontSize: 9, color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace" }}>{parseFloat(seat.price).toFixed(3)}</span>
                 </div>
               );
             })}
@@ -1187,77 +1157,94 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
 
       {/* SEAT DETAIL MODAL */}
       {selectedSeat && (
-        <div className="seat-overlay" onClick={(e) => { if (e.target === e.currentTarget) setSelectedSeat(null); }}>
+        <div className="seat-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setSelectedSeat(null); }}>
           <div className="seat-modal">
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
-              <span style={{ fontSize: 20, fontWeight: 800 }}>Seat #{selectedSeat.id}</span>
-              <button onClick={() => setSelectedSeat(null)} style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 20, cursor: "pointer" }}>{"\u2715"}</button>
-            </div>
-
-            {/* Avatar */}
-            <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{
-                width: 64, height: 64, borderRadius: "50%", margin: "0 auto 8px",
-                background: selectedSeat.active ? addrColor(selectedSeat.owner) : "var(--border)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 20, fontWeight: 700, color: "#fff",
-              }}>{selectedSeat.active ? selectedSeat.owner.slice(2, 4).toUpperCase() : "?"}</div>
-              <div style={{ fontSize: 13, color: "var(--text-dim)" }}>
-                {selectedSeat.active ? shortAddr(selectedSeat.owner) : "Available"}
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
+              <div>
+                <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 20, fontWeight: 800, color: "#e2e8f0" }}>Seat #{selectedSeat.id}</div>
+                <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>{selectedSeat.active ? (selectedSeat.name || "Occupied") : "Available"}</div>
               </div>
-              {selectedSeat.name && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{selectedSeat.name}</div>}
+              <button onClick={() => setSelectedSeat(null)} style={{ background: "none", border: "none", color: "#475569", fontSize: 18, cursor: "pointer" }}>{"\u2715"}</button>
             </div>
 
-            {/* Info rows — enriched with getSeatInfo data */}
-            <div style={{ marginBottom: 20 }}>
-              {[
-                { l: "Price", v: `${parseFloat(seatDetail?.price || selectedSeat.price).toFixed(4)} ETH`, c: "var(--gold)" },
-                { l: "Deposit", v: `${parseFloat(seatDetail?.deposit || selectedSeat.deposit).toFixed(4)} ETH`, c: "var(--text-dim)" },
-                ...(seatDetail ? [
-                  { l: "Rewards", v: `${parseFloat(seatDetail.rewards).toFixed(4)} ETH`, c: "var(--green)" },
-                  { l: "Total Earned", v: `${parseFloat(seatDetail.earned).toFixed(4)} ETH`, c: "var(--gold)" },
-                  { l: "Pending Tax", v: `${parseFloat(seatDetail.pendingTax).toFixed(4)} ETH`, c: "var(--red)" },
-                  { l: "Runway", v: seatDetail.runway > 0 ? `${Math.floor(seatDetail.runway / 86400)}d ${Math.floor((seatDetail.runway % 86400) / 3600)}h` : "\u2014", c: "var(--text-dim)" },
-                ] : []),
-                { l: "Name", v: (seatDetail?.name || selectedSeat.name) || "\u2014", c: "var(--text-dim)" },
-              ].map((r, i) => (
-                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #1f293740" }}>
-                  <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{r.l}</span>
-                  <span style={{ color: r.c, fontSize: 12, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>{r.v}</span>
+            {/* Top cards: cost + yield */}
+            <div className="modal-top-cards">
+              <div className="modal-top-card">
+                <div className="mtc-label">BUYOUT COST</div>
+                <div className="mtc-value" style={{ color: "#f7b32b" }}>{selectedSeat.active ? parseFloat(selectedSeat.price).toFixed(4) : "0.001"}</div>
+                <div className="mtc-note">ETH from wallet</div>
+              </div>
+              <div className="modal-top-card">
+                <div className="mtc-label">EST. YIELD</div>
+                <div className="mtc-value" style={{ color: "#22c55e" }}>+{estYieldPerSeat}</div>
+                <div className="mtc-note">ETH / week</div>
+              </div>
+            </div>
+
+            {/* Holder info (only for occupied seats) */}
+            {selectedSeat.active && (
+              <div className="modal-holder">
+                <div style={{
+                  width: 36, height: 36, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 12, fontWeight: 800, color: "#fff", border: "2px solid",
+                  background: `linear-gradient(135deg, ${addrColor(selectedSeat.owner)}, ${addrColor(selectedSeat.owner)}88)`,
+                  borderColor: `${addrColor(selectedSeat.owner)}60`,
+                }}>{selectedSeat.owner.slice(2, 4).toUpperCase()}</div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{shortAddr(selectedSeat.owner)}</div>
+                  <div style={{ fontSize: 10, color: "#475569" }}>Current holder</div>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
 
-            {/* Yield estimate */}
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", borderRadius: 8, background: "#22c55e08", border: "1px solid #22c55e15", marginBottom: 16 }}>
-              <span style={{ color: "var(--text-muted)", fontSize: 11 }}>Est. Yield</span>
-              <span style={{ color: "var(--green)", fontSize: 11, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>+{estYieldPerSeat} ETH/wk</span>
-            </div>
+            {/* Detail rows */}
+            {seatDetail && (
+              <div style={{ marginBottom: 16 }}>
+                {[
+                  { l: "Price", v: `${parseFloat(seatDetail.price).toFixed(4)} ETH`, c: "#f7b32b" },
+                  { l: "Deposit", v: `${parseFloat(seatDetail.deposit).toFixed(4)} ETH`, c: "#e2e8f0" },
+                  { l: "Rewards", v: `${parseFloat(seatDetail.rewards).toFixed(4)} ETH`, c: "#22c55e" },
+                  { l: "Earned", v: `${parseFloat(seatDetail.earned).toFixed(4)} ETH`, c: "#f7b32b" },
+                  { l: "Tax", v: `${parseFloat(seatDetail.pendingTax).toFixed(4)} ETH`, c: "#ef4444" },
+                  { l: "Runway", v: seatDetail.runway > 0 ? `${Math.floor(seatDetail.runway / 86400)}d ${Math.floor((seatDetail.runway % 86400) / 3600)}h` : "\u2014", c: "#94a3b8" },
+                ].map((r, i) => (
+                  <div className="cost-row" key={i}>
+                    <span className="cost-label">{r.l}</span>
+                    <span className="cost-value" style={{ color: r.c }}>{r.v}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
-            {/* Actions based on ownership */}
+            {/* Actions */}
             {!connected ? (
-              <div style={{ textAlign: "center", fontSize: 12, color: "var(--text-dim)" }}>Connect wallet to interact</div>
+              <div style={{ textAlign: "center", fontSize: 12, color: "#475569" }}>Connect wallet to interact</div>
             ) : !selectedSeat.active ? (
               /* CLAIM empty seat */
               <div>
                 <input className="seat-modal-input" placeholder="Seat name (optional)" maxLength={32}
                   value={seatBuyName} onChange={e => setSeatBuyName(e.target.value)} />
-                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>Deposit duration</div>
-                <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+                <div className="modal-section-label">DEPOSIT DURATION</div>
+                <div className="duration-options">
                   {[{l:"1d",h:24},{l:"7d",h:168},{l:"30d",h:720}].map(d => (
-                    <button key={d.h} onClick={() => setSelectedDuration(d.h)} style={{
-                      flex: 1, padding: "6px 0", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer",
-                      background: selectedDuration === d.h ? "#f7b32b20" : "var(--bg-deep)",
-                      border: `1px solid ${selectedDuration === d.h ? "#f7b32b40" : "var(--border)"}`,
-                      color: selectedDuration === d.h ? "#f7b32b" : "var(--text-muted)",
-                      fontFamily: "inherit",
-                    }}>{d.l}</button>
+                    <button key={d.h} className={`duration-btn ${selectedDuration === d.h ? "active" : ""}`}
+                      onClick={() => setSelectedDuration(d.h)}>{d.l}</button>
                   ))}
                 </div>
-                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 4 }}>
-                  Cost: 0.001 ETH (base) + {(0.001 * 0.05 * selectedDuration / 168).toFixed(4)} ETH (deposit)
+                <div className="cost-row">
+                  <span className="cost-label">Base price</span>
+                  <span className="cost-value">0.0010 ETH</span>
                 </div>
-                <button className="seat-modal-btn" onClick={async () => {
+                <div className="cost-row">
+                  <span className="cost-label">Tax deposit</span>
+                  <span className="cost-value">{(0.001 * 0.05 * selectedDuration / 168).toFixed(4)} ETH</span>
+                </div>
+                <div className="total-row">
+                  <span className="total-label">Total</span>
+                  <span className="total-value">{(0.001 + 0.001 * 0.05 * selectedDuration / 168).toFixed(4)} ETH</span>
+                </div>
+                <button className="modal-buy-btn" onClick={async () => {
                   try {
                     const depositWei = parseEther((0.001 * 0.05 * selectedDuration / 168).toFixed(6));
                     const basePrice = parseEther("0.001");
@@ -1267,12 +1254,13 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
                     addToast("success", `Claimed Seat #${selectedSeat.id}!`);
                     setSelectedSeat(null); setSeatBuyName(""); seatHook.refreshSeats();
                   } catch (err) { addToast("error", decodeError(err)); }
-                }}>CLAIM SEAT</button>
+                }}>Claim Seat</button>
+                <button className="modal-cancel-btn" onClick={() => setSelectedSeat(null)}>Cancel</button>
               </div>
             ) : selectedSeat.owner?.toLowerCase() === address?.toLowerCase() ? (
               /* YOUR seat — manage */
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <button className="seat-action-btn" style={{ background: "#22c55e20", border: "1px solid #22c55e40", color: "var(--green)" }}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <button className="modal-action-btn" style={{ background: "#22c55e15", border: "1px solid #22c55e40", color: "#22c55e" }}
                   onClick={async () => {
                     try {
                       const tx = await contract.claimSeatRewards(selectedSeat.id);
@@ -1281,9 +1269,14 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
                       refreshBalance(); seatHook.refreshSeats();
                     } catch (err) { addToast("error", decodeError(err)); }
                   }}>
-                  CLAIM REWARDS {seatDetail?.rewards && parseFloat(seatDetail.rewards) > 0 ? `(${parseFloat(seatDetail.rewards).toFixed(4)} ETH)` : ""}
+                  Claim Rewards {seatDetail?.rewards && parseFloat(seatDetail.rewards) > 0 ? `(${parseFloat(seatDetail.rewards).toFixed(4)} ETH)` : ""}
                 </button>
-                <button className="seat-action-btn" style={{ background: "transparent", border: "1px solid var(--red)", color: "var(--red)" }}
+                <button className="modal-action-btn" style={{ background: "#f7b32b10", border: "1px solid #f7b32b30", color: "#f7b32b" }}
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}?ref=${selectedSeat.id}`);
+                    addToast("success", "Referral link copied!");
+                  }}>Copy Referral Link</button>
+                <button className="modal-action-btn" style={{ background: "transparent", border: "1px solid #ef444450", color: "#ef4444" }}
                   onClick={async () => {
                     try {
                       const tx = await contract.abandonSeat(selectedSeat.id);
@@ -1291,69 +1284,54 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
                       addToast("success", "Seat abandoned");
                       setSelectedSeat(null); seatHook.refreshSeats(); refreshBalance();
                     } catch (err) { addToast("error", decodeError(err)); }
-                  }}>
-                  ABANDON SEAT
-                </button>
-                <button className="seat-action-btn" style={{ background: "#f7b32b20", border: "1px solid #f7b32b40", color: "var(--gold)" }}
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}?ref=${selectedSeat.id}`);
-                    addToast("success", "Referral link copied!");
-                  }}>
-                  COPY REF LINK
-                </button>
+                  }}>Abandon Seat</button>
               </div>
             ) : (
-              /* Someone else's seat — BUYOUT */
+              /* BUYOUT another's seat */
               <div>
-                {/* Price multiplier selector */}
-                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>New price</div>
-                <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
-                  {[{l:"Current",i:0},{l:"1.2x",i:1},{l:"2x",i:2},{l:"5x",i:3}].map(m => (
-                    <button key={m.i} onClick={() => setSelectedMult(m.i)} style={{
-                      flex: 1, padding: "6px 0", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer",
-                      background: selectedMult === m.i ? "#f7b32b20" : "var(--bg-deep)",
-                      border: `1px solid ${selectedMult === m.i ? "#f7b32b40" : "var(--border)"}`,
-                      color: selectedMult === m.i ? "#f7b32b" : "var(--text-muted)",
-                      fontFamily: "inherit",
-                    }}>{m.l}</button>
-                  ))}
-                </div>
-
-                {/* Duration selector */}
-                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>Deposit duration</div>
-                <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
-                  {[{l:"1d",h:24},{l:"7d",h:168},{l:"30d",h:720}].map(d => (
-                    <button key={d.h} onClick={() => setSelectedDuration(d.h)} style={{
-                      flex: 1, padding: "6px 0", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer",
-                      background: selectedDuration === d.h ? "#f7b32b20" : "var(--bg-deep)",
-                      border: `1px solid ${selectedDuration === d.h ? "#f7b32b40" : "var(--border)"}`,
-                      color: selectedDuration === d.h ? "#f7b32b" : "var(--text-muted)",
-                      fontFamily: "inherit",
-                    }}>{d.l}</button>
-                  ))}
-                </div>
-
-                {/* Cost breakdown */}
-                {buyoutCalc && (
-                  <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 8, background: "var(--bg-deep)", border: "1px solid var(--border)" }}>
-                    {[
-                      { l: "Buyout price", v: formatEther(buyoutCalc.buyoutPrice) },
-                      { l: "New price", v: formatEther(buyoutCalc.newPrice) },
-                      { l: "Tax deposit", v: formatEther(buyoutCalc.deposit) },
-                    ].map((r, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 10 }}>
-                        <span style={{ color: "var(--text-muted)" }}>{r.l}</span>
-                        <span style={{ color: "var(--text-dim)", fontFamily: "'JetBrains Mono', monospace" }}>{parseFloat(r.v).toFixed(4)} ETH</span>
+                <div className="modal-section-label">NEW PRICE</div>
+                <div className="price-options">
+                  {[{l:"Current",m:0},{l:"1.2x",m:1},{l:"2x",m:2},{l:"5x",m:3}].map(opt => (
+                    <div key={opt.m} className={`price-option ${selectedMult === opt.m ? "active" : ""}`}
+                      onClick={() => setSelectedMult(opt.m)}>
+                      <div className="price-option-value">
+                        {buyoutCalc ? parseFloat(formatEther(buyoutCalc.newPrice * (opt.m === selectedMult ? 1n : [10n,12n,20n,50n][opt.m]) / (opt.m === selectedMult ? 1n : [10n,12n,20n,50n][selectedMult]))).toFixed(4) : "..."}
                       </div>
-                    ))}
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0 0", borderTop: "1px solid var(--border)", marginTop: 4, fontSize: 11 }}>
-                      <span style={{ color: "var(--text)", fontWeight: 700 }}>Total from wallet</span>
-                      <span style={{ color: "var(--gold)", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>{formatEther(buyoutCalc.totalVal)} ETH</span>
+                      <div className="price-option-mult">{opt.l}</div>
                     </div>
-                  </div>
+                  ))}
+                </div>
+
+                <div className="modal-section-label">DEPOSIT DURATION</div>
+                <div className="duration-options">
+                  {[{l:"1d",h:24},{l:"7d",h:168},{l:"30d",h:720}].map(d => (
+                    <button key={d.h} className={`duration-btn ${selectedDuration === d.h ? "active" : ""}`}
+                      onClick={() => setSelectedDuration(d.h)}>{d.l}</button>
+                  ))}
+                </div>
+
+                {buyoutCalc && (
+                  <>
+                    <div className="cost-row">
+                      <span className="cost-label">Buyout price</span>
+                      <span className="cost-value">{parseFloat(formatEther(buyoutCalc.buyoutPrice)).toFixed(4)} ETH</span>
+                    </div>
+                    <div className="cost-row">
+                      <span className="cost-label">Your new price</span>
+                      <span className="cost-value">{parseFloat(formatEther(buyoutCalc.newPrice)).toFixed(4)} ETH</span>
+                    </div>
+                    <div className="cost-row">
+                      <span className="cost-label">Tax deposit ({selectedDuration}h)</span>
+                      <span className="cost-value">{parseFloat(formatEther(buyoutCalc.deposit)).toFixed(4)} ETH</span>
+                    </div>
+                    <div className="total-row">
+                      <span className="total-label">Total</span>
+                      <span className="total-value">{parseFloat(formatEther(buyoutCalc.totalVal)).toFixed(4)} ETH</span>
+                    </div>
+                  </>
                 )}
 
-                <button className="seat-modal-btn" onClick={async () => {
+                <button className="modal-buy-btn" onClick={async () => {
                   if (!buyoutCalc) return;
                   try {
                     const maxPrice = buyoutCalc.buyoutPrice + buyoutCalc.buyoutPrice / 10n;
@@ -1362,7 +1340,8 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
                     addToast("success", `Bought Seat #${selectedSeat.id}!`);
                     setSelectedSeat(null); seatHook.refreshSeats(); refreshBalance();
                   } catch (err) { addToast("error", decodeError(err)); }
-                }}>BUY SEAT {"\u00B7"} {buyoutCalc ? formatEther(buyoutCalc.totalVal) : "..."} ETH</button>
+                }}>Buy Seat</button>
+                <button className="modal-cancel-btn" onClick={() => setSelectedSeat(null)}>Cancel</button>
               </div>
             )}
           </div>
