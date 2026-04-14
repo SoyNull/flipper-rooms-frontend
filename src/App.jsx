@@ -58,17 +58,22 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .app {
   display: flex; height: 100vh; overflow: hidden;
   background:
-    radial-gradient(ellipse at 20% 50%, #8855ff06 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, #00ffa306 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 80%, #ffcc0004 0%, transparent 40%),
-    var(--bg-deep);
+    radial-gradient(ellipse at 15% 50%, #8855ff08 0%, transparent 40%),
+    radial-gradient(ellipse at 85% 20%, #00ffa306 0%, transparent 35%),
+    radial-gradient(ellipse at 50% 90%, #ffcc0004 0%, transparent 30%),
+    radial-gradient(ellipse at 0% 0%, #4488ff05 0%, transparent 50%),
+    linear-gradient(180deg, #0c0c22 0%, #0a0a1a 30%, #08081a 100%);
 }
 
 /* SIDEBAR */
 .sidebar {
   width: 260px; min-width: 260px;
-  background: linear-gradient(180deg, #0c0c22, #0a0a1a);
+  background: linear-gradient(180deg, #0b0b20, #08081a);
   border-right: 1px solid var(--border); display: flex; flex-direction: column;
+}
+.sidebar::before {
+  content: ''; display: block; height: 2px; flex-shrink: 0;
+  background: linear-gradient(90deg, transparent, #8855ff, #00ffa3, transparent);
 }
 .sidebar-header {
   padding: 16px 18px; border-bottom: 1px solid var(--border);
@@ -112,6 +117,11 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   height: 56px; display: flex; align-items: center; justify-content: space-between;
   padding: 0 24px; border-bottom: 1px solid var(--border);
   background: linear-gradient(180deg, #0e0e24, #0a0a1a); flex-shrink: 0;
+  position: relative;
+}
+.topbar::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent 5%, #8855ff40 30%, #00ffa340 50%, #8855ff40 70%, transparent 95%);
 }
 .logo { display: flex; align-items: center; gap: 8px; }
 .logo-text { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
@@ -162,8 +172,13 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .game-area { flex: 1; overflow-y: auto; padding: 32px 36px; }
 .info-panel {
   width: 220px; min-width: 220px;
-  background: linear-gradient(180deg, #0c0c22, #0a0a1a);
+  background: linear-gradient(180deg, #0b0b20, #08081a);
   border-left: 1px solid var(--border); overflow-y: auto; padding: 20px 16px;
+}
+.info-card {
+  background: linear-gradient(135deg, #14142e, #10102a);
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px; margin-bottom: 16px;
 }
 
 .section-label {
@@ -172,14 +187,14 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 }
 
 /* HERO */
-.hero-title { font-size: 11px; color: var(--purple); letter-spacing: 3px; font-weight: 600; margin-bottom: 4px; animation: fadeInUp 0.5s ease 0.1s both; }
+.hero-title { font-size: 12px; color: var(--purple); letter-spacing: 4px; font-weight: 700; margin-bottom: 4px; animation: fadeInUp 0.5s ease 0.1s both; }
 .hero-big {
-  font-size: 44px; font-weight: 900; letter-spacing: -2px;
-  background: linear-gradient(135deg, #fff 0%, #8855ff 40%, #00ffa3 70%, #fff 100%);
-  background-size: 300% 300%;
+  font-size: 48px; font-weight: 900; letter-spacing: -2px;
+  background: linear-gradient(135deg, #fff 0%, #8855ff 30%, #00ffa3 60%, #fff 100%);
+  background-size: 400% 400%;
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   animation: shimmer 5s ease infinite, fadeInUp 0.5s ease 0.2s both;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 /* STATS */
@@ -193,17 +208,17 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 /* TIERS */
 .tier-bar { display: flex; gap: 6px; margin-bottom: 32px; animation: fadeInUp 0.5s ease 0.4s both; }
 .tier-btn {
-  flex: 1; padding: 12px 0; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--bg-card); color: var(--text-dim); font-size: 13px; font-weight: 600;
+  flex: 1; padding: 12px 0; border: 1px solid #20204a; border-radius: 8px;
+  background: #0d0d22; color: #606080; font-size: 13px; font-weight: 600;
   font-family: 'JetBrains Mono', monospace; cursor: pointer; transition: all 0.25s;
   position: relative;
 }
-.tier-btn:hover { border-color: var(--border-light); background: var(--bg-card-hover); color: var(--text); }
+.tier-btn:hover { border-color: #3a3a6a; background: #1a1a3e; color: #ccc; }
 .tier-btn.active {
-  border-color: var(--green); color: var(--green);
-  background: #00ffa308;
-  box-shadow: 0 0 20px #00ffa320, 0 0 40px #00ffa310, inset 0 0 30px #00ffa308;
-  text-shadow: 0 0 10px #00ffa350;
+  border-color: #8855ff; color: #c4a5ff;
+  background: linear-gradient(135deg, #1a1050, #150d40);
+  box-shadow: 0 0 25px #8855ff30, 0 0 60px #8855ff15;
+  text-shadow: 0 0 10px #8855ff50;
   transform: scale(1.02);
 }
 .tier-btn.active::after {
@@ -213,15 +228,20 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 
 /* COIN STAGE */
 .coin-stage {
-  background: radial-gradient(ellipse at 50% 40%, #1a1040 0%, #0a0a1a 70%);
+  background:
+    radial-gradient(ellipse at 50% 40%, #2a1860 0%, transparent 50%),
+    radial-gradient(ellipse at 30% 60%, #0a1530 0%, transparent 40%),
+    radial-gradient(ellipse at 70% 30%, #150a35 0%, transparent 40%),
+    #0a0a1a;
   border: 1px solid var(--border); border-radius: 16px;
-  height: 300px; margin-bottom: 24px; position: relative; overflow: hidden;
+  height: 320px; margin-bottom: 24px; position: relative; overflow: hidden;
   animation: fadeInUp 0.5s ease 0.5s both;
+  display: flex; align-items: center; justify-content: center;
 }
 .coin-stage::before {
   content: ''; position: absolute; inset: -20px;
-  background: radial-gradient(circle at 50% 50%, #8855ff30 0%, transparent 50%);
-  animation: coinGlow 2s ease infinite; pointer-events: none; z-index: 0;
+  background: radial-gradient(circle at 50% 50%, #8855ff35 0%, #8855ff10 30%, transparent 55%);
+  animation: coinGlow 2.5s ease infinite; pointer-events: none; z-index: 0;
 }
 .coin-stage::after {
   content: ''; position: absolute; inset: 0;
@@ -238,8 +258,8 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .flip-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 32px; animation: fadeInUp 0.5s ease 0.6s both; }
 .flip-btn {
   padding: 22px 0; border-radius: 12px; border: none; cursor: pointer;
-  font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 700;
-  letter-spacing: 0.5px; transition: all 0.25s; position: relative; overflow: hidden;
+  font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 700;
+  letter-spacing: 1px; transition: all 0.25s; position: relative; overflow: hidden;
 }
 .flip-btn::before {
   content: ''; position: absolute; top: -50%; left: -50%;
@@ -273,9 +293,9 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .games-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .games-count { font-size: 13px; font-weight: 700; color: var(--green); font-family: 'JetBrains Mono', monospace; }
 .game-row {
-  display: flex; align-items: center; padding: 14px 18px;
-  background: linear-gradient(135deg, #14142e, #12122a);
-  border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px;
+  display: flex; align-items: center; padding: 16px 20px;
+  background: linear-gradient(135deg, #12122c, #0f0f28);
+  border: 1px solid #25254a; border-radius: 10px; margin-bottom: 8px;
   transition: all 0.25s; gap: 16px;
 }
 .game-row:hover {
@@ -297,15 +317,15 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   font-size: 16px; color: var(--text-muted);
 }
 .game-amount {
-  font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700;
-  color: var(--text); min-width: 120px; text-align: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 800;
+  color: #fff; min-width: 120px; text-align: center;
 }
 .game-amount-eth { font-size: 11px; color: var(--text-muted); margin-left: 4px; }
 .game-status {
   font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 4px 10px;
   border-radius: 6px; text-transform: uppercase; min-width: 80px; text-align: center;
 }
-.status-open { background: #00ffa318; color: var(--green); border: 1px solid #00ffa330; }
+.status-open { background: #00ffa320; color: var(--green); border: 1px solid #00ffa340; border-radius: 20px; padding: 5px 14px; }
 .status-done { background: var(--bg-elevated); color: var(--text-muted); }
 
 .join-btn {
@@ -487,7 +507,12 @@ function Coin3D({ state, onComplete }) {
       renderer.render(scene, camera);
     };
     animate();
-    return () => { cancelAnimationFrame(raf); renderer.dispose(); if (el.contains(renderer.domElement)) el.removeChild(renderer.domElement); };
+    const resizeObs = new ResizeObserver(() => {
+      const nw = el.clientWidth, nh = el.clientHeight;
+      if (nw && nh) { camera.aspect = nw / nh; camera.updateProjectionMatrix(); renderer.setSize(nw, nh); }
+    });
+    resizeObs.observe(el);
+    return () => { resizeObs.disconnect(); cancelAnimationFrame(raf); renderer.dispose(); if (el.contains(renderer.domElement)) el.removeChild(renderer.domElement); };
   }, []);
 
   useEffect(() => {
@@ -702,8 +727,15 @@ export default function FlipperRooms() {
                         background: i % 2 === 0 ? "#8855ff40" : "#00ffa330",
                       }} />
                     ))}
-                    <Coin3D state="idle" onComplete={() => {}} />
+                    {/* Green underglow */}
+                    <div style={{ position: "absolute", bottom: "10%", left: "20%", width: "60%", height: "40%", background: "radial-gradient(ellipse at 50% 50%, #00ffa310 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
+                    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 1 }}>
+                      <Coin3D state="idle" onComplete={() => {}} />
+                    </div>
                   </div>
+
+                  {/* Separator */}
+                  <div style={{ height: 1, background: "linear-gradient(90deg, transparent, #8855ff30, transparent)", margin: "0 0 20px" }} />
 
                   <div className="flip-buttons">
                     <button className="flip-btn flip-btn-pvp" disabled={!!flipModal || !connected || flipHook.isFlipping}
@@ -802,7 +834,7 @@ export default function FlipperRooms() {
 
             {/* RIGHT INFO PANEL */}
             <div className="info-panel">
-              <div className="info-section">
+              <div className="info-card">
                 <div className="info-label">SESSION BALANCE</div>
                 <div className={`info-balance ${parseFloat(bal) > 0 ? "has-bal" : ""}`}>
                   {parseFloat(bal).toFixed(4)} <span style={{ fontSize: 12, color: "var(--text-muted)" }}>ETH</span>
