@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import * as THREE from "three";
 import { useWallet, useFlip, useSeats, useProtocol, useToasts, addToast, EXPLORER } from "./hooks.js";
-import { getOpenChallenges, getChallengeInfo, decodeError } from "./contract.js";
+import { getOpenChallenges, getChallengeInfo, getPlayerInfo, decodeError } from "./contract.js";
 import { CONTRACT_ADDRESS, TIERS } from "./config.js";
 import { parseEther, formatEther } from "ethers";
 import { playClickSound, playFlipSound, playWinSound, playLoseSound, playDepositSound, playStreakSound } from "./sounds.js";
@@ -15,8 +15,6 @@ const addrColor = (a) => {
 };
 
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-
 :root {
   --bg-deep: #0a0a1a;
   --bg-main: #0e0e24;
@@ -551,9 +549,7 @@ export default function FlipperRooms() {
   // Player stats
   useEffect(() => {
     if (!contract || !address) return;
-    import("./contract.js").then(({ getPlayerInfo }) => {
-      getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
-    });
+    getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
   }, [contract, address, sessionBalance]);
 
   const handleFlipTreasury = async () => {
@@ -620,6 +616,7 @@ export default function FlipperRooms() {
 
   return (
     <>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" />
       <style>{CSS}</style>
       <div className="app">
 
