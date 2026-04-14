@@ -10,7 +10,7 @@ import {
   decodeError,
 } from "./contract.js";
 import { parseEther } from "ethers";
-import { playClickSound, playFlipSound, playWinSound, playLoseSound, playDepositSound, playStreakSound } from "./sounds.js";
+import { playClickSound, playFlipSound, playWinSound, playLoseSound, playDepositSound, playStreakSound, playJackpotSound } from "./sounds.js";
 
 /* ═══════════════════════════════════════
    3D COIN COMPONENT (Three.js)
@@ -201,6 +201,8 @@ const LiveFeed = ({ history, address }) => {
   );
 };
 
+const OWNER = "0xe5678f8659d229a303abecdd0d0113cf1f4f83ae";
+
 /* ═══════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════ */
@@ -214,10 +216,23 @@ export default function FlipperRooms() {
   const [selectedSeat, setSelectedSeat] = useState(null);
   const [seatDetail, setSeatDetail] = useState(null);
   const [seatView, setSeatView] = useState("grid");
+  const [seatSort, setSeatSort] = useState("price");
   const [depositAmt, setDepositAmt] = useState("");
   const [isDepositing, setIsDepositing] = useState(false);
   const [playerStats, setPlayerStats] = useState(null);
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
+  const [jackpotWin, setJackpotWin] = useState(null);
+  const [showExplainer, setShowExplainer] = useState(true);
+  const [sessionFlips, setSessionFlips] = useState(0);
+  const [sessionPnl, setSessionPnl] = useState(0);
+  const [adminAmt, setAdminAmt] = useState("");
+
+  // Referral from URL or localStorage
+  const [referralSeat] = useState(() => {
+    const urlRef = parseInt(new URLSearchParams(window.location.search).get("ref")) || 0;
+    if (urlRef > 0) { localStorage.setItem("flipper_ref", String(urlRef)); return urlRef; }
+    return parseInt(localStorage.getItem("flipper_ref")) || 0;
+  });
 
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 768);
@@ -262,11 +277,23 @@ export default function FlipperRooms() {
   }, [contract, selectedSeat]);
 
   // Flip handlers — embedded wallet spins immediately, external shows "confirm" first
+  const processFlipResult = (result) => {
+    if (!result) { setCoinState("idle"); return; }
+    const won = result.winner.toLowerCase() === address?.toLowerCase();
+    if (won) { playWinSound(); if (result.winnerStreak >= 3) playStreakSound(result.winnerStreak); }
+    else playLoseSound();
+    setCoinState(won ? "win" : "lose");
+    setSessionFlips(p => p + 1);
+    setSessionPnl(p => p + (won ? parseFloat(result.payout) - parseFloat(result.amount) : -parseFloat(result.amount)));
+    if (result.jackpotAmount) { setJackpotWin(result.jackpotAmount); playJackpotSound(); }
+    refreshBalance();
+  };
+
   const handleFlipPvp = async () => {
     if (coinState !== "idle" || !connected) return;
     playClickSound();
     if (isEmbedded) { setCoinState("spinning"); playFlipSound(); }
-    const result = await flipHook.flipPvp(TIERS[tier].wei);
+    const result = await flipHook.flipPvp(TIERS[tier].wei, referralSeat);
     setCoinState("idle");
     if (result) refreshBalance();
   };
@@ -275,28 +302,20 @@ export default function FlipperRooms() {
     if (coinState !== "idle" || !connected) return;
     playClickSound();
     if (isEmbedded) { setCoinState("spinning"); playFlipSound(); }
-    const result = await flipHook.flipTreasury(TIERS[tier].wei);
+    const result = await flipHook.flipTreasury(TIERS[tier].wei, referralSeat);
     if (!result) { setCoinState("idle"); return; }
     if (!isEmbedded) { setCoinState("spinning"); playFlipSound(); await new Promise(r => setTimeout(r, 2000)); }
-    const won = result.winner.toLowerCase() === address?.toLowerCase();
-    if (won) { playWinSound(); if (result.winnerStreak >= 3) playStreakSound(result.winnerStreak); }
-    else playLoseSound();
-    setCoinState(won ? "win" : "lose");
-    refreshBalance();
+    processFlipResult(result);
   };
 
   const handleAccept = async (challengeId) => {
     if (coinState !== "idle" || !connected) return;
     playClickSound();
     if (isEmbedded) { setCoinState("spinning"); playFlipSound(); }
-    const result = await flipHook.acceptCh(challengeId);
+    const result = await flipHook.acceptCh(challengeId, referralSeat);
     if (!result) { setCoinState("idle"); return; }
     if (!isEmbedded) { setCoinState("spinning"); playFlipSound(); await new Promise(r => setTimeout(r, 2000)); }
-    const won = result.winner.toLowerCase() === address?.toLowerCase();
-    if (won) { playWinSound(); if (result.winnerStreak >= 3) playStreakSound(result.winnerStreak); }
-    else playLoseSound();
-    setCoinState(won ? "win" : "lose");
-    refreshBalance();
+    processFlipResult(result);
   };
 
   const onFlipDone = useCallback(() => {
@@ -335,6 +354,10 @@ export default function FlipperRooms() {
   const balNum = parseFloat(sessionBalance || "0");
   const balDisplay = balNum > 0 ? `${balNum.toFixed(4)} ETH` : "0 ETH";
   const treasuryMax = protocolHook.stats ? Number(protocolHook.stats.treasury) * 0.05 : 0;
+  const isAdmin = address?.toLowerCase() === OWNER;
+  const seatPoolEth = protocolHook.stats ? protocolHook.stats.seatPool : "0";
+  const estYieldPerSeat = ownedCount > 0 && protocolHook.stats
+    ? (Number(protocolHook.stats.totalVolume) * 0.025) / ownedCount : 0;
 
   const leaderboard = useMemo(() => {
     const map = {};
@@ -426,7 +449,7 @@ export default function FlipperRooms() {
 
       {/* NAV */}
       <nav style={{ display: "flex", justifyContent: "center", borderBottom: "1px solid #12121e", background: "#0a0a14" }}>
-        {["flip", "board", "stats"].map(id => (
+        {["flip", "board", "stats", "fair"].map(id => (
           <button key={id} className={`nav-btn ${view === id ? "active" : ""}`}
             onClick={() => { playClickSound(); setView(id); }}>
             {id.toUpperCase()}
@@ -466,11 +489,48 @@ export default function FlipperRooms() {
               <button onClick={handleWithdraw} disabled={!connected || isDepositing} style={{ padding: "9px 14px", borderRadius: 6, background: "#ff444415", border: "1px solid #ff444440", color: "#ff4444", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", letterSpacing: 1, opacity: connected && !isDepositing ? 1 : 0.4 }}>{isDepositing ? "..." : "WITHDRAW"}</button>
             </div>
 
+            {/* Referral indicator */}
+            {referralSeat > 0 && (
+              <div style={{ fontSize: 10, color: "#f0c040", textAlign: "center", marginBottom: 8 }}>
+                Referred by Seat #{referralSeat}
+              </div>
+            )}
+
+            {/* Streak + W/L counter */}
+            {connected && playerStats && (
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 20, marginBottom: 12, padding: "8px 0" }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 9, color: "#444", letterSpacing: 1.5 }}>W/L</div>
+                  <div style={{ fontSize: 15, fontWeight: 700 }}>
+                    <span style={{ color: "#00e87b" }}>{playerStats.wins}</span>
+                    <span style={{ color: "#333" }}>/</span>
+                    <span style={{ color: "#ff4444" }}>{playerStats.losses}</span>
+                  </div>
+                </div>
+                <div style={{ width: 1, height: 28, background: "#1a1a28" }}/>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 9, color: "#444", letterSpacing: 1.5 }}>STREAK</div>
+                  <div style={{
+                    fontSize: 18, fontWeight: 800,
+                    color: playerStats.streak >= 5 ? "#ff4400" : playerStats.streak >= 3 ? "#f0c040" : "#666",
+                    textShadow: playerStats.streak >= 3 ? `0 0 10px ${playerStats.streak >= 5 ? "#ff440060" : "#f0c04060"}` : "none"
+                  }}>
+                    {playerStats.streak > 0 ? `${playerStats.streak}x` : "—"}
+                  </div>
+                </div>
+                <div style={{ width: 1, height: 28, background: "#1a1a28" }}/>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 9, color: "#444", letterSpacing: 1.5 }}>BEST</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#888" }}>{playerStats.bestStreak}</div>
+                </div>
+              </div>
+            )}
+
             {/* Treasury info */}
             {protocolHook.stats && (
-              <div style={{ display: "flex", gap: 10, marginBottom: 16, fontSize: 10, color: "#444" }}>
+              <div style={{ display: "flex", gap: 10, marginBottom: 12, fontSize: 10, color: "#444", flexWrap: "wrap" }}>
                 <span>Treasury: <strong style={{ color: "#f0c040" }}>{Number(protocolHook.stats.treasury).toFixed(4)} Ξ</strong></span>
-                <span>Max bet: <strong style={{ color: "#f0c040" }}>{(Number(protocolHook.stats.treasury) * 0.05).toFixed(4)} Ξ</strong></span>
+                <span>Max bet: <strong style={{ color: "#f0c040" }}>{treasuryMax.toFixed(4)} Ξ</strong></span>
                 <span>Jackpot: <strong style={{ color: "#f0c040" }}>{Number(protocolHook.stats.jackpot).toFixed(4)} Ξ</strong></span>
               </div>
             )}
@@ -581,6 +641,16 @@ export default function FlipperRooms() {
               </div>
             </div>
 
+            {/* Session stats */}
+            {sessionFlips > 0 && (
+              <div style={{ display: "flex", justifyContent: "center", gap: 24, fontSize: 10, color: "#555", marginBottom: 16 }}>
+                <span>Session: {sessionFlips} flips</span>
+                <span style={{ color: sessionPnl >= 0 ? "#00e87b" : "#ff4444" }}>
+                  {sessionPnl >= 0 ? "+" : ""}{sessionPnl.toFixed(4)} ETH
+                </span>
+              </div>
+            )}
+
             {/* Open Challenges */}
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 9, color: "#444", letterSpacing: 2, marginBottom: 10, fontWeight: 600, display: "flex", justifyContent: "space-between" }}>
@@ -655,6 +725,63 @@ export default function FlipperRooms() {
         {/* ════════════════ BOARD VIEW ════════════════ */}
         {view === "board" && (
           <div style={{ animation: "fadeIn .4s ease" }}>
+
+            {/* Seat explainer */}
+            {showExplainer && (
+              <div style={{ padding: 14, background: "linear-gradient(135deg, #00e87b06, #3b7dff06)", borderRadius: 10, border: "1px solid #15152a", marginBottom: 14, position: "relative" }}>
+                <button onClick={() => setShowExplainer(false)} style={{ position: "absolute", top: 6, right: 10, background: "none", border: "none", color: "#444", fontSize: 16, cursor: "pointer" }}>x</button>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#e0e0e0" }}>How Seats Work</div>
+                <div style={{ fontSize: 10, color: "#777", lineHeight: 1.7 }}>
+                  <b style={{ color: "#00e87b" }}>Own a seat</b> — earn from every flip. Each seat gets a share of the 2.5% seat fee from all volume.
+                  <b style={{ color: "#f0c040" }}> Harberger Tax:</b> set your price, pay 5%/week tax. Anyone can buy your seat at your listed price.
+                  <b style={{ color: "#3b7dff" }}> Referrals:</b> share your link — players you bring earn you extra yield.
+                </div>
+              </div>
+            )}
+
+            {/* Distribute rewards */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#0c0c18", borderRadius: 8, border: "1px solid #12121e", marginBottom: 10 }}>
+              <div>
+                <div style={{ fontSize: 9, color: "#444", letterSpacing: 1.5 }}>REWARD POOL</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#00e87b" }}>{Number(seatPoolEth).toFixed(4)} ETH</div>
+              </div>
+              <button onClick={async () => {
+                playClickSound();
+                try {
+                  const tx = await contract.distributeRewards();
+                  await tx.wait();
+                  addToast("success", "Rewards distributed!");
+                  seatHook.refreshSeats(); protocolHook.refreshStats();
+                } catch (err) { addToast("error", decodeError(err)); }
+              }} disabled={!connected || parseFloat(seatPoolEth) < 0.0001} style={{
+                padding: "8px 16px", borderRadius: 6, background: "#00e87b15", border: "1px solid #00e87b40",
+                color: "#00e87b", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                opacity: parseFloat(seatPoolEth) < 0.0001 ? 0.4 : 1
+              }}>DISTRIBUTE</button>
+            </div>
+
+            {/* Admin panel */}
+            {isAdmin && (
+              <div style={{ padding: 10, background: "#1a0a0a", border: "1px solid #ff444430", borderRadius: 8, marginBottom: 10 }}>
+                <div style={{ fontSize: 9, color: "#ff8844", letterSpacing: 1.5, marginBottom: 6 }}>ADMIN</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input placeholder="ETH" type="number" step="0.01" value={adminAmt} onChange={e => setAdminAmt(e.target.value)} style={{
+                    flex: 1, background: "#07070f", border: "1px solid #1a1a28", borderRadius: 4,
+                    padding: "7px 10px", color: "#c8c8d0", fontSize: 11, fontFamily: "inherit"
+                  }}/>
+                  <button onClick={async () => {
+                    if (!adminAmt) return;
+                    try {
+                      const tx = await contract.fundTreasury({ value: parseEther(adminAmt) });
+                      await tx.wait();
+                      addToast("success", `Funded treasury with ${adminAmt} ETH`);
+                      setAdminAmt(""); protocolHook.refreshStats();
+                    } catch (err) { addToast("error", decodeError(err)); }
+                  }} style={{ padding: "7px 14px", borderRadius: 4, background: "#ff884415", border: "1px solid #ff884440", color: "#ff8844", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>FUND TREASURY</button>
+                </div>
+              </div>
+            )}
+
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 8, marginBottom: 16 }}>
               {[
                 { l: "OWNED", v: `${ownedCount}/256`, c: "#00e87b" },
@@ -704,7 +831,7 @@ export default function FlipperRooms() {
                 {selectedSeat && (
                   <div style={isMobile ? { marginTop: 10 } : {}}>
                     <SeatDetailPanel seat={selectedSeat} detail={seatDetail} address={address}
-                      connected={connected} seatHook={seatHook}
+                      connected={connected} seatHook={seatHook} estYield={estYieldPerSeat}
                       onClose={() => { setSelectedSeat(null); setSeatDetail(null); }} />
                   </div>
                 )}
@@ -712,7 +839,20 @@ export default function FlipperRooms() {
             )}
 
             {seatView === "list" && (
-              <div style={{ background: "#0c0c18", borderRadius: 8, border: "1px solid #12121e", overflow: "hidden" }}>
+              <div>
+                {/* Sort options */}
+                <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+                  <span style={{ fontSize: 9, color: "#444", alignSelf: "center", marginRight: 6 }}>SORT:</span>
+                  {["price", "deposit", "name"].map(s => (
+                    <button key={s} onClick={() => setSeatSort(s)} style={{
+                      padding: "4px 10px", borderRadius: 3, border: "none", cursor: "pointer",
+                      background: seatSort === s ? "#1a1a28" : "transparent",
+                      color: seatSort === s ? "#e0e0e0" : "#444", fontSize: 9,
+                      fontFamily: "inherit", textTransform: "uppercase", fontWeight: 600
+                    }}>{s}</button>
+                  ))}
+                </div>
+                <div style={{ background: "#0c0c18", borderRadius: 8, border: "1px solid #12121e", overflow: "hidden" }}>
                 <div style={{
                   display: "grid", gridTemplateColumns: isMobile ? "40px 1fr 70px 60px" : "50px 1fr 90px 90px 70px",
                   padding: "10px 14px", fontSize: 9, color: "#444", letterSpacing: 1, fontWeight: 600,
@@ -723,7 +863,11 @@ export default function FlipperRooms() {
                   <span style={{textAlign:"right"}}>NAME</span>
                 </div>
                 <div style={{ maxHeight: 460, overflowY: "auto" }}>
-                  {seatHook.seats.filter(s => s.active).sort((a, b) => (b.priceWei > a.priceWei ? 1 : b.priceWei < a.priceWei ? -1 : 0)).slice(0, 50).map(s => (
+                  {seatHook.seats.filter(s => s.active).sort((a, b) => {
+                    if (seatSort === "deposit") return parseFloat(b.deposit) - parseFloat(a.deposit);
+                    if (seatSort === "name") return (a.name || "").localeCompare(b.name || "");
+                    return (b.priceWei > a.priceWei ? 1 : b.priceWei < a.priceWei ? -1 : 0);
+                  }).slice(0, 50).map(s => (
                     <div key={s.id} onClick={() => { setSelectedSeat(s); setSeatView("grid"); }} style={{
                       display: "grid", gridTemplateColumns: isMobile ? "40px 1fr 70px 60px" : "50px 1fr 90px 90px 70px",
                       padding: "9px 14px", fontSize: 11, borderBottom: "1px solid #0e0e1a", cursor: "pointer",
@@ -736,6 +880,7 @@ export default function FlipperRooms() {
                     </div>
                   ))}
                 </div>
+              </div>
               </div>
             )}
 
@@ -885,7 +1030,66 @@ export default function FlipperRooms() {
             </div>
           </div>
         )}
+        {/* ════════════════ FAIR VIEW ════════════════ */}
+        {view === "fair" && (
+          <div style={{ animation: "fadeIn .4s ease", maxWidth: 600, margin: "0 auto" }}>
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 16, fontFamily: "'Sora', sans-serif" }}>Provably Fair</div>
+            <div style={{ fontSize: 12, color: "#888", lineHeight: 1.8, marginBottom: 20 }}>
+              FlipperRooms uses on-chain randomness for all flips.
+              Every result is determined by <b style={{ color: "#e0e0e0" }}>block.prevrandao</b> combined
+              with player addresses, timestamps, and flip counters.
+            </div>
+            <div style={{ padding: 16, background: "#0c0c18", borderRadius: 8, border: "1px solid #15152a", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.8, color: "#888" }}>
+              <div style={{ color: "#00e87b", marginBottom: 8 }}>// Flip resolution (on-chain)</div>
+              {"rand = keccak256(abi.encodePacked("}<br/>
+              {"  block.prevrandao,"}<br/>
+              {"  playerA, playerB,"}<br/>
+              {"  block.timestamp,"}<br/>
+              {"  challengeId, totalFlips"}<br/>
+              {"));"}<br/><br/>
+              {"winner = (rand % 2 == 0) ? playerA : playerB;"}
+            </div>
+            <div style={{ fontSize: 12, color: "#888", lineHeight: 1.8, marginTop: 20 }}>
+              <b style={{ color: "#f0c040" }}>Fee Structure (5% total):</b>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 10 }}>
+              {[
+                { l: "Seat Pool", v: "2.5%", c: "#00e87b" },
+                { l: "Referral", v: "1.0%", c: "#3b7dff" },
+                { l: "Protocol", v: "0.75%", c: "#f0c040" },
+                { l: "Buyback", v: "0.5%", c: "#ff8844" },
+                { l: "Jackpot", v: "0.25%", c: "#ff4444" },
+              ].map((f, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "#0c0c18", borderRadius: 6, border: "1px solid #12121e", fontSize: 11 }}>
+                  <span style={{ color: "#555" }}>{f.l}</span>
+                  <span style={{ color: f.c, fontWeight: 700 }}>{f.v}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 11, color: "#555", marginTop: 16 }}>
+              All transactions verifiable on{" "}
+              <a href={`${EXPLORER}/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noreferrer" style={{ color: "#3b7dff" }}>BaseScan</a>.
+            </div>
+          </div>
+        )}
       </main>
+
+      {/* Jackpot overlay */}
+      {jackpotWin && (
+        <div onClick={() => setJackpotWin(null)} style={{
+          position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.92)",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          animation: "fadeIn .5s ease", cursor: "pointer"
+        }}>
+          <div style={{ fontSize: 60, marginBottom: 16 }}>JACKPOT</div>
+          <div style={{
+            fontSize: 36, fontWeight: 800, fontFamily: "'Sora', sans-serif",
+            background: "linear-gradient(135deg, #f0c040, #ff8844)",
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 12
+          }}>+{jackpotWin} ETH</div>
+          <div style={{ fontSize: 12, color: "#555", marginTop: 20 }}>Click anywhere to close</div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer style={{
@@ -907,7 +1111,7 @@ export default function FlipperRooms() {
 /* ═══════════════════════════════════════
    SEAT DETAIL PANEL
    ═══════════════════════════════════════ */
-function SeatDetailPanel({ seat, detail, address, connected, seatHook, onClose }) {
+function SeatDetailPanel({ seat, detail, address, connected, seatHook, onClose, estYield = 0 }) {
   const [buyName, setBuyName] = useState("");
   const [buyDeposit, setBuyDeposit] = useState("0.002");
   const [newPrice, setNewPrice] = useState("");
@@ -943,6 +1147,7 @@ function SeatDetailPanel({ seat, detail, address, connected, seatHook, onClose }
           { l: "Tax Owed", v: detail ? `${Number(detail.pendingTax).toFixed(5)} Ξ` : "...", c: "#ff8844" },
           { l: "Runway", v: detail ? (detail.runway > 0 ? `${Math.floor(detail.runway / 86400)}d` : "...") : "...", c: "#888" },
           { l: "Earned", v: detail ? `${Number(detail.earned).toFixed(5)} Ξ` : "...", c: "#888" },
+          { l: "Est. yield/wk", v: `~${estYield.toFixed(5)} Ξ`, c: "#00e87b" },
         ].map((r, i) => (
           <div key={i} style={{ display: "flex", justifyContent: "space-between" }}>
             <span style={{ color: "#444" }}>{r.l}</span>
@@ -1006,6 +1211,13 @@ function SeatDetailPanel({ seat, detail, address, connected, seatHook, onClose }
             width: "100%", padding: "9px 0", borderRadius: 6, background: "#ff444412", border: "1px solid #ff444440",
             color: "#ff4444", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit"
           }}>ABANDON SEAT</button>
+          <button onClick={() => {
+            navigator.clipboard.writeText(`${window.location.origin}?ref=${seat.id}`);
+            addToast("success", `Referral link copied for Seat #${seat.id}`);
+          }} style={{
+            width: "100%", padding: "9px 0", borderRadius: 6, background: "#3b7dff12", border: "1px solid #3b7dff40",
+            color: "#3b7dff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit"
+          }}>COPY REF LINK</button>
         </div>
       )}
     </div>

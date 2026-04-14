@@ -227,11 +227,13 @@ export async function distributeRewards(contract) {
 
 export function parseFlipResolved(receipt, contract) {
   const iface = contract.interface;
+  let flip = null;
+  let jackpotAmount = null;
   for (const log of receipt.logs) {
     try {
       const parsed = iface.parseLog({ topics: log.topics, data: log.data });
       if (parsed?.name === "FlipResolved") {
-        return {
+        flip = {
           challengeId: Number(parsed.args.challengeId),
           winner: parsed.args.winner,
           loser: parsed.args.loser,
@@ -241,9 +243,13 @@ export function parseFlipResolved(receipt, contract) {
           winnerStreak: Number(parsed.args.winnerStreak),
         };
       }
+      if (parsed?.name === "JackpotWon") {
+        jackpotAmount = formatEther(parsed.args.amount);
+      }
     } catch {}
   }
-  return null;
+  if (flip) flip.jackpotAmount = jackpotAmount;
+  return flip;
 }
 
 export function parseSeatBought(receipt, contract) {
