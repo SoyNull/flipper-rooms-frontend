@@ -910,13 +910,15 @@ function StatsSidebar({ sessionBalance, connected, playerStats, protocolStats, t
 // ═══════════════════════════════════════
 //  BOARD TAB — TAKEOVER.FUN STYLE
 // ═══════════════════════════════════════
-function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
+function BoardView({ seatHook, address, connected, contract, refreshBalance, protocolStats }) {
   const [selectedSeat, setSelectedSeat] = useState(null);
   const [seatDetail, setSeatDetail] = useState(null);
   const [seatBuyName, setSeatBuyName] = useState("");
   const [seatBuyDeposit, setSeatBuyDeposit] = useState("0.002");
   const [seatBuyPrice, setSeatBuyPrice] = useState("0.001");
   const [recentActivity, setRecentActivity] = useState([]);
+  const [selectedDuration, setSelectedDuration] = useState(168); // hours: 7d default
+  const [selectedMult, setSelectedMult] = useState(0); // 0=current, 1=1.2x, 2=2x, 3=5x
 
   // Fetch detailed seat info when modal opens
   useEffect(() => {
@@ -975,6 +977,26 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
     return active.reduce((sum, s) => sum + parseFloat(s.price), 0).toFixed(4);
   }, [seatHook.seats]);
 
+  const estYieldPerSeat = useMemo(() => {
+    const activeSeatCount = seatHook.seats?.filter(s => s.active).length || 1;
+    const seatPoolEth = protocolStats ? parseFloat(protocolStats.seatPool || "0") : 0;
+    return (seatPoolEth / activeSeatCount).toFixed(6);
+  }, [seatHook.seats, protocolStats]);
+
+  // Calculate buyout cost breakdown
+  const buyoutCalc = useMemo(() => {
+    if (!selectedSeat || !selectedSeat.active || !selectedSeat.priceWei) return null;
+    try {
+      const price = selectedSeat.priceWei;
+      const mults = [10n, 12n, 20n, 50n]; // /10 to get 1x, 1.2x, 2x, 5x
+      const newPrice = price * mults[selectedMult] / 10n;
+      const weeklyTax = newPrice * 500n / 10000n;
+      const deposit = weeklyTax * BigInt(selectedDuration) / 168n;
+      const totalVal = price + deposit;
+      return { newPrice, weeklyTax, deposit, totalVal, buyoutPrice: price };
+    } catch { return null; }
+  }, [selectedSeat, selectedMult, selectedDuration]);
+
   return (
     <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
       {/* LEFT INFO PANEL */}
@@ -1010,6 +1032,14 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
             <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Your Seats</span>
             <span style={{ color: "var(--gold)", fontSize: 12, fontWeight: 600 }}>{seatHook.mySeats.length}</span>
           </div>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Yield Pool</span>
+            <span style={{ color: "var(--green)", fontSize: 12, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>{protocolStats ? Number(protocolStats.seatPool).toFixed(4) : "0"} {"\u039E"}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Est. Yield/Seat</span>
+            <span style={{ color: "var(--text-dim)", fontSize: 12, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>{estYieldPerSeat} {"\u039E"}/wk</span>
+          </div>
         </div>
 
         <div>
@@ -1037,7 +1067,6 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
       <div style={{ flex: 1, padding: 16, overflowY: "auto" }}>
         {seatHook.seats.length === 0 ? (
           <div style={{ textAlign: "center", padding: 40 }}>
-            <div style={{ fontSize: 28, marginBottom: 12 }}>{"\u{1F3B0}"}</div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>256 Revenue Seats</div>
             <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 20 }}>Harberger-taxed seats. Earn from every flip.</div>
             <button className="seat-modal-btn" style={{ width: "auto", padding: "10px 24px" }}
@@ -1199,6 +1228,12 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
               ))}
             </div>
 
+            {/* Yield estimate */}
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", borderRadius: 8, background: "#22c55e08", border: "1px solid #22c55e15", marginBottom: 16 }}>
+              <span style={{ color: "var(--text-muted)", fontSize: 11 }}>Est. Yield</span>
+              <span style={{ color: "var(--green)", fontSize: 11, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>+{estYieldPerSeat} ETH/wk</span>
+            </div>
+
             {/* Actions based on ownership */}
             {!connected ? (
               <div style={{ textAlign: "center", fontSize: 12, color: "var(--text-dim)" }}>Connect wallet to interact</div>
@@ -1207,24 +1242,56 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
               <div>
                 <input className="seat-modal-input" placeholder="Seat name (optional)" maxLength={32}
                   value={seatBuyName} onChange={e => setSeatBuyName(e.target.value)} />
-                <input className="seat-modal-input" placeholder="Deposit ETH (min 0.001)" type="number" step="0.001"
-                  value={seatBuyDeposit} onChange={e => setSeatBuyDeposit(e.target.value)} />
+                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>Deposit duration</div>
+                <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+                  {[{l:"1d",h:24},{l:"7d",h:168},{l:"30d",h:720}].map(d => (
+                    <button key={d.h} onClick={() => setSelectedDuration(d.h)} style={{
+                      flex: 1, padding: "6px 0", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                      background: selectedDuration === d.h ? "#f7b32b20" : "var(--bg-deep)",
+                      border: `1px solid ${selectedDuration === d.h ? "#f7b32b40" : "var(--border)"}`,
+                      color: selectedDuration === d.h ? "#f7b32b" : "var(--text-muted)",
+                      fontFamily: "inherit",
+                    }}>{d.l}</button>
+                  ))}
+                </div>
+                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 4 }}>
+                  Cost: 0.001 ETH (base) + {(0.001 * 0.05 * selectedDuration / 168).toFixed(4)} ETH (deposit)
+                </div>
                 <button className="seat-modal-btn" onClick={async () => {
                   try {
-                    await seatHook.buySeat(selectedSeat.id, "0.001", seatBuyName, 0n, seatBuyDeposit);
-                    setSelectedSeat(null); setSeatBuyName(""); setSeatBuyDeposit("0.002");
+                    const depositWei = parseEther((0.001 * 0.05 * selectedDuration / 168).toFixed(6));
+                    const basePrice = parseEther("0.001");
+                    const totalVal = basePrice + depositWei;
+                    const tx = await contract.buySeat(selectedSeat.id, basePrice, seatBuyName, 0, { value: totalVal });
+                    await tx.wait();
+                    addToast("success", `Claimed Seat #${selectedSeat.id}!`);
+                    setSelectedSeat(null); setSeatBuyName(""); seatHook.refreshSeats();
                   } catch (err) { addToast("error", decodeError(err)); }
                 }}>CLAIM SEAT</button>
               </div>
             ) : selectedSeat.owner?.toLowerCase() === address?.toLowerCase() ? (
-              /* YOUR seat */
+              /* YOUR seat — manage */
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <button className="seat-action-btn" style={{ background: "#22c55e20", border: "1px solid #22c55e40", color: "var(--green)" }}
-                  onClick={async () => { await seatHook.claim(selectedSeat.id); setSelectedSeat(null); }}>
+                  onClick={async () => {
+                    try {
+                      const tx = await contract.claimSeatRewards(selectedSeat.id);
+                      await tx.wait();
+                      addToast("success", "Rewards claimed!");
+                      refreshBalance(); seatHook.refreshSeats();
+                    } catch (err) { addToast("error", decodeError(err)); }
+                  }}>
                   CLAIM REWARDS {seatDetail?.rewards && parseFloat(seatDetail.rewards) > 0 ? `(${parseFloat(seatDetail.rewards).toFixed(4)} ETH)` : ""}
                 </button>
                 <button className="seat-action-btn" style={{ background: "transparent", border: "1px solid var(--red)", color: "var(--red)" }}
-                  onClick={async () => { await seatHook.abandon(selectedSeat.id); setSelectedSeat(null); }}>
+                  onClick={async () => {
+                    try {
+                      const tx = await contract.abandonSeat(selectedSeat.id);
+                      await tx.wait();
+                      addToast("success", "Seat abandoned");
+                      setSelectedSeat(null); seatHook.refreshSeats(); refreshBalance();
+                    } catch (err) { addToast("error", decodeError(err)); }
+                  }}>
                   ABANDON SEAT
                 </button>
                 <button className="seat-action-btn" style={{ background: "#f7b32b20", border: "1px solid #f7b32b40", color: "var(--gold)" }}
@@ -1236,18 +1303,66 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
                 </button>
               </div>
             ) : (
-              /* Someone else's seat - buyout */
+              /* Someone else's seat — BUYOUT */
               <div>
-                <input className="seat-modal-input" placeholder={`Your new price (current: ${parseFloat(selectedSeat.price).toFixed(4)})`}
-                  type="number" step="0.001" value={seatBuyPrice} onChange={e => setSeatBuyPrice(e.target.value)} />
-                <input className="seat-modal-input" placeholder="Deposit ETH" type="number" step="0.001"
-                  value={seatBuyDeposit} onChange={e => setSeatBuyDeposit(e.target.value)} />
+                {/* Price multiplier selector */}
+                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>New price</div>
+                <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+                  {[{l:"Current",i:0},{l:"1.2x",i:1},{l:"2x",i:2},{l:"5x",i:3}].map(m => (
+                    <button key={m.i} onClick={() => setSelectedMult(m.i)} style={{
+                      flex: 1, padding: "6px 0", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                      background: selectedMult === m.i ? "#f7b32b20" : "var(--bg-deep)",
+                      border: `1px solid ${selectedMult === m.i ? "#f7b32b40" : "var(--border)"}`,
+                      color: selectedMult === m.i ? "#f7b32b" : "var(--text-muted)",
+                      fontFamily: "inherit",
+                    }}>{m.l}</button>
+                  ))}
+                </div>
+
+                {/* Duration selector */}
+                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>Deposit duration</div>
+                <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+                  {[{l:"1d",h:24},{l:"7d",h:168},{l:"30d",h:720}].map(d => (
+                    <button key={d.h} onClick={() => setSelectedDuration(d.h)} style={{
+                      flex: 1, padding: "6px 0", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                      background: selectedDuration === d.h ? "#f7b32b20" : "var(--bg-deep)",
+                      border: `1px solid ${selectedDuration === d.h ? "#f7b32b40" : "var(--border)"}`,
+                      color: selectedDuration === d.h ? "#f7b32b" : "var(--text-muted)",
+                      fontFamily: "inherit",
+                    }}>{d.l}</button>
+                  ))}
+                </div>
+
+                {/* Cost breakdown */}
+                {buyoutCalc && (
+                  <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 8, background: "var(--bg-deep)", border: "1px solid var(--border)" }}>
+                    {[
+                      { l: "Buyout price", v: formatEther(buyoutCalc.buyoutPrice) },
+                      { l: "New price", v: formatEther(buyoutCalc.newPrice) },
+                      { l: "Tax deposit", v: formatEther(buyoutCalc.deposit) },
+                    ].map((r, i) => (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 10 }}>
+                        <span style={{ color: "var(--text-muted)" }}>{r.l}</span>
+                        <span style={{ color: "var(--text-dim)", fontFamily: "'JetBrains Mono', monospace" }}>{parseFloat(r.v).toFixed(4)} ETH</span>
+                      </div>
+                    ))}
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0 0", borderTop: "1px solid var(--border)", marginTop: 4, fontSize: 11 }}>
+                      <span style={{ color: "var(--text)", fontWeight: 700 }}>Total from wallet</span>
+                      <span style={{ color: "var(--gold)", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>{formatEther(buyoutCalc.totalVal)} ETH</span>
+                    </div>
+                  </div>
+                )}
+
                 <button className="seat-modal-btn" onClick={async () => {
+                  if (!buyoutCalc) return;
                   try {
-                    await seatHook.buySeat(selectedSeat.id, seatBuyPrice, "", selectedSeat.priceWei, seatBuyDeposit);
-                    setSelectedSeat(null); setSeatBuyPrice("0.001"); setSeatBuyDeposit("0.002");
+                    const maxPrice = buyoutCalc.buyoutPrice + buyoutCalc.buyoutPrice / 10n;
+                    const tx = await contract.buySeat(selectedSeat.id, buyoutCalc.newPrice, "", maxPrice, { value: buyoutCalc.totalVal });
+                    await tx.wait();
+                    addToast("success", `Bought Seat #${selectedSeat.id}!`);
+                    setSelectedSeat(null); seatHook.refreshSeats(); refreshBalance();
                   } catch (err) { addToast("error", decodeError(err)); }
-                }}>BUYOUT {"\u00B7"} {parseFloat(selectedSeat.price).toFixed(4)} ETH</button>
+                }}>BUY SEAT {"\u00B7"} {buyoutCalc ? formatEther(buyoutCalc.totalVal) : "..."} ETH</button>
               </div>
             )}
           </div>
@@ -1941,6 +2056,7 @@ export default function FlipperRooms() {
                 connected={connected}
                 contract={contract}
                 refreshBalance={refreshBalance}
+                protocolStats={stats}
               />
             )}
 
