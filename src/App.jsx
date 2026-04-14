@@ -1,10 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import * as THREE from "three";
 import { useWallet, useFlip, useSeats, useProtocol, useToasts, addToast, EXPLORER } from "./hooks.js";
-import { getOpenChallenges, getChallengeInfo, getPlayerInfo, decodeError } from "./contract.js";
+import { getOpenChallenges, getChallengeInfo, getPlayerInfo, getTreasuryMaxBet, decodeError } from "./contract.js";
 import { CONTRACT_ADDRESS, TIERS } from "./config.js";
 import { parseEther, formatEther } from "ethers";
 import { playClickSound, playFlipSound, playWinSound, playLoseSound, playDepositSound, playStreakSound } from "./sounds.js";
+
+function getReferralFromUrl() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    return ref ? parseInt(ref, 10) || 0 : 0;
+  } catch { return 0; }
+}
 
 const shortAddr = (a) => a ? `${a.slice(0,6)}...${a.slice(-4)}` : "???";
 const addrColor = (a) => {
@@ -429,7 +437,73 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .toast-pending { background: #ffcc0018; border-color: #ffcc0030; color: var(--gold); }
 
 .empty-state { text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px; }
+.empty-state-rich { text-align: center; padding: 30px 20px; }
 .flip-hint { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 10px; }
+.onboarding { text-align: center; font-size: 13px; color: var(--text-dim); margin-bottom: 24px; line-height: 1.6; }
+.deposit-nudge {
+  text-align: center; padding: 16px 20px; margin-bottom: 20px;
+  background: var(--bg-card); border: 1px dashed var(--border-light); border-radius: 10px;
+}
+.tier-warning { color: var(--gold); font-size: 11px; text-align: center; margin-bottom: 8px; }
+
+/* BOARD */
+.board-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px; margin-bottom: 24px;
+}
+.seat-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px; cursor: pointer; transition: all 0.2s; position: relative;
+}
+.seat-card:hover { border-color: var(--purple); background: var(--bg-card-hover); box-shadow: 0 0 15px #a855f715; }
+.seat-card.owned { border-color: var(--green); background: #00ff8808; }
+.seat-card.mine { border-color: var(--gold); background: #ffe03308; }
+.seat-id { font-size: 10px; color: var(--text-muted); font-weight: 700; margin-bottom: 4px; }
+.seat-name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seat-price { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--green); font-weight: 600; }
+.seat-empty { font-size: 11px; color: var(--text-muted); font-style: italic; }
+.seat-detail-overlay {
+  position: fixed; inset: 0; z-index: 900; background: rgba(0,0,0,0.8);
+  display: flex; align-items: center; justify-content: center; animation: fadeIn 0.3s ease;
+}
+.seat-detail {
+  width: 380px; max-width: 92vw; background: var(--bg-main); border: 1px solid var(--border);
+  border-radius: 14px; padding: 24px; animation: fadeInUp 0.3s ease;
+}
+.seat-detail h3 { font-size: 18px; font-weight: 800; margin-bottom: 16px; }
+.seat-detail-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; border-bottom: 1px solid var(--border); }
+.seat-detail-label { color: var(--text-muted); }
+.seat-detail-val { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+.seat-actions { display: flex; gap: 6px; margin-top: 14px; }
+.seat-buy-btn {
+  flex: 1; padding: 10px; border: none; border-radius: 8px; font-size: 12px;
+  font-weight: 700; font-family: 'Outfit', sans-serif; cursor: pointer;
+  background: linear-gradient(135deg, #7c3aed, #a855f7); color: #fff; transition: all 0.2s;
+  box-shadow: 0 0 12px #a855f730;
+}
+.seat-buy-btn:hover { box-shadow: 0 0 20px #a855f750; }
+
+/* MOBILE DEPOSIT */
+.mobile-deposit { display: none; }
+@media (max-width: 1024px) {
+  .mobile-deposit {
+    display: block; padding: 12px 16px; margin-bottom: 16px;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+  }
+  .mobile-deposit-row { display: flex; gap: 6px; align-items: center; }
+  .mobile-deposit-row input {
+    flex: 1; background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 12px;
+    font-family: 'JetBrains Mono', monospace; outline: none;
+  }
+  .mobile-deposit-row input:focus { border-color: var(--green); }
+  .mobile-deposit-row button {
+    padding: 8px 12px; border: none; border-radius: 6px; font-size: 11px;
+    font-weight: 700; font-family: 'Outfit', sans-serif; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .mobile-bal { font-size: 14px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--green); margin-bottom: 8px; }
+}
 
 @media (max-width: 1024px) {
   .sidebar { display: none; }
@@ -565,8 +639,13 @@ export default function FlipperRooms() {
   const [depositAmt, setDepositAmt] = useState("");
   const [isDepositing, setIsDepositing] = useState(false);
   const [playerStats, setPlayerStats] = useState(null);
-  // flipModal: { playerA, playerB, amount, state:"spinning"|"win"|"lose", winner, txHash }
   const [flipModal, setFlipModal] = useState(null);
+  const [treasuryMax, setTreasuryMax] = useState(null);
+  const [selectedSeat, setSelectedSeat] = useState(null);
+  const [seatBuyPrice, setSeatBuyPrice] = useState("0.001");
+  const [seatBuyName, setSeatBuyName] = useState("");
+  const [seatBuyDeposit, setSeatBuyDeposit] = useState("0.001");
+  const referral = useRef(getReferralFromUrl()).current;
 
   // Load data
   useEffect(() => {
@@ -574,6 +653,7 @@ export default function FlipperRooms() {
     flipHook.refreshChallenges();
     flipHook.refreshHistory();
     protocol.refreshStats();
+    getTreasuryMaxBet(contract).then(v => setTreasuryMax(v)).catch(() => {});
   }, [contract]);
 
   // Polling
@@ -584,6 +664,7 @@ export default function FlipperRooms() {
       protocol.refreshStats();
       flipHook.refreshChallenges();
       flipHook.refreshHistory();
+      getTreasuryMaxBet(contract).then(v => setTreasuryMax(v)).catch(() => {});
     }, 15000);
     return () => clearInterval(iv);
   }, [contract, refreshBalance]);
@@ -599,7 +680,7 @@ export default function FlipperRooms() {
     playClickSound(); playFlipSound();
     const amt = TIERS[tier]?.label || "0.005";
     setFlipModal({ playerA: address, playerB: "Treasury", amount: amt, state: "spinning", winner: null, txHash: null });
-    const result = await flipHook.flipTreasury(TIERS[tier].wei, 0);
+    const result = await flipHook.flipTreasury(TIERS[tier].wei, referral);
     if (!result) { setFlipModal(null); return; }
     const won = result.winner.toLowerCase() === address?.toLowerCase();
     if (won) { playWinSound(); if (result.winnerStreak >= 3) playStreakSound(result.winnerStreak); }
@@ -611,7 +692,7 @@ export default function FlipperRooms() {
   const handleFlipPvp = async () => {
     if (flipModal || !connected) return;
     playClickSound();
-    await flipHook.flipPvp(TIERS[tier].wei, 0);
+    await flipHook.flipPvp(TIERS[tier].wei, referral);
   };
 
   const handleAccept = async (challengeId, creatorAddr) => {
@@ -620,7 +701,7 @@ export default function FlipperRooms() {
     const c = flipHook.challenges.find(ch => ch.id === challengeId);
     const amt = c ? c.amount : "?";
     setFlipModal({ playerA: address, playerB: creatorAddr || "Opponent", amount: amt, state: "spinning", winner: null, txHash: null });
-    const result = await flipHook.acceptCh(challengeId, 0);
+    const result = await flipHook.acceptCh(challengeId, referral);
     if (!result) { setFlipModal(null); return; }
     const won = result.winner.toLowerCase() === address?.toLowerCase();
     if (won) playWinSound(); else playLoseSound();
@@ -691,7 +772,7 @@ export default function FlipperRooms() {
             </div>
             <div className="nav">
               {["flip", "board", "fair"].map(v => (
-                <button key={v} className={`nav-btn ${view === v ? "active" : ""}`} onClick={() => { setView(v); playClickSound(); }}>
+                <button key={v} className={`nav-btn ${view === v ? "active" : ""}`} onClick={() => { setView(v); playClickSound(); if (v === "board" && seatHook.seats.length === 0) seatHook.refreshSeats(); }}>
                   {v === "flip" ? "Coinflip" : v === "board" ? "Board" : "Fair"}
                 </button>
               ))}
@@ -720,6 +801,37 @@ export default function FlipperRooms() {
                   <div className="hero-title">PLAY COINFLIP ON BASE</div>
                   <div className="hero-big">COINFLIP</div>
 
+                  {!connected && (
+                    <div className="onboarding">
+                      Deposit ETH &rarr; Pick your bet &rarr; Flip against players or the treasury.<br/>
+                      50/50 odds. Winner takes 95%.
+                    </div>
+                  )}
+
+                  {connected && parseFloat(bal) === 0 && (
+                    <div className="deposit-nudge">
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>
+                        Deposit ETH to start flipping
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
+                        Use the panel on the right (or below on mobile) to deposit funds
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mobile deposit bar */}
+                  <div className="mobile-deposit">
+                    <div className="mobile-bal">{parseFloat(bal).toFixed(4)} ETH</div>
+                    <div className="mobile-deposit-row">
+                      {["0.005", "0.01", "0.05"].map(v => (
+                        <button key={v} onClick={() => setDepositAmt(v)} style={{ background: "var(--bg-elevated)", color: "var(--text-dim)", border: "1px solid var(--border)" }}>{v}</button>
+                      ))}
+                      <input placeholder="ETH" type="number" step="0.001" value={depositAmt} onChange={e => setDepositAmt(e.target.value)} />
+                      <button onClick={handleDeposit} disabled={isDepositing} style={{ background: "linear-gradient(135deg, #00cc70, #00ff88)", color: "#000" }}>{isDepositing ? "..." : "Dep"}</button>
+                      <button onClick={handleWithdraw} disabled={isDepositing} style={{ background: "transparent", color: "var(--red)", border: "1px solid var(--red)" }}>{isDepositing ? "..." : "W"}</button>
+                    </div>
+                  </div>
+
                   {connected && playerStats && (
                     <div className="stats-row">
                       <div className="stat-item"><span className="stat-label">W/L</span><span className="stat-val stat-green">{playerStats.wins}</span><span style={{ color: "var(--text-muted)" }}>/</span><span className="stat-val" style={{ color: "var(--red)" }}>{playerStats.losses}</span></div>
@@ -735,6 +847,12 @@ export default function FlipperRooms() {
                         onClick={() => { setTier(i); playClickSound(); }}>{t.label}</button>
                     ))}
                   </div>
+
+                  {treasuryMax && parseFloat(tierEth) > parseFloat(treasuryMax) && (
+                    <div className="tier-warning">
+                      &#9888; Treasury max bet is {parseFloat(treasuryMax).toFixed(4)} ETH. This tier may fail vs treasury.
+                    </div>
+                  )}
 
                   <div className="coin-stage" style={{ position: "relative" }}>
                     {[...Array(8)].map((_, i) => (
@@ -769,7 +887,13 @@ export default function FlipperRooms() {
                     <div className="section-label" style={{ marginBottom: 0 }}>ALL GAMES</div>
                     <div className="games-count">{flipHook.challenges.length} OPEN</div>
                   </div>
-                  {flipHook.challenges.length === 0 && <div className="empty-state">No open challenges</div>}
+                  {flipHook.challenges.length === 0 && (
+                    <div className="empty-state-rich">
+                      <div style={{ fontSize: 32, marginBottom: 8 }}>&#9889;</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>No games yet</div>
+                      <div style={{ fontSize: 12, color: "var(--text-dim)" }}>Be the first — create a PVP flip or play vs treasury</div>
+                    </div>
+                  )}
                   {flipHook.challenges.map(c => (
                     <div className="game-row" key={c.id}>
                       <div className="game-players">
@@ -788,7 +912,7 @@ export default function FlipperRooms() {
 
                   {/* HISTORY */}
                   <div className="section-label" style={{ marginTop: 28 }}>RECENT FLIPS</div>
-                  {flipHook.history.length === 0 && <div className="empty-state">No recent flips</div>}
+                  {flipHook.history.length === 0 && <div className="empty-state">No recent flips yet</div>}
                   {flipHook.history.slice(0, 8).map((h, i) => {
                     const won = address ? h.winner.toLowerCase() === address.toLowerCase() : null;
                     return (
@@ -811,7 +935,75 @@ export default function FlipperRooms() {
                 <div>
                   <div className="hero-title">REVENUE SEATS</div>
                   <div className="hero-big">THE BOARD</div>
-                  <div className="empty-state">Board tab — 256 seats with Harberger tax yield<br/>Coming in next update</div>
+                  <div style={{ fontSize: 13, color: "var(--text-dim)", marginBottom: 20, lineHeight: 1.6 }}>
+                    256 Harberger-taxed seats. Owners earn a share of every flip's fees. Buy a seat, set a price, keep it funded.
+                  </div>
+                  {!seatHook.loading && seatHook.seats.length === 0 && (
+                    <div style={{ textAlign: "center", marginBottom: 16 }}>
+                      <button className="seat-buy-btn" style={{ width: "auto", padding: "10px 24px" }} onClick={() => { seatHook.refreshSeats(); }}>Load Seats</button>
+                    </div>
+                  )}
+                  {seatHook.loading && <div className="empty-state">Loading 256 seats...</div>}
+                  <div className="board-grid">
+                    {seatHook.seats.map(s => {
+                      const isMine = s.active && address && s.owner.toLowerCase() === address.toLowerCase();
+                      return (
+                        <div key={s.id}
+                          className={`seat-card ${s.active ? (isMine ? "mine" : "owned") : ""}`}
+                          onClick={() => { setSelectedSeat(s); playClickSound(); }}>
+                          <div className="seat-id">#{s.id}</div>
+                          {s.active ? (
+                            <>
+                              <div className="seat-name">{s.name || shortAddr(s.owner)}</div>
+                              <div className="seat-price">{parseFloat(s.price).toFixed(4)} ETH</div>
+                            </>
+                          ) : (
+                            <div className="seat-empty">Available</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Seat detail overlay */}
+                  {selectedSeat && (
+                    <div className="seat-detail-overlay" onClick={(e) => { if (e.target === e.currentTarget) setSelectedSeat(null); }}>
+                      <div className="seat-detail">
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                          <h3 style={{ margin: 0 }}>Seat #{selectedSeat.id}</h3>
+                          <button onClick={() => setSelectedSeat(null)} style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 20, cursor: "pointer" }}>&#x2715;</button>
+                        </div>
+                        <div className="seat-detail-row"><span className="seat-detail-label">Owner</span><span className="seat-detail-val">{selectedSeat.active ? shortAddr(selectedSeat.owner) : "None"}</span></div>
+                        <div className="seat-detail-row"><span className="seat-detail-label">Price</span><span className="seat-detail-val" style={{ color: "var(--green)" }}>{parseFloat(selectedSeat.price).toFixed(4)} ETH</span></div>
+                        <div className="seat-detail-row"><span className="seat-detail-label">Deposit</span><span className="seat-detail-val">{parseFloat(selectedSeat.deposit).toFixed(4)} ETH</span></div>
+                        {selectedSeat.name && <div className="seat-detail-row"><span className="seat-detail-label">Name</span><span className="seat-detail-val">{selectedSeat.name}</span></div>}
+
+                        {connected && !(selectedSeat.active && address && selectedSeat.owner.toLowerCase() === address.toLowerCase()) && (
+                          <div style={{ marginTop: 16 }}>
+                            <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 6 }}>Buy this seat (pay current price + deposit)</div>
+                            <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                              <input className="info-input" style={{ marginBottom: 0 }} placeholder="New price" type="number" step="0.001" value={seatBuyPrice} onChange={e => setSeatBuyPrice(e.target.value)} />
+                              <input className="info-input" style={{ marginBottom: 0 }} placeholder="Name" maxLength={32} value={seatBuyName} onChange={e => setSeatBuyName(e.target.value)} />
+                            </div>
+                            <input className="info-input" placeholder="Deposit amount" type="number" step="0.001" value={seatBuyDeposit} onChange={e => setSeatBuyDeposit(e.target.value)} />
+                            <button className="seat-buy-btn" style={{ width: "100%" }} onClick={async () => {
+                              await seatHook.buySeat(selectedSeat.id, seatBuyPrice, seatBuyName, selectedSeat.priceWei, seatBuyDeposit);
+                              setSelectedSeat(null);
+                            }}>
+                              Buy Seat #{selectedSeat.id}
+                            </button>
+                          </div>
+                        )}
+
+                        {connected && selectedSeat.active && address && selectedSeat.owner.toLowerCase() === address.toLowerCase() && (
+                          <div className="seat-actions" style={{ marginTop: 14 }}>
+                            <button className="seat-buy-btn" onClick={async () => { await seatHook.claim(selectedSeat.id); setSelectedSeat(null); }}>Claim</button>
+                            <button className="cancel-btn" onClick={async () => { await seatHook.abandon(selectedSeat.id); setSelectedSeat(null); }}>Abandon</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -874,6 +1066,7 @@ export default function FlipperRooms() {
                 {[
                   { l: "Total Bets", v: stats ? stats.totalFlips.toLocaleString() : "..." },
                   { l: "Treasury", v: stats ? `${Number(stats.treasury).toFixed(4)} Ξ` : "..." },
+                  { l: "Max Bet", v: treasuryMax ? `${parseFloat(treasuryMax).toFixed(4)} Ξ` : "..." },
                   { l: "Jackpot", v: stats ? `${Number(stats.jackpot).toFixed(4)} Ξ` : "..." },
                   { l: "Volume", v: stats ? `${Number(stats.totalVolume).toFixed(3)} Ξ` : "..." },
                 ].map((r, i) => (
