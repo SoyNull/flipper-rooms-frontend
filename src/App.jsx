@@ -87,21 +87,151 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 @keyframes flashBright { 0%, 100% { opacity: 0.1; } 50% { opacity: 0.6; } }
 @keyframes scrollTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
-/* ═══ COIN WRAPPER ═══ */
-.coin-wrapper { position: relative; border-radius: 18px; margin: 0 auto 20px; width: 204px; height: 204px; }
-.coin-wrapper.spinning::before {
-  content: ''; position: absolute; inset: -2px; border-radius: 18px;
-  background: conic-gradient(from 0deg, transparent 0deg, #f7b32b 30deg, #ffd700 60deg, transparent 90deg, transparent 360deg);
-  animation: spinBorder 1.2s linear infinite; z-index: 0;
+/* ═══ COIN STAGE — DUEL LAYOUT ═══ */
+@property --border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
 }
-.coin-wrapper.result-win::before {
-  content: ''; position: absolute; inset: -2px; border-radius: 18px;
-  background: #22c55e; animation: flashBright 0.4s ease 3; z-index: 0;
+
+.coin-wrapper {
+  position: relative; border-radius: 16px; padding: 3px;
+  margin: 0 auto 20px; max-width: 620px;
 }
-.coin-wrapper.result-lose::before {
-  content: ''; position: absolute; inset: -2px; border-radius: 18px;
-  background: #ef4444; animation: flashBright 0.4s ease 3; z-index: 0;
+.coin-wrapper .border-trace {
+  position: absolute; inset: 0; border-radius: 16px; opacity: 0;
+  background: conic-gradient(from var(--border-angle, 0deg), transparent 0deg, #b8860b 15deg, #f7b32b 40deg, #ffd700 70deg, #f7b32b 100deg, #b8860b 130deg, transparent 150deg, transparent 360deg);
+  transition: opacity 0.4s;
 }
+.coin-wrapper.spinning .border-trace { opacity: 1; animation: spinBorder 0.6s linear infinite; }
+@keyframes spinBorder { to { --border-angle: 360deg; } }
+
+.coin-wrapper .border-flash { position: absolute; inset: 0; border-radius: 16px; opacity: 0; }
+.coin-wrapper.result-win .border-flash { animation: flashToGreen 1.8s ease forwards; }
+.coin-wrapper.result-lose .border-flash { animation: flashToRed 1.8s ease forwards; }
+
+@keyframes flashToGreen {
+  0% { background: #f7b32b; opacity: 0.5; } 30% { background: #f7b32b; opacity: 0.03; }
+  50% { background: #22c55e; opacity: 0; } 70% { background: #22c55e; opacity: 0.45; }
+  100% { background: #22c55e; opacity: 0.12; }
+}
+@keyframes flashToRed {
+  0% { background: #f7b32b; opacity: 0.5; } 30% { background: #f7b32b; opacity: 0.03; }
+  50% { background: #ef4444; opacity: 0; } 70% { background: #ef4444; opacity: 0.45; }
+  100% { background: #ef4444; opacity: 0.12; }
+}
+
+.coin-stage-inner {
+  position: relative; z-index: 1; border-radius: 13px; overflow: hidden;
+  background: #0b0e11; padding: 20px 16px 16px;
+}
+.coin-stage-inner .grid-overlay {
+  position: absolute; inset: 0; opacity: 0.03; pointer-events: none;
+  background-image: linear-gradient(#f7b32b 1px, transparent 1px), linear-gradient(90deg, #f7b32b 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+.coin-stage-inner .glow-bg {
+  position: absolute; inset: 0; pointer-events: none; transition: all 0.8s ease;
+  background: radial-gradient(ellipse at 50% 45%, #f7b32b08 0%, transparent 50%);
+}
+.coin-wrapper.spinning .glow-bg { background: radial-gradient(ellipse at 50% 45%, #f7b32b1a 0%, transparent 55%); }
+.coin-wrapper.result-win .glow-bg { background: radial-gradient(ellipse at 50% 45%, #22c55e15 0%, transparent 55%); }
+.coin-wrapper.result-lose .glow-bg { background: radial-gradient(ellipse at 50% 45%, #ef444412 0%, transparent 55%); }
+
+.connector-line {
+  position: absolute; top: 30px; left: 0; right: 0; height: 1px; z-index: 1;
+  background: linear-gradient(90deg, transparent 5%, #f7b32b10 25%, #f7b32b10 75%, transparent 95%);
+  transition: all 0.5s;
+}
+.coin-wrapper.spinning .connector-line {
+  background: linear-gradient(90deg, transparent 5%, #f7b32b25 25%, #f7b32b25 75%, transparent 95%);
+  animation: connPulse 0.8s ease infinite;
+}
+@keyframes connPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+.coin-wrapper.result-win .connector-line { background: linear-gradient(90deg, transparent 5%, #22c55e18 25%, #22c55e18 75%, transparent 95%); }
+.coin-wrapper.result-lose .connector-line { background: linear-gradient(90deg, transparent 5%, #ef444415 25%, #ef444415 75%, transparent 95%); }
+
+.arena { display: flex; align-items: flex-start; justify-content: center; position: relative; z-index: 2; padding-top: 4px; }
+.arena-player { display: flex; flex-direction: column; align-items: center; width: 120px; flex-shrink: 0; transition: all 0.6s ease; }
+.arena-player.winner { transform: scale(1.06); }
+.arena-player.loser { transform: scale(0.9); opacity: 0.45; }
+
+.arena-avatar {
+  width: 52px; height: 52px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Orbitron', sans-serif; font-size: 15px; font-weight: 800; color: #fff;
+  border: 3px solid #1c2430; transition: all 0.6s;
+}
+.arena-avatar.avatar-you { background: linear-gradient(135deg, #2563eb, #3b82f6); border-color: #3b82f640; }
+.arena-avatar.avatar-opp { background: linear-gradient(135deg, #b8860b, #f7b32b); border-color: #f7b32b40; }
+.arena-avatar.avatar-win { border-color: #22c55e; box-shadow: 0 0 18px #22c55e30; }
+.arena-avatar.avatar-lose { border-color: #ef4444; box-shadow: 0 0 12px #ef444420; opacity: 0.6; }
+.arena-avatar.avatar-bounce { animation: avatarBounce 1s ease infinite; }
+@keyframes avatarBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+
+.arena-name { font-size: 12px; font-weight: 700; color: #c8d0da; margin-top: 8px; transition: color 0.5s; }
+.arena-name.name-win { color: #22c55e; }
+.arena-name.name-lose { color: #94a3b8; opacity: 0.5; }
+
+.arena-bet {
+  margin-top: 4px; padding: 3px 10px; border-radius: 6px;
+  background: #131820; border: 1px solid #1c2430;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: #f7b32b;
+  transition: all 0.5s;
+}
+.arena-bet.bet-win { border-color: #22c55e30; color: #22c55e; background: #22c55e08; }
+.arena-bet.bet-lose { border-color: #ef444425; color: #ef4444; background: #ef444408; }
+
+.vs-area { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 120px; max-width: 200px; padding: 0 8px; }
+.vs-text { font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700; color: #374151; letter-spacing: 4px; margin-bottom: 8px; height: 14px; transition: opacity 0.3s; }
+.coin-wrapper.spinning .vs-text { opacity: 0; }
+
+.coin-3d-container { width: 120px; height: 120px; position: relative; }
+
+.prize-pool { margin-top: 10px; text-align: center; }
+.prize-label { font-size: 8px; color: #374151; letter-spacing: 2px; font-weight: 700; }
+.prize-value { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: #f7b32b; margin-top: 1px; transition: color 0.5s; }
+.prize-value.prize-win { color: #22c55e; }
+.prize-value.prize-lose { color: #ef4444; }
+
+.result-zone { min-height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; z-index: 10; margin-top: 8px; }
+.result-text-new { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 900; letter-spacing: 5px; opacity: 0; transition: opacity 0.4s ease 0.5s; }
+.result-text-new.visible { opacity: 1; }
+.result-text-new.win-text { color: #22c55e; }
+.result-text-new.lose-text { color: #ef4444; }
+
+.result-amount { font-family: 'JetBrains Mono', monospace; font-size: 12px; opacity: 0; transition: opacity 0.4s ease 0.8s; margin-top: 3px; }
+.result-amount.visible { opacity: 1; }
+.result-amount.win-amount { color: #22c55e90; }
+.result-amount.lose-amount { color: #ef444490; }
+
+.result-actions { display: flex; gap: 8px; margin-top: 10px; opacity: 0; transition: opacity 0.4s ease 1.2s; }
+.result-actions.visible { opacity: 1; }
+.action-btn { padding: 8px 20px; border-radius: 8px; font-family: 'Chakra Petch', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; border: none; }
+.action-btn:hover { transform: translateY(-1px); }
+.action-btn.btn-rematch { background: linear-gradient(135deg, #b8860b, #f7b32b); color: #0b0e11; box-shadow: 0 0 15px #f7b32b25; }
+.action-btn.btn-rematch:hover { box-shadow: 0 0 25px #f7b32b40; }
+.action-btn.btn-double { background: transparent; border: 1px solid #22c55e50; color: #22c55e; }
+.action-btn.btn-double:hover { background: #22c55e10; box-shadow: 0 0 15px #22c55e20; }
+.action-btn.btn-change { background: transparent; border: 1px solid #1c2430; color: #94a3b8; }
+.action-btn.btn-change:hover { background: #151a22; }
+
+.streak-bar { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 10px; min-height: 20px; position: relative; z-index: 2; }
+.streak-dot { width: 18px; height: 18px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 800; font-family: 'JetBrains Mono', monospace; transition: all 0.3s; }
+.streak-dot.streak-win { background: #22c55e18; border: 1px solid #22c55e40; color: #22c55e; }
+.streak-dot.streak-lose { background: #ef444418; border: 1px solid #ef444440; color: #ef4444; }
+.streak-dot.streak-new { animation: streakPop 0.3s ease; }
+@keyframes streakPop { 0% { transform: scale(0); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+
+.jackpot-bar { margin-top: 14px; padding: 0 4px; position: relative; z-index: 2; }
+.jackpot-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.jackpot-label { font-size: 9px; color: #475569; letter-spacing: 1.5px; font-weight: 700; }
+.jackpot-value { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #f7b32b; font-weight: 600; }
+.jackpot-track { height: 4px; background: #151a22; border-radius: 2px; overflow: hidden; }
+.jackpot-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, #b8860b, #f7b32b, #ffd700); transition: width 1s ease; }
+.jackpot-note { font-size: 9px; color: #374151; text-align: center; margin-top: 4px; transition: color 0.3s; }
+.jackpot-note.jackpot-hot { color: #f7b32b80; animation: jackpotPulse 1.5s ease infinite; }
+@keyframes jackpotPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 
 /* ═══ 3-COLUMN LAYOUT ═══ */
 .app-root {
@@ -242,19 +372,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 }
 .hero-sub { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; letter-spacing: 1px; }
 
-/* Coin stage */
-.coin-stage {
-  position: relative; width: 200px; height: 200px;
-  z-index: 1; border-radius: 16px; background: var(--bg-deep);
-}
-.coin-stage-glow {
-  position: absolute; inset: 0; border-radius: 50%;
-  background: radial-gradient(circle, #f7b32b30 0%, transparent 70%);
-  animation: coinGlow 2.5s ease infinite; pointer-events: none;
-}
-.coin-orbiter { position: absolute; inset: 0; }
-.coin-orbiter-1 { animation: spin-slow 10s linear infinite; }
-.coin-orbiter-2 { animation: spin-slow 15s linear infinite reverse; }
+/* (coin stage styles above in DUEL LAYOUT section) */
 
 /* Flip button */
 .flip-btn-main {
@@ -429,15 +547,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
   border: 1px solid #f7b32b30;
 }
 
-/* Result overlay */
-.result-overlay {
-  position: absolute; inset: 0; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; z-index: 10;
-  animation: fadeIn 0.3s ease; border-radius: 50%;
-}
-.result-text { font-size: 28px; font-weight: 900; letter-spacing: 3px; }
-.result-win { color: var(--green); text-shadow: 0 0 40px #22c55e60; }
-.result-lose { color: var(--red); text-shadow: 0 0 40px #ef444460; }
+/* (result styles in DUEL LAYOUT section) */
 
 /* Toasts */
 .toast-container { position: fixed; top: 16px; right: 16px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
@@ -1168,6 +1278,9 @@ export default function FlipperRooms() {
   const [showResult, setShowResult] = useState(false);
   const pendingResultRef = useRef(null);
   const [waitingConfirm, setWaitingConfirm] = useState(false);
+  const [flipHistory, setFlipHistory] = useState([]);
+  const [lastPayout, setLastPayout] = useState("0");
+  const tierBarRef = useRef(null);
 
   // Called by Coin3D when landing animation completes
   const onFlipDone = useCallback(() => {
@@ -1177,6 +1290,8 @@ export default function FlipperRooms() {
 
     setShowResult(true);
     setResult(pending.won ? "win" : "lose");
+    setLastPayout(pending.payout);
+    setFlipHistory(prev => [{ won: pending.won }, ...prev].slice(0, 12));
 
     if (pending.won) {
       playWinSound();
@@ -1197,7 +1312,7 @@ export default function FlipperRooms() {
       setCoinState("idle");
       setShowResult(false);
       setResult(null);
-    }, 3000);
+    }, 5000);
   }, [address, refreshBalance, contract]);
 
   // Load data
@@ -1506,7 +1621,7 @@ export default function FlipperRooms() {
                     <div className="hero-title-text">COINFLIP</div>
                     <div className="hero-sub">50/50 chance {"\u2022"} Instant results {"\u2022"} Provably fair</div>
 
-                    <div className="tier-bar">
+                    <div className="tier-bar" ref={tierBarRef}>
                       {TIERS.map((t, i) => (
                         <button key={i} className={`tier-btn ${tier === i ? "active" : ""}`}
                           onClick={() => { setTier(i); playClickSound(); }}>
@@ -1515,47 +1630,122 @@ export default function FlipperRooms() {
                       ))}
                     </div>
 
-                    {/* Coin Area */}
-                    <div className={`coin-wrapper ${coinState === "spinning" ? "spinning" : ""} ${showResult ? (result === "win" ? "result-win" : "result-lose") : ""}`}>
-                      <div className="coin-stage">
-                        <div className="coin-stage-glow" />
-                        <div style={{ width: "100%", height: "100%" }}>
-                          <Coin3D state={coinState} onComplete={onFlipDone} />
+                    {/* ═══ DUEL COIN STAGE ═══ */}
+                    {(() => {
+                      const wrapperClass = coinState === "spinning" ? "spinning" : showResult ? (result === "win" ? "result-win" : "result-lose") : "";
+                      const p1Class = showResult ? (result === "win" ? "winner" : "loser") : "";
+                      const p2Class = showResult ? (result === "win" ? "loser" : "winner") : "";
+                      const a1Class = coinState === "spinning" ? "avatar-bounce" : showResult ? (result === "win" ? "avatar-win" : "avatar-lose") : "";
+                      const a2Class = coinState === "spinning" ? "avatar-bounce" : showResult ? (result === "win" ? "avatar-lose" : "avatar-win") : "";
+                      const n1Class = showResult ? (result === "win" ? "name-win" : "name-lose") : "";
+                      const n2Class = showResult ? (result === "win" ? "name-lose" : "name-win") : "";
+                      const b1Class = showResult ? (result === "win" ? "bet-win" : "bet-lose") : "";
+                      const b2Class = showResult ? (result === "win" ? "bet-lose" : "bet-win") : "";
+                      const prizeClass = showResult ? (result === "win" ? "prize-win" : "prize-lose") : "";
+                      const prizeText = showResult
+                        ? (result === "win" ? `+${lastPayout} ETH` : `-${tierEth} ETH`)
+                        : `${(parseFloat(tierEth) * 2).toFixed(4)} ETH`;
+                      const jackpotAmount = stats ? Number(stats.jackpot).toFixed(4) : "0.0000";
+                      const jackpotTarget = 0.05;
+                      const jackpotPercent = Math.min(100, (parseFloat(jackpotAmount) / jackpotTarget) * 100);
+
+                      return (
+                        <div className={`coin-wrapper ${wrapperClass}`}>
+                          <div className="border-trace" />
+                          <div className="border-flash" />
+                          <div className="coin-stage-inner">
+                            <div className="grid-overlay" />
+                            <div className="glow-bg" />
+                            <div className="connector-line" />
+
+                            <div className="arena">
+                              {/* Player You */}
+                              <div className={`arena-player ${p1Class}`}>
+                                <div className={`arena-avatar avatar-you ${a1Class}`}>
+                                  {address?.slice(2,4).toUpperCase() || "??"}
+                                </div>
+                                <div className={`arena-name ${n1Class}`}>You</div>
+                                <div className={`arena-bet ${b1Class}`}>{tierEth} ETH</div>
+                              </div>
+
+                              {/* VS + Coin */}
+                              <div className="vs-area">
+                                <div className="vs-text">VS</div>
+                                <div className="coin-3d-container">
+                                  <Coin3D state={coinState} onComplete={onFlipDone} />
+                                </div>
+                                <div className="prize-pool">
+                                  <div className="prize-label">PRIZE POOL</div>
+                                  <div className={`prize-value ${prizeClass}`}>{prizeText}</div>
+                                </div>
+                              </div>
+
+                              {/* Opponent */}
+                              <div className={`arena-player ${p2Class}`}>
+                                <div className={`arena-avatar avatar-opp ${a2Class}`}>TR</div>
+                                <div className={`arena-name ${n2Class}`}>Treasury</div>
+                                <div className={`arena-bet ${b2Class}`}>{tierEth} ETH</div>
+                              </div>
+                            </div>
+
+                            {/* Result zone */}
+                            <div className="result-zone">
+                              {waitingConfirm && (
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  <div style={{ width: 20, height: 20, border: "2px solid #f7b32b30", borderTopColor: "#f7b32b", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--gold)" }}>Confirm in wallet...</span>
+                                </div>
+                              )}
+                              <div className={`result-text-new ${showResult ? "visible" : ""} ${result === "win" ? "win-text" : result === "lose" ? "lose-text" : ""}`}>
+                                {result === "win" ? "YOU WON" : result === "lose" ? "YOU LOST" : ""}
+                              </div>
+                              <div className={`result-amount ${showResult ? "visible" : ""} ${result === "win" ? "win-amount" : result === "lose" ? "lose-amount" : ""}`}>
+                                {result === "win" ? `+${lastPayout} ETH` : result === "lose" ? `-${tierEth} ETH` : ""}
+                              </div>
+                              <div className={`result-actions ${showResult ? "visible" : ""}`}>
+                                <button className="action-btn btn-rematch" onClick={handleFlip}>Rematch</button>
+                                {result === "win" && (
+                                  <button className="action-btn btn-double" onClick={handleFlip}>Double or nothing</button>
+                                )}
+                                <button className="action-btn btn-change" onClick={() => tierBarRef.current?.scrollIntoView({ behavior: "smooth" })}>Change tier</button>
+                              </div>
+                            </div>
+
+                            {/* Streak bar */}
+                            {flipHistory.length > 0 && (
+                              <div className="streak-bar">
+                                {flipHistory.slice(0, 12).map((h, i) => (
+                                  <div key={i} className={`streak-dot ${h.won ? "streak-win" : "streak-lose"} ${i === 0 ? "streak-new" : ""}`}>
+                                    {h.won ? "W" : "L"}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Jackpot bar */}
+                            <div className="jackpot-bar">
+                              <div className="jackpot-header">
+                                <span className="jackpot-label">JACKPOT PROGRESS</span>
+                                <span className="jackpot-value">{jackpotAmount} / 0.05 ETH</span>
+                              </div>
+                              <div className="jackpot-track">
+                                <div className="jackpot-fill" style={{ width: `${jackpotPercent}%` }} />
+                              </div>
+                              <div className={`jackpot-note ${jackpotPercent > 70 ? "jackpot-hot" : ""}`}>
+                                {jackpotPercent > 70 ? "Almost there... one lucky flip away!" : "Every flip adds to the jackpot pool"}
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        {showResult && (
-                          <div className="result-overlay" style={{
-                            background: result === "win" ? "radial-gradient(ellipse, #22c55e20, transparent 70%)" : "radial-gradient(ellipse, #ef444420, transparent 70%)",
-                          }}>
-                            <div className={`result-text ${result === "win" ? "result-win" : "result-lose"}`}>
-                              {result === "win" ? "YOU WON!" : "YOU LOST"}
-                            </div>
-                          </div>
-                        )}
-                        {waitingConfirm && (
-                          <div style={{
-                            position: "absolute", inset: 0, zIndex: 20, borderRadius: 16,
-                            background: "rgba(11,14,17,0.9)",
-                            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                          }}>
-                            <div style={{
-                              width: 28, height: 28, border: "3px solid #f7b32b30",
-                              borderTopColor: "#f7b32b", borderRadius: "50%",
-                              animation: "spin 0.8s linear infinite", marginBottom: 12,
-                            }} />
-                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--gold)" }}>
-                              Confirm in wallet...
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                      );
+                    })()}
 
                     {/* FLIP BUTTON / CONNECT */}
                     {!connected ? (
                       <button className="connect-btn" onClick={connect} style={{ padding: "18px 48px", fontSize: 18, borderRadius: 14 }}>
                         Connect Wallet
                       </button>
-                    ) : (
+                    ) : !showResult && (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: "100%", maxWidth: 500, margin: "0 auto" }}>
                         <button className="flip-btn-main"
                           disabled={coinState !== "idle"}
@@ -1580,7 +1770,7 @@ export default function FlipperRooms() {
                         >
                           Create PVP Challenge
                         </button>
-                        {connected && !isEmbedded && (
+                        {!isEmbedded && (
                           <div style={{ fontSize: 10, color: "var(--text-muted)", textAlign: "center", marginTop: 2 }}>
                             Using external wallet {"\u2014"} each flip requires approval.
                             <span onClick={() => { disconnect(); setTimeout(connect, 500); }}
@@ -1592,7 +1782,7 @@ export default function FlipperRooms() {
                       </div>
                     )}
 
-                    {connected && parseFloat(sessionBalance || "0") === 0 && (
+                    {connected && parseFloat(sessionBalance || "0") === 0 && !showResult && (
                       <div style={{ marginTop: 16, fontSize: 12, color: "var(--text-dim)" }}>
                         Deposit ETH using the panel on the right to start flipping
                       </div>
@@ -1600,7 +1790,7 @@ export default function FlipperRooms() {
 
                     {treasuryMax && parseFloat(tierEth) > parseFloat(treasuryMax) && (
                       <div style={{ marginTop: 8, fontSize: 11, color: "var(--gold)" }}>
-                        {"\u26A0"} Treasury max bet is {parseFloat(treasuryMax).toFixed(4)} ETH
+                        Treasury max bet is {parseFloat(treasuryMax).toFixed(4)} ETH
                       </div>
                     )}
                   </div>
