@@ -18,25 +18,27 @@ const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg-deep: #080b12;
-  --bg-main: #0c1019;
-  --bg-card: #111722;
-  --bg-card-hover: #161d2b;
-  --bg-elevated: #1a2233;
-  --border: #1e2a3a;
-  --border-light: #253347;
-  --text: #e2e8f0;
-  --text-dim: #8892a4;
-  --text-muted: #4a5568;
-  --green: #10b981;
-  --green-glow: #10b98140;
-  --green-dark: #065f46;
-  --red: #ef4444;
-  --red-glow: #ef444440;
-  --gold: #f59e0b;
-  --gold-glow: #f59e0b30;
-  --blue: #3b82f6;
-  --teal: #14b8a6;
+  --bg-deep: #0a0a1a;
+  --bg-main: #0e0e24;
+  --bg-card: #14142e;
+  --bg-card-hover: #1a1a3e;
+  --bg-elevated: #1e1e42;
+  --border: #2a2a5a;
+  --border-light: #3a3a6a;
+  --text: #eee;
+  --text-dim: #9090b0;
+  --text-muted: #505070;
+  --green: #00ffa3;
+  --green-glow: #00ffa350;
+  --green-dark: #006644;
+  --red: #ff3366;
+  --red-glow: #ff336650;
+  --gold: #ffcc00;
+  --gold-glow: #ffcc0050;
+  --blue: #4488ff;
+  --purple: #8855ff;
+  --purple-glow: #8855ff40;
+  --teal: #00e5ff;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -55,11 +57,19 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-.app { display: flex; height: 100vh; overflow: hidden; }
+.app {
+  display: flex; height: 100vh; overflow: hidden;
+  background:
+    radial-gradient(ellipse at 20% 50%, #8855ff06 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, #00ffa306 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, #ffcc0004 0%, transparent 40%),
+    var(--bg-deep);
+}
 
 /* SIDEBAR */
 .sidebar {
-  width: 260px; min-width: 260px; background: var(--bg-main);
+  width: 260px; min-width: 260px;
+  background: linear-gradient(180deg, #0c0c22, #0a0a1a);
   border-right: 1px solid var(--border); display: flex; flex-direction: column;
 }
 .sidebar-header {
@@ -69,7 +79,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 }
 .sidebar-header h3 { font-size: 13px; font-weight: 600; color: var(--text-dim); letter-spacing: 0.5px; }
 .online-badge { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--teal); }
-.online-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); animation: blink 2s infinite; }
+.online-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px #00ffa360; animation: blink 2s infinite; }
 
 .chat-messages { flex: 1; overflow-y: auto; padding: 8px 0; }
 .chat-msg {
@@ -94,7 +104,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   border-radius: 8px; padding: 10px 14px; color: var(--text); font-size: 12px;
   font-family: 'Outfit', sans-serif; outline: none; transition: all 0.2s;
 }
-.chat-input-wrap input:focus { border-color: var(--green); box-shadow: 0 0 12px #10b98118; }
+.chat-input-wrap input:focus { border-color: var(--purple); box-shadow: 0 0 15px #8855ff25; }
 
 /* MAIN COLUMN */
 .main-col { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -102,12 +112,12 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 /* TOPBAR */
 .topbar {
   height: 56px; display: flex; align-items: center; justify-content: space-between;
-  padding: 0 24px; border-bottom: 1px solid var(--border); background: var(--bg-main);
-  flex-shrink: 0;
+  padding: 0 24px; border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, #0e0e24, #0a0a1a); flex-shrink: 0;
 }
 .logo { display: flex; align-items: center; gap: 8px; }
 .logo-text { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
-.logo-green { color: var(--green); text-shadow: 0 0 20px #10b98130; }
+.logo-green { color: var(--green); text-shadow: 0 0 30px #00ffa340; }
 .logo-dim { color: var(--text-muted); }
 .logo-badge {
   font-size: 8px; font-weight: 800; letter-spacing: 1.5px; padding: 3px 8px;
@@ -121,7 +131,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   cursor: pointer; border-radius: 6px; transition: all 0.2s; position: relative;
 }
 .nav-btn:hover { color: var(--text); background: var(--bg-card); }
-.nav-btn.active { color: var(--green); background: #10b98110; }
+.nav-btn.active { color: var(--green); background: #00ffa310; text-shadow: 0 0 10px #00ffa330; }
 .nav-btn.active::after {
   content: ''; position: absolute; bottom: 2px; left: 20%; right: 20%;
   height: 2px; background: var(--green); border-radius: 2px;
@@ -134,14 +144,14 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600;
   transition: box-shadow 0.3s;
 }
-.balance-pill.has-bal { box-shadow: 0 0 15px #10b98120; }
+.balance-pill.has-bal { background: #00ffa310; border-color: #00ffa330; box-shadow: 0 0 15px #00ffa320; }
 .connect-btn {
   padding: 8px 20px; border: none; border-radius: 8px; font-size: 13px;
   font-weight: 700; font-family: 'Outfit', sans-serif; cursor: pointer;
-  background: var(--green); color: #000; transition: all 0.2s;
-  box-shadow: 0 2px 12px #10b98130;
+  background: linear-gradient(135deg, #00cc80, #00ffa3); color: #000; transition: all 0.2s;
+  box-shadow: 0 0 20px #00ffa330;
 }
-.connect-btn:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 4px 20px #10b98140; }
+.connect-btn:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 0 30px #00ffa350; }
 .addr-pill {
   padding: 6px 14px; background: var(--bg-card); border: 1px solid var(--border);
   border-radius: 8px; font-size: 12px; color: var(--text-dim); cursor: pointer;
@@ -153,7 +163,8 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .content { flex: 1; overflow-y: auto; padding: 0; display: flex; }
 .game-area { flex: 1; overflow-y: auto; padding: 32px 36px; }
 .info-panel {
-  width: 220px; min-width: 220px; background: var(--bg-main);
+  width: 220px; min-width: 220px;
+  background: linear-gradient(180deg, #0c0c22, #0a0a1a);
   border-left: 1px solid var(--border); overflow-y: auto; padding: 20px 16px;
 }
 
@@ -163,13 +174,13 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 }
 
 /* HERO */
-.hero-title { font-size: 11px; color: var(--text-muted); letter-spacing: 2px; font-weight: 600; margin-bottom: 4px; animation: fadeInUp 0.5s ease 0.1s both; }
+.hero-title { font-size: 11px; color: var(--purple); letter-spacing: 3px; font-weight: 600; margin-bottom: 4px; animation: fadeInUp 0.5s ease 0.1s both; }
 .hero-big {
-  font-size: 42px; font-weight: 900; letter-spacing: -2px;
-  background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 50%, #e2e8f0 100%);
-  background-size: 200% 200%;
+  font-size: 44px; font-weight: 900; letter-spacing: -2px;
+  background: linear-gradient(135deg, #fff 0%, #8855ff 40%, #00ffa3 70%, #fff 100%);
+  background-size: 300% 300%;
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  animation: shimmer 4s ease infinite, fadeInUp 0.5s ease 0.2s both;
+  animation: shimmer 5s ease infinite, fadeInUp 0.5s ease 0.2s both;
   margin-bottom: 20px;
 }
 
@@ -192,8 +203,9 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .tier-btn:hover { border-color: var(--border-light); background: var(--bg-card-hover); color: var(--text); }
 .tier-btn.active {
   border-color: var(--green); color: var(--green);
-  background: linear-gradient(135deg, #10b98110, #10b98108);
-  box-shadow: 0 0 25px #10b98130, 0 0 60px #10b98110;
+  background: #00ffa308;
+  box-shadow: 0 0 20px #00ffa320, 0 0 40px #00ffa310, inset 0 0 30px #00ffa308;
+  text-shadow: 0 0 10px #00ffa350;
   transform: scale(1.02);
 }
 .tier-btn.active::after {
@@ -203,26 +215,24 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 
 /* COIN STAGE */
 .coin-stage {
-  background: radial-gradient(ellipse at 50% 30%, #111d2e 0%, var(--bg-deep) 70%);
+  background: radial-gradient(ellipse at 50% 40%, #1a1040 0%, #0a0a1a 70%);
   border: 1px solid var(--border); border-radius: 16px;
   height: 300px; margin-bottom: 24px; position: relative; overflow: hidden;
   animation: fadeInUp 0.5s ease 0.5s both;
-  transition: border-color 0.3s;
 }
-.coin-stage.lose-flash { border-color: var(--red); }
 .coin-stage::before {
   content: ''; position: absolute; inset: -20px;
-  background: radial-gradient(circle at 50% 50%, #10b98125 0%, transparent 50%);
-  animation: coinGlow 3s ease infinite; pointer-events: none; z-index: 0;
+  background: radial-gradient(circle at 50% 50%, #8855ff30 0%, transparent 50%);
+  animation: coinGlow 2s ease infinite; pointer-events: none; z-index: 0;
 }
 .coin-stage::after {
   content: ''; position: absolute; inset: 0;
-  background-image: linear-gradient(#ffffff04 1px, transparent 1px), linear-gradient(90deg, #ffffff04 1px, transparent 1px);
-  background-size: 30px 30px; pointer-events: none; border-radius: 16px;
+  background-image: linear-gradient(#8855ff08 1px, transparent 1px), linear-gradient(90deg, #8855ff08 1px, transparent 1px);
+  background-size: 25px 25px; pointer-events: none; border-radius: 16px;
 }
 .coin-particle {
   position: absolute; width: 3px; height: 3px; border-radius: 50%;
-  background: #10b98150; pointer-events: none; z-index: 0;
+  pointer-events: none; z-index: 0;
   animation: float var(--dur) ease-in-out var(--delay) infinite;
 }
 
@@ -250,15 +260,15 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .flip-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .flip-btn:disabled::before { display: none; }
 .flip-btn-pvp {
-  background: linear-gradient(135deg, #0d7a56, #10b981);
-  color: #fff; box-shadow: 0 4px 24px var(--green-glow);
+  background: linear-gradient(135deg, #6d28d9, #8855ff);
+  color: #fff; box-shadow: 0 0 30px #8855ff40, 0 0 60px #8855ff20;
 }
-.flip-btn-pvp:hover { box-shadow: 0 8px 32px #10b98150; }
+.flip-btn-pvp:hover { box-shadow: 0 0 40px #8855ff60, 0 0 80px #8855ff30; }
 .flip-btn-treasury {
-  background: linear-gradient(135deg, #92680a, #f59e0b);
-  color: #000; box-shadow: 0 4px 24px var(--gold-glow);
+  background: linear-gradient(135deg, #b8860b, #ffcc00);
+  color: #000; box-shadow: 0 0 30px #ffcc0040, 0 0 60px #ffcc0020;
 }
-.flip-btn-treasury:hover { box-shadow: 0 8px 32px #f59e0b40; }
+.flip-btn-treasury:hover { box-shadow: 0 0 40px #ffcc0060, 0 0 80px #ffcc0030; }
 .flip-sub { font-size: 11px; font-weight: 500; opacity: 0.7; margin-top: 4px; }
 
 /* GAME ROWS */
@@ -266,14 +276,14 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .games-count { font-size: 13px; font-weight: 700; color: var(--green); font-family: 'JetBrains Mono', monospace; }
 .game-row {
   display: flex; align-items: center; padding: 14px 18px;
-  background: linear-gradient(135deg, #111722 0%, #0f1520 100%);
+  background: linear-gradient(135deg, #14142e, #12122a);
   border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px;
   transition: all 0.25s; gap: 16px;
 }
 .game-row:hover {
-  border-color: #2a3a50;
-  background: linear-gradient(135deg, #151e2c 0%, #121925 100%);
-  transform: translateX(3px); box-shadow: -3px 0 15px #10b98110;
+  border-color: #8855ff50;
+  background: linear-gradient(135deg, #1a1a3e, #181840);
+  box-shadow: 0 0 15px #8855ff15;
 }
 .game-players { display: flex; align-items: center; gap: 10px; flex: 1; }
 .game-vs { font-size: 11px; color: var(--text-muted); font-weight: 700; }
@@ -297,21 +307,23 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 4px 10px;
   border-radius: 6px; text-transform: uppercase; min-width: 80px; text-align: center;
 }
-.status-open { background: #10b98118; color: var(--green); border: 1px solid #10b98130; }
+.status-open { background: #00ffa318; color: var(--green); border: 1px solid #00ffa330; }
 .status-done { background: var(--bg-elevated); color: var(--text-muted); }
 
 .join-btn {
-  padding: 8px 22px; border: none; border-radius: 8px; background: var(--green);
+  padding: 8px 22px; border: none; border-radius: 8px;
+  background: linear-gradient(135deg, #00cc80, #00ffa3);
   color: #000; font-size: 12px; font-weight: 700; cursor: pointer;
   font-family: 'Outfit', sans-serif; transition: all 0.2s;
+  box-shadow: 0 0 12px #00ffa330;
 }
-.join-btn:hover { box-shadow: 0 0 15px #10b98140; transform: scale(1.05); }
+.join-btn:hover { box-shadow: 0 0 20px #00ffa350; transform: scale(1.05); }
 .cancel-btn {
   padding: 8px 16px; border: 1px solid var(--red); border-radius: 8px;
   background: transparent; color: var(--red); font-size: 11px; font-weight: 600;
   cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.2s;
 }
-.cancel-btn:hover { background: #ef444410; }
+.cancel-btn:hover { background: #ff336610; }
 
 /* INFO PANEL */
 .info-section { margin-bottom: 24px; }
@@ -320,7 +332,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700;
   margin-bottom: 12px; transition: all 0.3s;
 }
-.info-balance.has-bal { color: var(--green); text-shadow: 0 0 20px #10b98130; }
+.info-balance.has-bal { color: var(--green); text-shadow: 0 0 25px #00ffa340; }
 .quick-btns { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
 .quick-btn {
   padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px;
@@ -328,29 +340,29 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   font-family: 'JetBrains Mono', monospace; font-weight: 600; cursor: pointer;
   transition: all 0.2s;
 }
-.quick-btn:hover { border-color: var(--green); color: var(--green); background: #10b98108; }
+.quick-btn:hover { border-color: var(--purple); color: var(--purple); background: #8855ff10; }
 .info-input {
   width: 100%; background: var(--bg-card); border: 1px solid var(--border);
   border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 12px;
   font-family: 'JetBrains Mono', monospace; outline: none; margin-bottom: 8px;
   transition: all 0.2s;
 }
-.info-input:focus { border-color: var(--green); box-shadow: 0 0 10px #10b98115; }
+.info-input:focus { border-color: var(--green); box-shadow: 0 0 10px #00ffa315; }
 .info-actions { display: flex; gap: 6px; }
 .btn-deposit {
   flex: 1; padding: 8px; border: none; border-radius: 6px; font-size: 11px;
   font-weight: 700; font-family: 'Outfit', sans-serif; cursor: pointer;
-  background: var(--green); color: #000; transition: all 0.2s;
-  box-shadow: 0 2px 10px #10b98130;
+  background: linear-gradient(135deg, #00cc80, #00ffa3); color: #000; transition: all 0.2s;
+  box-shadow: 0 0 10px #00ffa325;
 }
-.btn-deposit:hover { box-shadow: 0 4px 16px #10b98140; }
+.btn-deposit:hover { box-shadow: 0 0 18px #00ffa340; }
 .btn-deposit:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 .btn-withdraw {
   flex: 1; padding: 8px; border: 1px solid var(--red); border-radius: 6px;
   font-size: 11px; font-weight: 700; font-family: 'Outfit', sans-serif;
   cursor: pointer; background: transparent; color: var(--red); transition: all 0.2s;
 }
-.btn-withdraw:hover { box-shadow: 0 2px 10px #ef444425; }
+.btn-withdraw:hover { box-shadow: 0 2px 10px #ff336625; }
 .btn-withdraw:disabled { opacity: 0.4; cursor: not-allowed; }
 .info-row {
   display: flex; justify-content: space-between; padding: 5px 0;
@@ -366,8 +378,8 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   animation: fadeIn 0.3s ease;
 }
 .result-text { font-size: 32px; font-weight: 900; letter-spacing: 4px; font-family: 'Outfit', sans-serif; }
-.result-win { color: var(--green); text-shadow: 0 0 40px var(--green-glow), 0 0 80px #10b98120; }
-.result-lose { color: var(--red); text-shadow: 0 0 40px var(--red-glow), 0 0 80px #ef444420; }
+.result-win { color: var(--green); text-shadow: 0 0 40px #00ffa360, 0 0 80px #00ffa330; }
+.result-lose { color: var(--red); text-shadow: 0 0 40px #ff336660, 0 0 80px #ff336630; }
 
 .shaking { animation: shake 0.5s ease; }
 
@@ -378,9 +390,9 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   animation: slideIn 0.3s ease; min-width: 250px; border: 1px solid; cursor: pointer;
   backdrop-filter: blur(8px);
 }
-.toast-success { background: #10b98118; border-color: #10b98130; color: var(--green); }
-.toast-error { background: #ef444418; border-color: #ef444430; color: var(--red); }
-.toast-pending { background: #f59e0b18; border-color: #f59e0b30; color: var(--gold); }
+.toast-success { background: #00ffa318; border-color: #00ffa330; color: var(--green); }
+.toast-error { background: #ff336618; border-color: #ff336630; color: var(--red); }
+.toast-pending { background: #ffcc0018; border-color: #ffcc0030; color: var(--gold); }
 
 .empty-state { text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px; }
 .flip-hint { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 10px; }
@@ -395,14 +407,14 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 `;
 
 const MOCK_CHAT = [
-  { name: "BasedDegen", level: 12, msg: "LFG", color: "#10b981" },
-  { name: "FlipperKing", level: 34, msg: "just hit 5x streak", color: "#f59e0b" },
+  { name: "BasedDegen", level: 12, msg: "LFG", color: "#00ffa3" },
+  { name: "FlipperKing", level: 34, msg: "just hit 5x streak", color: "#ffcc00" },
   { name: "0xWhale", level: 8, msg: "bought seat #42", color: "#3b82f6" },
   { name: "CryptoNova", level: 21, msg: "treasury needs funding", color: "#ec4899" },
   { name: "SigmaGrind", level: 15, msg: "0.05 tier is the sweet spot", color: "#8b5cf6" },
   { name: "MoonBoi", level: 5, msg: "wen jackpot", color: "#14b8a6" },
   { name: "AlphaSeeker", level: 29, msg: "seat yield looking good today", color: "#f97316" },
-  { name: "DegenApe", level: 7, msg: "lost 3 in a row lol", color: "#ef4444" },
+  { name: "DegenApe", level: 7, msg: "lost 3 in a row lol", color: "#ff3366" },
   { name: "BaseMaxi", level: 18, msg: "this is the best coinflip on base", color: "#06b6d4" },
   { name: "FlipMaster", level: 44, msg: "GG everyone", color: "#a855f7" },
 ];
@@ -432,25 +444,26 @@ function Coin3D({ state, onComplete }) {
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.3));
     const dir = new THREE.DirectionalLight(0xffffff, 1.0); dir.position.set(3, 5, 4); scene.add(dir);
-    const rim = new THREE.DirectionalLight(0x10b981, 0.6); rim.position.set(-3, -2, 3); scene.add(rim);
-    const accent = new THREE.PointLight(0x10b981, 0.8, 10); accent.position.set(0, 0, 3); scene.add(accent);
+    const rim = new THREE.DirectionalLight(0x8855ff, 0.8); rim.position.set(-3, -2, 3); scene.add(rim);
+    const accent = new THREE.PointLight(0x8855ff, 1.0, 10); accent.position.set(0, 0, 3); scene.add(accent);
+    const accent2 = new THREE.PointLight(0x00ffa3, 0.3, 10); accent2.position.set(2, -1, 2); scene.add(accent2);
 
     const coinGroup = new THREE.Group(); scene.add(coinGroup);
     const r = 1.1, th = 0.1, seg = 64;
-    const mat = new THREE.MeshStandardMaterial({ color: 0x10b981, metalness: 0.85, roughness: 0.2, emissive: 0x042f22, emissiveIntensity: 0.15 });
+    const mat = new THREE.MeshStandardMaterial({ color: 0x7c3aed, metalness: 0.9, roughness: 0.12, emissive: 0x2d1065, emissiveIntensity: 0.25 });
     const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, th, seg), mat);
     body.rotation.x = Math.PI / 2; coinGroup.add(body);
-    const edgeMat = new THREE.MeshStandardMaterial({ color: 0x059669, metalness: 0.9, roughness: 0.15 });
+    const edgeMat = new THREE.MeshStandardMaterial({ color: 0x6d28d9, metalness: 0.9, roughness: 0.15 });
     coinGroup.add(new THREE.Mesh(new THREE.TorusGeometry(r, th / 2, 16, seg), edgeMat));
 
     const makeLabel = (text, z, flip) => {
       const c = document.createElement("canvas"); c.width = 256; c.height = 256;
       const ctx = c.getContext("2d");
-      ctx.fillStyle = "#04201580"; ctx.fillRect(0,0,256,256);
+      ctx.fillStyle = "#2d106580"; ctx.fillRect(0,0,256,256);
       ctx.fillStyle = "#ffffff"; ctx.font = "bold 120px 'Arial'";
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(text, 128, 128);
-      const fMat = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(c), transparent: true, metalness: 0.5, roughness: 0.4 });
+      const fMat = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(c), transparent: true, metalness: 0.5, roughness: 0.4, color: 0x5b21b6 });
       const face = new THREE.Mesh(new THREE.CircleGeometry(r * 0.8, seg), fMat);
       face.position.z = z; if (flip) face.rotation.y = Math.PI; coinGroup.add(face);
     };
@@ -509,14 +522,11 @@ export default function FlipperRooms() {
 
   const [view, setView] = useState("flip");
   const [tier, setTier] = useState(1);
-  const [coinState, setCoinState] = useState("idle");
-  const [flipResult, setFlipResult] = useState(null);
-  const [showResult, setShowResult] = useState(false);
   const [depositAmt, setDepositAmt] = useState("");
   const [isDepositing, setIsDepositing] = useState(false);
-  const [shaking, setShaking] = useState(false);
-  const [confetti, setConfetti] = useState([]);
   const [playerStats, setPlayerStats] = useState(null);
+  // flipModal: { playerA, playerB, amount, state:"spinning"|"win"|"lose", winner, txHash }
+  const [flipModal, setFlipModal] = useState(null);
 
   // Load data
   useEffect(() => {
@@ -546,54 +556,38 @@ export default function FlipperRooms() {
     });
   }, [contract, address, sessionBalance]);
 
-  const onFlipDone = useCallback(() => {
-    setShowResult(true);
-    if (flipResult === "win") {
-      playWinSound();
-      setConfetti(Array.from({ length: 30 }, (_, i) => ({
-        id: i, left: Math.random() * 100, delay: Math.random() * 0.6,
-        color: ["var(--green)", "var(--gold)", "var(--blue)", "#fff"][i % 4],
-        size: 4 + Math.random() * 5,
-      })));
-    } else {
-      playLoseSound();
-      setShaking(true);
-      setTimeout(() => setShaking(false), 500);
-    }
-    setTimeout(() => { setCoinState("idle"); setShowResult(false); setFlipResult(null); setConfetti([]); refreshBalance(); }, 3500);
-  }, [flipResult, refreshBalance]);
-
   const handleFlipTreasury = async () => {
-    if (coinState !== "idle" || !connected) return;
-    playClickSound();
-    if (isEmbedded) { setCoinState("spinning"); playFlipSound(); }
+    if (flipModal || !connected) return;
+    playClickSound(); playFlipSound();
+    const amt = TIERS[tier]?.label || "0.005";
+    setFlipModal({ playerA: address, playerB: "Treasury", amount: amt, state: "spinning", winner: null, txHash: null });
     const result = await flipHook.flipTreasury(TIERS[tier].wei, 0);
-    if (!result) { setCoinState("idle"); return; }
-    if (!isEmbedded) { setCoinState("spinning"); playFlipSound(); }
+    if (!result) { setFlipModal(null); return; }
     const won = result.winner.toLowerCase() === address?.toLowerCase();
-    setFlipResult(won ? "win" : "lose");
-    setCoinState(won ? "win" : "lose");
-    if (won && result.winnerStreak >= 3) playStreakSound(result.winnerStreak);
+    if (won) { playWinSound(); if (result.winnerStreak >= 3) playStreakSound(result.winnerStreak); }
+    else playLoseSound();
+    setFlipModal(prev => prev ? { ...prev, state: won ? "win" : "lose", winner: won ? prev.playerA : prev.playerB, txHash: result.txHash || null } : null);
+    refreshBalance();
   };
 
   const handleFlipPvp = async () => {
-    if (coinState !== "idle" || !connected) return;
+    if (flipModal || !connected) return;
     playClickSound();
-    if (isEmbedded) { setCoinState("spinning"); playFlipSound(); }
     await flipHook.flipPvp(TIERS[tier].wei, 0);
-    setCoinState("idle");
   };
 
-  const handleAccept = async (challengeId) => {
-    if (coinState !== "idle" || !connected) return;
-    playClickSound();
-    if (isEmbedded) { setCoinState("spinning"); playFlipSound(); }
+  const handleAccept = async (challengeId, creatorAddr) => {
+    if (flipModal || !connected) return;
+    playClickSound(); playFlipSound();
+    const c = flipHook.challenges.find(ch => ch.id === challengeId);
+    const amt = c ? c.amount : "?";
+    setFlipModal({ playerA: address, playerB: creatorAddr || "Opponent", amount: amt, state: "spinning", winner: null, txHash: null });
     const result = await flipHook.acceptCh(challengeId, 0);
-    if (!result) { setCoinState("idle"); return; }
-    if (!isEmbedded) { setCoinState("spinning"); playFlipSound(); }
+    if (!result) { setFlipModal(null); return; }
     const won = result.winner.toLowerCase() === address?.toLowerCase();
-    setFlipResult(won ? "win" : "lose");
-    setCoinState(won ? "win" : "lose");
+    if (won) playWinSound(); else playLoseSound();
+    setFlipModal(prev => prev ? { ...prev, state: won ? "win" : "lose", winner: won ? prev.playerA : prev.playerB, txHash: result.txHash || null } : null);
+    refreshBalance();
   };
 
   const handleDeposit = async () => {
@@ -703,35 +697,21 @@ export default function FlipperRooms() {
                     ))}
                   </div>
 
-                  <div className={`coin-stage ${flipResult === "lose" && showResult ? "lose-flash" : ""}`} style={{ position: "relative" }}>
+                  <div className="coin-stage" style={{ position: "relative" }}>
                     {[...Array(8)].map((_, i) => (
                       <div key={i} className="coin-particle" style={{
                         left: `${15 + Math.random() * 70}%`, top: `${10 + Math.random() * 80}%`,
                         "--dur": `${3 + Math.random() * 3}s`, "--delay": `${i * 0.4}s`,
+                        background: i % 2 === 0 ? "#8855ff40" : "#00ffa330",
                       }} />
                     ))}
-                    <Coin3D state={coinState} onComplete={onFlipDone} />
-                    {showResult && flipResult && (
-                      <div className="result-overlay" style={{ background: flipResult === "win" ? "radial-gradient(circle, #10b98120, transparent 70%)" : "radial-gradient(circle, #ef444420, transparent 70%)" }}>
-                        <div className={`result-text ${flipResult === "win" ? "result-win" : "result-lose"}`}>
-                          {flipResult === "win" ? "YOU WIN" : "YOU LOSE"}
-                        </div>
-                      </div>
-                    )}
-                    {confetti.map(c => (
-                      <div key={c.id} style={{
-                        position: "absolute", top: 0, left: `${c.left}%`,
-                        width: c.size || 6, height: c.size || 6,
-                        background: c.color, borderRadius: Math.random() > 0.5 ? "50%" : "1px",
-                        animation: `confetti ${1.2 + Math.random() * 1.2}s ${c.delay}s ease forwards`, zIndex: 20
-                      }} />
-                    ))}
+                    <Coin3D state="idle" onComplete={() => {}} />
                   </div>
 
                   <div className="flip-buttons">
-                    <button className="flip-btn flip-btn-pvp" disabled={coinState !== "idle" || !connected || flipHook.isFlipping}
+                    <button className="flip-btn flip-btn-pvp" disabled={!!flipModal || !connected || flipHook.isFlipping}
                       onClick={handleFlipPvp}>PVP FLIP<div className="flip-sub">{tierEth} ETH · Create Challenge</div></button>
-                    <button className="flip-btn flip-btn-treasury" disabled={coinState !== "idle" || !connected || flipHook.isFlipping}
+                    <button className="flip-btn flip-btn-treasury" disabled={!!flipModal || !connected || flipHook.isFlipping}
                       onClick={handleFlipTreasury}>VS TREASURY<div className="flip-sub">{tierEth} ETH · Instant Flip</div></button>
                   </div>
 
@@ -755,7 +735,7 @@ export default function FlipperRooms() {
                       <div className="game-status status-open">JOINABLE</div>
                       {c.creator?.toLowerCase() === address?.toLowerCase()
                         ? <button className="cancel-btn" onClick={() => { playClickSound(); flipHook.cancelCh(c.id); }}>CANCEL</button>
-                        : <button className="join-btn" onClick={() => handleAccept(c.id)}>Join</button>
+                        : <button className="join-btn" onClick={() => handleAccept(c.id, c.creator)}>Join</button>
                       }
                     </div>
                   ))}
@@ -879,6 +859,139 @@ export default function FlipperRooms() {
           </div>
         </div>
       </div>
+
+      {/* FLIP MODAL */}
+      {flipModal && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 1000,
+          background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          animation: "fadeIn 0.3s ease",
+        }}>
+          <div style={{
+            width: 600, maxWidth: "95vw", background: "#0c1019",
+            border: "1px solid #1e2a3a", borderRadius: 20, overflow: "hidden",
+          }}>
+            {/* Header */}
+            <div style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "18px 24px", borderBottom: "1px solid #1e2a3a",
+            }}>
+              <span style={{ fontSize: 16, fontWeight: 800, fontFamily: "'Outfit',sans-serif", color: "#e2e8f0" }}>COINFLIP</span>
+              <button onClick={() => setFlipModal(null)} style={{
+                background: "none", border: "none", color: "#4a5568", fontSize: 20, cursor: "pointer"
+              }}>&#x2715;</button>
+            </div>
+
+            {/* Players + Coin */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "32px 28px", position: "relative",
+              background: "radial-gradient(ellipse at 50% 50%, #111d2e, #0c1019)",
+            }}>
+              {/* Player A */}
+              <div style={{ textAlign: "center", width: 140 }}>
+                <div style={{
+                  width: 72, height: 72, borderRadius: "50%", margin: "0 auto 10px",
+                  background: `linear-gradient(135deg, ${addrColor(flipModal.playerA)}, ${addrColor(flipModal.playerA)}88)`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 20, fontWeight: 700, color: "#fff",
+                  border: flipModal.state !== "spinning" && flipModal.winner === flipModal.playerA
+                    ? "3px solid #00ffa3" : "3px solid #1e2a3a",
+                  boxShadow: flipModal.state !== "spinning" && flipModal.winner === flipModal.playerA
+                    ? "0 0 20px #00ffa340" : "none",
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}>
+                  {flipModal.playerA?.slice(2,4).toUpperCase()}
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#e2e8f0", marginBottom: 4 }}>
+                  {flipModal.playerA === address ? "You" : shortAddr(flipModal.playerA)}
+                </div>
+                <div style={{
+                  display: "inline-block", padding: "4px 12px", borderRadius: 8,
+                  background: "#111722", border: "1px solid #1e2a3a",
+                  fontFamily: "'JetBrains Mono',monospace", fontSize: 13, fontWeight: 700, color: "#00ffa3",
+                }}>{flipModal.amount} ETH</div>
+              </div>
+
+              {/* Center Coin */}
+              <div style={{ width: 180, height: 180, position: "relative" }}>
+                <Coin3D state={flipModal.state === "spinning" ? "spinning" : flipModal.state} onComplete={() => {
+                  setTimeout(() => setFlipModal(null), 3000);
+                }} />
+                <div style={{
+                  position: "absolute", inset: -15, border: "2px solid #00ffa330", borderRadius: "50%",
+                  animation: flipModal.state === "spinning" ? "coinGlow 1s ease infinite" : "none",
+                  opacity: flipModal.state === "spinning" ? 1 : 0, transition: "opacity 0.3s",
+                }} />
+              </div>
+
+              {/* Player B */}
+              <div style={{ textAlign: "center", width: 140 }}>
+                <div style={{
+                  width: 72, height: 72, borderRadius: "50%", margin: "0 auto 10px",
+                  background: flipModal.playerB === "Treasury"
+                    ? "linear-gradient(135deg, #ffcc00, #ffcc0088)"
+                    : `linear-gradient(135deg, ${addrColor(flipModal.playerB)}, ${addrColor(flipModal.playerB)}88)`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: flipModal.playerB === "Treasury" ? 28 : 20,
+                  fontWeight: 700, color: "#fff",
+                  border: flipModal.state !== "spinning" && flipModal.winner !== flipModal.playerA
+                    ? "3px solid #00ffa3" : "3px solid #1e2a3a",
+                  boxShadow: flipModal.state !== "spinning" && flipModal.winner !== flipModal.playerA
+                    ? "0 0 20px #00ffa340" : "none",
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}>
+                  {flipModal.playerB === "Treasury" ? "T" : flipModal.playerB?.slice(2,4).toUpperCase() || "??"}
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#e2e8f0", marginBottom: 4 }}>
+                  {flipModal.playerB === "Treasury" ? "Treasury" : shortAddr(flipModal.playerB)}
+                </div>
+                <div style={{
+                  display: "inline-block", padding: "4px 12px", borderRadius: 8,
+                  background: "#111722", border: "1px solid #1e2a3a",
+                  fontFamily: "'JetBrains Mono',monospace", fontSize: 13, fontWeight: 700,
+                  color: flipModal.playerB === "Treasury" ? "#ffcc00" : "#00ffa3",
+                }}>{flipModal.amount} ETH</div>
+              </div>
+            </div>
+
+            {/* Result */}
+            {flipModal.state !== "spinning" && (
+              <div style={{
+                textAlign: "center", padding: "20px 24px",
+                background: flipModal.winner === flipModal.playerA
+                  ? "linear-gradient(180deg, #00ffa310, transparent)"
+                  : "linear-gradient(180deg, #ff336610, transparent)",
+              }}>
+                <div style={{
+                  fontSize: 14, fontWeight: 800, letterSpacing: 2,
+                  color: flipModal.winner === flipModal.playerA ? "#00ffa3" : "#ff3366",
+                  textShadow: flipModal.winner === flipModal.playerA ? "0 0 30px #00ffa350" : "0 0 30px #ff336650",
+                }}>
+                  {flipModal.winner === flipModal.playerA
+                    ? (flipModal.playerA === address ? "YOU WON!" : shortAddr(flipModal.playerA) + " WON")
+                    : (flipModal.playerB === "Treasury" ? "TREASURY WON" : shortAddr(flipModal.playerB) + " WON")}
+                </div>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div style={{
+              padding: "14px 24px", borderTop: "1px solid #1e2a3a",
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#4a5568" }}>Fairness</div>
+              {flipModal.txHash && (
+                <a href={`${EXPLORER}/tx/${flipModal.txHash}`} target="_blank" rel="noreferrer"
+                  style={{ fontSize: 10, color: "#3b82f6", fontFamily: "'JetBrains Mono',monospace" }}>
+                  {flipModal.txHash.slice(0,20)}...
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* TOASTS */}
       <div className="toast-container">
