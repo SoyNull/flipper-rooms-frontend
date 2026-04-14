@@ -79,16 +79,29 @@ export function useWallet() {
     // Skip if we already set up this exact wallet
     if (setupRef.current === wallet.address) return;
 
+    let cancelled = false;
     async function setup() {
       try {
         setIsEmbedded(wallet.walletClientType === "privy");
 
-        try { await wallet.switchChain(84532); }
-        catch (e) { /* may already be on correct chain */ }
+        try { await wallet.switchChain(84532); } catch {}
 
-        const rawProvider = await wallet.getEthereumProvider();
-        const ethProvider = new BrowserProvider(rawProvider);
-        const sgnr = await ethProvider.getSigner();
+        let ethProvider, sgnr;
+        try {
+          const rawProvider = await wallet.getEthereumProvider();
+          ethProvider = new BrowserProvider(rawProvider);
+          sgnr = await ethProvider.getSigner();
+        } catch (providerErr) {
+          console.warn("Provider setup failed, trying fallback:", providerErr.message);
+          if (window.ethereum) {
+            ethProvider = new BrowserProvider(window.ethereum);
+            sgnr = await ethProvider.getSigner();
+          } else {
+            throw providerErr;
+          }
+        }
+
+        if (cancelled) return;
         const addr = await sgnr.getAddress();
         const ctr = getContract(sgnr);
 
@@ -105,11 +118,11 @@ export function useWallet() {
           console.warn("getSessionBalance failed:", e.message);
         }
       } catch (err) {
-        console.error("Wallet setup failed:", err);
-        addToast("error", decodeError(err));
+        console.error("Wallet setup failed:", err.message);
       }
     }
     setup();
+    return () => { cancelled = true; };
   }, [ready, authenticated, wallets]);
 
   // Reset on logout

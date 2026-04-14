@@ -4,6 +4,15 @@ import { PrivyProvider } from '@privy-io/react-auth'
 import { baseSepolia } from 'viem/chains'
 import App from './App.jsx'
 
+// Suppress wallet extension conflicts (OKX + MetaMask etc.)
+try {
+  if (window.ethereum && Object.getOwnPropertyDescriptor(window, 'ethereum')?.configurable === false) {
+    // Property already locked by another extension, ignore
+  }
+} catch (e) {
+  console.warn("Wallet extension conflict detected:", e.message);
+}
+
 class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }
   static getDerivedStateFromError(error) { return { error }; }

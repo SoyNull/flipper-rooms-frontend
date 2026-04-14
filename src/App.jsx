@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import * as THREE from "three";
 import { useWallet, useFlip, useSeats, useProtocol, useToasts, addToast, EXPLORER } from "./hooks.js";
-import { getOpenChallenges, getChallengeInfo, getPlayerInfo, getTreasuryMaxBet, getSeatInfo, decodeError } from "./contract.js";
+import { getPlayerInfo, getTreasuryMaxBet, getSeatInfo, decodeError } from "./contract.js";
 import { CONTRACT_ADDRESS, TIERS } from "./config.js";
 import { parseEther, formatEther } from "ethers";
 import { playClickSound, playFlipSound, playWinSound, playLoseSound, playDepositSound, playStreakSound } from "./sounds.js";
@@ -1096,10 +1096,6 @@ export default function FlipperRooms() {
   const [treasuryMax, setTreasuryMax] = useState(null);
   const referral = useRef(getReferralFromUrl()).current;
 
-  // ═══ SEARCH STATE (single-button flow) ═══
-  const [searchState, setSearchState] = useState(null);
-  const [searchCountdown, setSearchCountdown] = useState(60);
-
   // Coin state
   const [coinState, setCoinState] = useState("idle");
   const [result, setResult] = useState(null);
@@ -1140,198 +1136,144 @@ export default function FlipperRooms() {
     }
   }, [referral]);
 
-  // ═══ FIXED FLIP HANDLER ═══
+  // ═══ FLIP VS TREASURY — SINGLE TX ═══
   const handleFlip = async () => {
-    if (!contract || !connected || coinState !== "idle" || searchState) return;
+    if (!contract || !connected || coinState !== "idle") return;
     playClickSound();
 
     const tierWei = TIERS[tier].wei;
     const tierEthVal = TIERS[tier].label;
     const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
 
-    // Check balance
     if (parseFloat(sessionBalance) < parseFloat(tierEthVal)) {
-      addToast("error", "Insufficient balance. Deposit ETH first.");
+      addToast("error", "Insufficient balance. Deposit more ETH.");
       return;
     }
 
+    setCoinState("spinning");
+    playFlipSound();
+
     try {
-      const tx = await contract.createChallenge(tierWei, ref);
-      addToast("info", "Finding opponent...");
+      const tx = await contract.flipVsTreasury(tierWei, ref);
       const receipt = await tx.wait();
 
-      // Get challengeId from ChallengeCreated event (field is "id")
-      let challengeId = null;
+      let won = false;
+      let payoutStr = "0";
+      let amountStr = tierEthVal;
       for (const log of receipt.logs) {
         try {
           const parsed = contract.interface.parseLog({ topics: log.topics, data: log.data });
-          if (parsed?.name === "ChallengeCreated") {
-            challengeId = parsed.args.id;
+          if (parsed?.name === "FlipResolved") {
+            won = parsed.args.winner?.toLowerCase() === address?.toLowerCase();
+            payoutStr = formatEther(parsed.args.payout);
+            amountStr = formatEther(parsed.args.amount);
             break;
           }
         } catch {}
       }
 
-      if (!challengeId) {
-        addToast("error", "Could not create challenge");
-        return;
-      }
+      setTimeout(() => {
+        setCoinState(won ? "win" : "lose");
+        setResult(won ? "win" : "lose");
+        setShowResult(true);
+        if (won) { playWinSound(); addToast("success", `Won ${payoutStr} ETH!`); }
+        else { playLoseSound(); addToast("error", `Lost ${amountStr} ETH`); }
+        refreshBalance();
+        flipHook.refreshHistory();
+        getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
 
-      setSearchState({ challengeId, startTime: Date.now() });
-      setSearchCountdown(60);
-      addToast("success", "Challenge created! Searching...");
-      flipHook.refreshChallenges();
+        setTimeout(() => { setCoinState("idle"); setShowResult(false); setResult(null); }, 3500);
+      }, 1500);
 
     } catch (err) {
-      addToast("error", decodeError(err));
+      setCoinState("idle");
+      setShowResult(false);
+      setResult(null);
+      const msg = decodeError(err);
+      if (msg.includes("TreasuryBetTooHigh") || msg.includes("treasury") || msg.includes("Treasury")) {
+        addToast("error", "Treasury can't cover this bet. Try a smaller tier.");
+      } else {
+        addToast("error", msg);
+      }
     }
   };
 
-  // ═══ SEARCH POLLING ═══
-  useEffect(() => {
-    if (!searchState || !contract) return;
+  // ═══ CREATE PVP CHALLENGE — SINGLE TX ═══
+  const handleCreatePvp = async () => {
+    if (!contract || !connected || coinState !== "idle") return;
+    playClickSound();
 
-    const checkInterval = setInterval(async () => {
-      const elapsed = Math.floor((Date.now() - searchState.startTime) / 1000);
-      setSearchCountdown(Math.max(0, 60 - elapsed));
+    const tierWei = TIERS[tier].wei;
+    const tierEthVal = TIERS[tier].label;
+    const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
 
-      try {
-        const info = await getChallengeInfo(contract, searchState.challengeId);
+    if (parseFloat(sessionBalance) < parseFloat(tierEthVal)) {
+      addToast("error", "Insufficient balance. Deposit more ETH.");
+      return;
+    }
 
-        // status: 0=Open, 1=Resolved, 2=Cancelled
-        if (info.status !== 0) {
-          clearInterval(checkInterval);
-          setSearchState(null);
-          setCoinState("spinning");
-          playFlipSound();
-
-          // Look for FlipResolved in recent blocks
-          try {
-            const block = await contract.runner.provider.getBlockNumber();
-            const events = await contract.queryFilter("FlipResolved", Math.max(0, block - 10), block);
-            const myEvent = events.find(e =>
-              e.args?.challengeId?.toString() === searchState.challengeId.toString()
-            );
-
-            if (myEvent) {
-              const won = myEvent.args.winner?.toLowerCase() === address?.toLowerCase();
-              const payoutStr = formatEther(myEvent.args.payout);
-              const amountStr = formatEther(myEvent.args.amount);
-
-              setTimeout(() => {
-                setCoinState(won ? "win" : "lose");
-                setResult(won ? "win" : "lose");
-                setShowResult(true);
-                if (won) { playWinSound(); addToast("success", `Won ${payoutStr} ETH!`); }
-                else { playLoseSound(); addToast("error", `Lost ${amountStr} ETH`); }
-                refreshBalance();
-                flipHook.refreshHistory();
-                getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
-
-                setTimeout(() => { setCoinState("idle"); setShowResult(false); setResult(null); }, 3500);
-              }, 2500);
-            } else {
-              setTimeout(() => { setCoinState("idle"); refreshBalance(); }, 3000);
-            }
-          } catch (e) {
-            console.warn("Event query failed:", e.message);
-            setTimeout(() => { setCoinState("idle"); refreshBalance(); }, 2000);
-          }
-          return;
-        }
-      } catch {}
-
-      // Timeout: switch to treasury
-      if (elapsed >= 60) {
-        clearInterval(checkInterval);
-        setSearchState(null);
-        addToast("info", "No opponent found. Flipping vs Treasury...");
-
-        try {
-          // Cancel PVP challenge first
-          try {
-            const cancelTx = await contract.cancelChallenge(searchState.challengeId);
-            await cancelTx.wait();
-          } catch {}
-
-          const tierWei = TIERS[tier].wei;
-          const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
-
-          setCoinState("spinning");
-          playFlipSound();
-
-          const tx = await contract.flipVsTreasury(tierWei, ref);
-          const receipt = await tx.wait();
-
-          // Parse result from FlipResolved event
-          let won = false;
-          let payoutStr = "0";
-          let amountStr = TIERS[tier].label;
-          for (const log of receipt.logs) {
-            try {
-              const parsed = contract.interface.parseLog({ topics: log.topics, data: log.data });
-              if (parsed?.name === "FlipResolved") {
-                won = parsed.args.winner?.toLowerCase() === address?.toLowerCase();
-                payoutStr = formatEther(parsed.args.payout);
-                amountStr = formatEther(parsed.args.amount);
-                break;
-              }
-            } catch {}
-          }
-
-          setTimeout(() => {
-            setCoinState(won ? "win" : "lose");
-            setResult(won ? "win" : "lose");
-            setShowResult(true);
-            if (won) { playWinSound(); addToast("success", `Won ${payoutStr} ETH!`); }
-            else { playLoseSound(); addToast("error", `Lost ${amountStr} ETH`); }
-            refreshBalance();
-            flipHook.refreshHistory();
-            getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
-
-            setTimeout(() => { setCoinState("idle"); setShowResult(false); setResult(null); }, 3500);
-          }, 2500);
-
-        } catch (err) {
-          setCoinState("idle");
-          addToast("error", decodeError(err));
-        }
-      }
-    }, 3000);
-
-    return () => clearInterval(checkInterval);
-  }, [searchState, contract, address, tier]);
-
-  // ═══ CANCEL SEARCH ═══
-  const cancelSearch = async () => {
-    if (!searchState || !contract) return;
     try {
-      addToast("pending", "Cancelling...");
-      const tx = await contract.cancelChallenge(searchState.challengeId);
+      const tx = await contract.createChallenge(tierWei, ref);
       await tx.wait();
-      setSearchState(null);
-      addToast("success", "Search cancelled");
-      refreshBalance();
+      addToast("success", "PVP challenge created! Waiting for opponent...");
       flipHook.refreshChallenges();
+      refreshBalance();
     } catch (err) {
       addToast("error", decodeError(err));
     }
   };
 
-  // ═══ ACCEPT CHALLENGE ═══
+  // ═══ ACCEPT CHALLENGE — SINGLE TX ═══
   const handleAccept = async (challengeId, creatorAddr) => {
-    if (flipModal || !connected) return;
-    playClickSound(); playFlipSound();
+    if (coinState !== "idle" || !connected) return;
+    playClickSound();
+
     const c = flipHook.challenges.find(ch => ch.id === challengeId);
     const amt = c ? c.amount : "?";
+
+    setCoinState("spinning");
+    playFlipSound();
     setFlipModal({ playerA: address, playerB: creatorAddr || "Opponent", amount: amt, state: "spinning", winner: null, txHash: null });
-    const resultData = await flipHook.acceptCh(challengeId, referral);
-    if (!resultData) { setFlipModal(null); return; }
-    const won = resultData.winner.toLowerCase() === address?.toLowerCase();
-    if (won) playWinSound(); else playLoseSound();
-    setFlipModal(prev => prev ? { ...prev, state: won ? "win" : "lose", winner: won ? prev.playerA : prev.playerB, txHash: resultData.txHash || null } : null);
-    refreshBalance();
-    getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
+
+    try {
+      const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
+      const tx = await contract.acceptChallenge(challengeId, ref);
+      const receipt = await tx.wait();
+
+      let won = false;
+      let payoutStr = "0";
+      let txHash = receipt.hash;
+      for (const log of receipt.logs) {
+        try {
+          const parsed = contract.interface.parseLog({ topics: log.topics, data: log.data });
+          if (parsed?.name === "FlipResolved") {
+            won = parsed.args.winner?.toLowerCase() === address?.toLowerCase();
+            payoutStr = formatEther(parsed.args.payout);
+            break;
+          }
+        } catch {}
+      }
+
+      setTimeout(() => {
+        setCoinState(won ? "win" : "lose");
+        setResult(won ? "win" : "lose");
+        setShowResult(true);
+        if (won) { playWinSound(); addToast("success", `Won ${payoutStr} ETH!`); }
+        else { playLoseSound(); addToast("error", `Lost ${amt} ETH`); }
+        setFlipModal(prev => prev ? { ...prev, state: won ? "win" : "lose", winner: won ? prev.playerA : prev.playerB, txHash } : null);
+        refreshBalance();
+        flipHook.refreshChallenges();
+        flipHook.refreshHistory();
+        getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
+
+        setTimeout(() => { setCoinState("idle"); setShowResult(false); setResult(null); }, 3500);
+      }, 1500);
+
+    } catch (err) {
+      setCoinState("idle");
+      setFlipModal(null);
+      addToast("error", decodeError(err));
+    }
   };
 
   const handleDeposit = async () => {
@@ -1435,28 +1377,6 @@ export default function FlipperRooms() {
                           </div>
                         </div>
                       )}
-                      {/* Search overlay inside coin stage */}
-                      {searchState && (
-                        <div style={{
-                          position: "absolute", inset: 0, zIndex: 20, borderRadius: 16,
-                          background: "rgba(11,14,17,0.92)", backdropFilter: "blur(4px)",
-                          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                        }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--gold)", letterSpacing: 2, marginBottom: 16, animation: "searchPulse 1.5s ease infinite" }}>
-                            SEARCHING...
-                          </div>
-                          <div style={{ width: 140, height: 4, background: "var(--border)", borderRadius: 2, marginBottom: 12, overflow: "hidden" }}>
-                            <div style={{
-                              height: "100%", background: "linear-gradient(90deg, var(--gold), var(--gold-bright))",
-                              borderRadius: 2, width: `${((60 - searchCountdown) / 60) * 100}%`,
-                              transition: "width 3s linear",
-                            }} />
-                          </div>
-                          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700, color: "var(--text)" }}>
-                            0:{searchCountdown.toString().padStart(2, '0')}
-                          </div>
-                        </div>
-                      )}
                     </div>
 
                     {/* Streak */}
@@ -1466,27 +1386,36 @@ export default function FlipperRooms() {
                       </div>
                     )}
 
-                    {/* FLIP BUTTON / SEARCH / CONNECT */}
+                    {/* FLIP BUTTON / CONNECT */}
                     {!connected ? (
                       <button className="connect-btn" onClick={connect} style={{ padding: "18px 48px", fontSize: 18, borderRadius: 14 }}>
                         Connect Wallet
                       </button>
-                    ) : searchState ? (
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-dim)" }}>
-                          Auto-flip vs treasury when timer ends
-                        </div>
-                        <button className="cancel-btn" onClick={cancelSearch} style={{ padding: "10px 28px" }}>Cancel Search</button>
-                      </div>
                     ) : (
-                      <button className="flip-btn-main"
-                        disabled={coinState !== "idle" || !!searchState}
-                        onClick={handleFlip}>
-                        <div style={{ position: "relative", zIndex: 1 }}>
-                          FLIP NOW
-                          <div className="flip-sub">{tierEth} ETH {"\u00B7"} 2x Payout</div>
-                        </div>
-                      </button>
+                      <div style={{ width: "100%", maxWidth: 400 }}>
+                        <button className="flip-btn-main"
+                          disabled={coinState !== "idle"}
+                          onClick={handleFlip}>
+                          <div style={{ position: "relative", zIndex: 1 }}>
+                            FLIP NOW
+                            <div className="flip-sub">{tierEth} ETH {"\u00B7"} 2x Payout</div>
+                          </div>
+                        </button>
+                        <button
+                          disabled={coinState !== "idle"}
+                          onClick={handleCreatePvp}
+                          style={{
+                            width: "100%", padding: "12px 0", borderRadius: 10, marginTop: 8,
+                            background: "transparent", border: "1px solid var(--border)",
+                            color: "var(--text-dim)", fontSize: 13, fontWeight: 600,
+                            cursor: coinState !== "idle" ? "not-allowed" : "pointer",
+                            fontFamily: "inherit", transition: "all 0.2s",
+                            opacity: coinState !== "idle" ? 0.4 : 1,
+                          }}
+                        >
+                          Create PVP Challenge
+                        </button>
+                      </div>
                     )}
 
                     {connected && parseFloat(sessionBalance || "0") === 0 && (
@@ -1522,7 +1451,6 @@ export default function FlipperRooms() {
 
                   {flipHook.challenges.map(c => {
                     const isMine = c.creator?.toLowerCase() === address?.toLowerCase();
-                    const isMySearch = isMine && searchState && searchState.challengeId?.toString() === c.id?.toString();
                     return (
                       <div className="game-row" key={c.id}>
                         <div className="game-players">
@@ -1535,15 +1463,13 @@ export default function FlipperRooms() {
                           <div className="game-amount-prize">Prize: {(parseFloat(c.amount) * 2).toFixed(3)} ETH</div>
                         </div>
                         <div className="game-actions">
-                          {isMySearch ? (
-                            <span className="game-status status-searching">SEARCHING</span>
-                          ) : isMine ? (
+                          {isMine ? (
                             <span className="game-status status-searching">WAITING</span>
                           ) : (
                             <span className="game-status status-open">JOINABLE</span>
                           )}
                           {isMine
-                            ? <button className="cancel-btn" onClick={() => { playClickSound(); flipHook.cancelCh(c.id); setSearchState(null); }}>Cancel</button>
+                            ? <button className="cancel-btn" onClick={() => { playClickSound(); flipHook.cancelCh(c.id); }}>Cancel</button>
                             : <button className="join-btn" onClick={() => handleAccept(c.id, c.creator)}>Join</button>
                           }
                         </div>
