@@ -674,7 +674,7 @@ export default function FlipperRooms() {
 
               {/* ═══ COINFLIP ═══ */}
               {view === "flip" && (
-                <div className={shaking ? "shaking" : ""}>
+                <div>
                   <div className="hero-title">PLAY COINFLIP ON BASE</div>
                   <div className="hero-big">COINFLIP</div>
 
