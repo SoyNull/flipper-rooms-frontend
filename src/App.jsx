@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import * as THREE from "three";
 import { useWallet, useFlip, useSeats, useProtocol, useToasts, addToast, EXPLORER } from "./hooks.js";
 import { getOpenChallenges, getChallengeInfo, getPlayerInfo, getTreasuryMaxBet, decodeError } from "./contract.js";
 import { CONTRACT_ADDRESS, TIERS } from "./config.js";
 import { parseEther, formatEther } from "ethers";
 import { playClickSound, playFlipSound, playWinSound, playLoseSound, playDepositSound, playStreakSound } from "./sounds.js";
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 function getReferralFromUrl() {
   try {
@@ -16,7 +18,7 @@ function getReferralFromUrl() {
 
 const shortAddr = (a) => a ? `${a.slice(0,6)}...${a.slice(-4)}` : "???";
 const addrColor = (a) => {
-  if (!a) return "#444";
+  if (!a || a === ZERO_ADDRESS) return "#444";
   const h = parseInt(a.slice(2,8), 16);
   const hue = h % 360;
   return `hsl(${hue}, 60%, 55%)`;
@@ -83,11 +85,6 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 }
 @keyframes searchPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
 @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-@keyframes confetti { 0% { transform: translateY(0) rotate(0); opacity: 1; } 100% { transform: translateY(300px) rotate(720deg); opacity: 0; } }
-@keyframes shimmer-btn {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
 
 /* ═══ 3-COLUMN LAYOUT ═══ */
 .app-root {
@@ -213,7 +210,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   pointer-events: none;
 }
 .hero-inner { position: relative; z-index: 1; }
-.hero-title {
+.hero-title-text {
   font-size: 48px; font-weight: 900; letter-spacing: -2px; margin-bottom: 4px;
   background: linear-gradient(90deg, #f1f5f9, #f7b32b, #ffd700, #f1f5f9);
   background-size: 400% 100%;
@@ -231,25 +228,20 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   background: radial-gradient(circle, #f7b32b30 0%, transparent 70%);
   animation: coinGlow 2.5s ease infinite; pointer-events: none;
 }
-.coin-orbiter {
-  position: absolute; inset: 0;
-}
+.coin-orbiter { position: absolute; inset: 0; }
 .coin-orbiter-1 { animation: spin-slow 10s linear infinite; }
 .coin-orbiter-2 { animation: spin-slow 15s linear infinite reverse; }
-.orbit-dot {
-  position: absolute; border-radius: 50%;
-}
 
 /* Flip button */
 .flip-btn-main {
-  display: inline-block; padding: 18px 48px; border-radius: 14px; border: none;
+  width: 100%; max-width: 400px; padding: 24px 0; border-radius: 14px; border: none;
   background: linear-gradient(135deg, #b8860b, #f7b32b, #ffd700);
-  color: #0b0e11; font-size: 18px; font-weight: 800; cursor: pointer;
+  color: #0b0e11; font-size: 20px; font-weight: 800; cursor: pointer;
   font-family: 'Outfit', sans-serif; letter-spacing: 1px;
-  box-shadow: 0 0 30px #f7b32b40, 0 0 60px #f7b32b20;
+  box-shadow: 0 0 30px #f7b32b40, 0 0 60px #f7b32b15;
   transition: all 0.2s; position: relative; overflow: hidden;
 }
-.flip-btn-main.pulse { animation: pulse-glow 2.5s ease infinite; }
+.flip-btn-main:not(:disabled) { animation: pulse-glow 2.5s ease infinite; }
 .flip-btn-main::before {
   content: ''; position: absolute; top: -50%; left: -50%;
   width: 200%; height: 200%;
@@ -257,8 +249,8 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   transform: translateX(-100%); transition: transform 0.6s;
 }
 .flip-btn-main:hover::before { transform: translateX(100%); }
-.flip-btn-main:hover:not(:disabled) { transform: translateY(-3px); filter: brightness(1.08); }
-.flip-btn-main:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.flip-btn-main:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 0 40px #f7b32b60, 0 0 80px #f7b32b25; }
+.flip-btn-main:disabled { opacity: 0.4; cursor: not-allowed; transform: none; animation: none; }
 .flip-btn-main:disabled::before { display: none; }
 .flip-sub { font-size: 12px; font-weight: 500; opacity: 0.7; margin-top: 4px; }
 
@@ -308,9 +300,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   font-size: 18px; color: var(--text-muted);
 }
 .game-vs { font-size: 12px; color: var(--text-muted); font-weight: 700; }
-.game-amount {
-  text-align: center;
-}
+.game-amount { text-align: center; }
 .game-amount-val {
   font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700; color: var(--gold);
 }
@@ -323,7 +313,6 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 }
 .status-open { background: #22c55e20; color: var(--green); border: 1px solid #22c55e30; }
 .status-searching { background: #f7b32b20; color: var(--gold); border: 1px solid #f7b32b40; animation: searchPulse 1.5s ease infinite; }
-.status-inplay { background: #f7b32b20; color: var(--gold); border: 1px solid #f7b32b40; }
 .status-done { background: var(--bg-elevated); color: var(--text-muted); }
 
 .join-btn {
@@ -340,11 +329,6 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.2s;
 }
 .cancel-btn:hover { background: #ef444410; }
-.watch-btn {
-  padding: 8px 16px; border-radius: 8px; border: none;
-  background: var(--bg-elevated); color: var(--text-muted); font-size: 12px;
-  font-weight: 600; cursor: default;
-}
 
 /* ═══ STATS SIDEBAR (RIGHT) ═══ */
 .stats-sidebar {
@@ -384,7 +368,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .action-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .btn-deposit {
   display: flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 10px; border: none; border-radius: 8px; font-size: 12px;
+  padding: 10px; border-radius: 8px; font-size: 12px;
   font-weight: 700; font-family: 'Outfit', sans-serif; cursor: pointer;
   background: #f7b32b20; color: var(--gold); border: 1px solid #f7b32b30;
   transition: all 0.2s;
@@ -401,8 +385,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .btn-withdraw:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .protocol-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 6px 0;
+  display: flex; align-items: center; justify-content: space-between; padding: 6px 0;
 }
 .protocol-row-label { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 13px; }
 .protocol-row-val { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; color: var(--text); }
@@ -411,9 +394,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 .player-stat-card {
   background: var(--bg-elevated); border-radius: 8px; padding: 12px; text-align: center;
 }
-.player-stat-val {
-  font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700;
-}
+.player-stat-val { font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; }
 .player-stat-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
 .streak-banner {
@@ -421,8 +402,6 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   background: linear-gradient(135deg, #f7b32b15, #ef444415);
   border: 1px solid #f7b32b30;
 }
-.streak-banner-title { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text); }
-.streak-banner-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
 
 /* Result overlay */
 .result-overlay {
@@ -448,52 +427,13 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
 
 .empty-state { text-align: center; padding: 30px 20px; color: var(--text-muted); font-size: 13px; }
 
-/* BOARD */
-.board-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 8px; margin-bottom: 24px;
+/* Section label */
+.section-label {
+  font-size: 11px; font-weight: 700; color: var(--text-muted);
+  letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px;
 }
-.seat-card {
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
-  padding: 12px; cursor: pointer; transition: all 0.2s;
-}
-.seat-card:hover { border-color: var(--gold); background: var(--bg-card-hover); box-shadow: 0 0 15px #f7b32b15; }
-.seat-card.owned { border-color: var(--green); background: #22c55e08; }
-.seat-card.mine { border-color: var(--gold); background: #f7b32b08; }
-.seat-id { font-size: 10px; color: var(--text-muted); font-weight: 700; margin-bottom: 4px; }
-.seat-name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.seat-price { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--green); font-weight: 600; }
-.seat-empty { font-size: 11px; color: var(--text-muted); font-style: italic; }
 
-.seat-detail-overlay {
-  position: fixed; inset: 0; z-index: 900; background: rgba(0,0,0,0.8);
-  display: flex; align-items: center; justify-content: center; animation: fadeIn 0.3s ease;
-}
-.seat-detail {
-  width: 380px; max-width: 92vw; background: var(--bg-main); border: 1px solid var(--border);
-  border-radius: 14px; padding: 24px; animation: fadeInUp 0.3s ease;
-}
-.seat-detail h3 { font-size: 18px; font-weight: 800; margin-bottom: 16px; }
-.seat-detail-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; border-bottom: 1px solid var(--border); }
-.seat-detail-label { color: var(--text-muted); }
-.seat-detail-val { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
-.seat-buy-btn {
-  flex: 1; padding: 10px; border: none; border-radius: 8px; font-size: 12px;
-  font-weight: 700; font-family: 'Outfit', sans-serif; cursor: pointer;
-  background: linear-gradient(135deg, #b8860b, #f7b32b); color: #0b0e11;
-  box-shadow: 0 0 12px #f7b32b30; transition: all 0.2s;
-}
-.seat-buy-btn:hover { box-shadow: 0 0 20px #f7b32b50; }
-
-.info-input {
-  width: 100%; background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 12px;
-  font-family: 'JetBrains Mono', monospace; outline: none; margin-bottom: 8px;
-  transition: all 0.2s;
-}
-.info-input:focus { border-color: var(--gold); box-shadow: 0 0 10px #f7b32b15; }
-
-/* FAIR page */
+/* Fair page */
 .fair-section { padding: 24px; max-width: 600px; }
 .fair-section p { font-size: 13px; color: var(--text-dim); line-height: 1.8; margin-bottom: 20px; }
 .fair-code {
@@ -518,41 +458,37 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Outfit', sa
   width: 600px; max-width: 95vw; background: var(--bg-deep);
   border: 1px solid var(--border); border-radius: 20px; overflow: hidden;
 }
-.flip-modal-header {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 18px 24px; border-bottom: 1px solid var(--border);
-}
-.flip-modal-body {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 32px 28px; position: relative;
-  background: radial-gradient(ellipse at 50% 50%, #1a1510, var(--bg-deep));
-}
-.flip-modal-player {
-  text-align: center; width: 140px;
-}
-.flip-modal-avatar {
-  width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 10px;
+
+/* Seat detail overlay */
+.seat-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);
   display: flex; align-items: center; justify-content: center;
-  font-size: 20px; font-weight: 700; color: #fff;
-  font-family: 'JetBrains Mono', monospace;
+  animation: fadeIn 0.3s ease;
 }
-.flip-modal-name { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
-.flip-modal-bet {
-  display: inline-block; padding: 4px 12px; border-radius: 8px;
-  background: var(--bg-card); border: 1px solid var(--border);
-  font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700;
+.seat-modal {
+  width: 400px; max-width: 95vw; background: var(--bg-card);
+  border: 1px solid var(--border); border-radius: 16px; padding: 24px;
+  animation: fadeInUp 0.3s ease;
 }
-
-/* Section label */
-.section-label {
-  font-size: 11px; font-weight: 700; color: var(--text-muted);
-  letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px;
+.seat-modal-input {
+  width: 100%; padding: 10px 14px; background: var(--bg-deep);
+  border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+  font-size: 12px; font-family: 'Outfit', sans-serif; outline: none;
+  margin-bottom: 8px; transition: border-color 0.2s;
 }
-
-/* Admin panel */
-.admin-panel {
-  padding: 16px; background: var(--bg-card); border: 1px solid var(--red);
-  border-radius: 10px; margin-bottom: 24px;
+.seat-modal-input:focus { border-color: var(--gold); }
+.seat-modal-btn {
+  width: 100%; padding: 12px 0; border-radius: 10px; border: none;
+  background: linear-gradient(135deg, #b8860b, #f7b32b);
+  color: #0b0e11; font-size: 14px; font-weight: 700;
+  cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.2s;
+}
+.seat-modal-btn:hover { filter: brightness(1.1); }
+.seat-action-btn {
+  width: 100%; padding: 10px 0; border-radius: 8px; font-size: 12px;
+  font-weight: 700; cursor: pointer; font-family: 'Outfit', sans-serif;
+  transition: all 0.2s;
 }
 
 /* ═══ RESPONSIVE ═══ */
@@ -668,13 +604,13 @@ function GameAvatar({ address, size = 40 }) {
   const color = addrColor(address);
   return (
     <div className="game-avatar" style={{ width: size, height: size, background: `linear-gradient(135deg, ${color}, ${color}99)` }}>
-      {address ? address.slice(2, 4).toUpperCase() : "??"}
+      {address && address !== ZERO_ADDRESS ? address.slice(2, 4).toUpperCase() : "??"}
     </div>
   );
 }
 
 // ═══════════════════════════════════════
-//  CHAT SIDEBAR COMPONENT
+//  CHAT SIDEBAR
 // ═══════════════════════════════════════
 function ChatSidebar() {
   const [message, setMessage] = useState("");
@@ -684,15 +620,13 @@ function ChatSidebar() {
         <h2>General Chat</h2>
         <div className="online-badge">
           <div className="online-dot" />
-          <span>{Math.floor(Math.random() * 20) + 15} online</span>
+          <span>24 online</span>
         </div>
       </div>
       <div className="chat-messages">
         {MOCK_CHAT.map((m, i) => (
           <div className="chat-msg" key={i}>
-            <div className="chat-avatar" style={{ background: `${m.color}30`, color: m.color }}>
-              {m.name.charAt(0)}
-            </div>
+            <div className="chat-avatar" style={{ background: `${m.color}30`, color: m.color }}>{m.name.charAt(0)}</div>
             <div className="chat-msg-content">
               <div>
                 <span className="chat-name" style={{ color: m.color }}>{m.name}</span>
@@ -705,12 +639,7 @@ function ChatSidebar() {
       </div>
       <div className="chat-input-area">
         <div className="chat-input-wrap">
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Type a message..."
-          />
+          <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Type a message..." />
           <button className="chat-send-btn">{"\u27A4"}</button>
         </div>
       </div>
@@ -719,7 +648,7 @@ function ChatSidebar() {
 }
 
 // ═══════════════════════════════════════
-//  STATS SIDEBAR COMPONENT
+//  STATS SIDEBAR
 // ═══════════════════════════════════════
 function StatsSidebar({ sessionBalance, connected, playerStats, protocolStats, treasuryMax, depositAmt, setDepositAmt, handleDeposit, handleWithdraw, isDepositing }) {
   const [activeQuick, setActiveQuick] = useState(null);
@@ -728,111 +657,309 @@ function StatsSidebar({ sessionBalance, connected, playerStats, protocolStats, t
 
   return (
     <div className="stats-sidebar">
-      {/* Session Balance */}
       <div className="stats-section">
         <div className="stats-label">Session Balance</div>
-        <div className={`balance-display ${parseFloat(bal) > 0 ? "has-bal" : ""}`}>
-          {parseFloat(bal).toFixed(4)}
-        </div>
+        <div className={`balance-display ${parseFloat(bal) > 0 ? "has-bal" : ""}`}>{parseFloat(bal).toFixed(4)}</div>
         <div className="balance-unit">ETH</div>
       </div>
 
-      {/* Quick Deposit */}
       <div className="stats-section">
         <div className="stats-label">Quick Deposit</div>
         <div className="quick-btns" style={{ marginBottom: 12 }}>
           {quickDeposits.map((amount) => (
-            <button
-              key={amount}
-              className={`quick-btn ${activeQuick === amount ? "active" : ""}`}
-              onClick={() => {
-                setActiveQuick(amount);
-                setDepositAmt(amount === "MAX" ? bal : amount);
-              }}
-            >
+            <button key={amount} className={`quick-btn ${activeQuick === amount ? "active" : ""}`}
+              onClick={() => { setActiveQuick(amount); setDepositAmt(amount === "MAX" ? bal : amount); }}>
               {amount}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Deposit/Withdraw */}
       <div className="stats-section">
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-          <input
-            className="stats-input"
-            type="number"
-            step="0.001"
-            value={depositAmt}
-            onChange={(e) => setDepositAmt(e.target.value)}
-            placeholder="0.00"
-            style={{ marginBottom: 0 }}
-          />
+          <input className="stats-input" type="number" step="0.001" value={depositAmt}
+            onChange={(e) => setDepositAmt(e.target.value)} placeholder="0.00" style={{ marginBottom: 0 }} />
           <span style={{ fontSize: 12, color: "var(--text-muted)", whiteSpace: "nowrap" }}>ETH</span>
         </div>
         <div className="action-btns">
-          <button className="btn-deposit" onClick={handleDeposit} disabled={isDepositing}>
-            {isDepositing ? "..." : "\u2193 Deposit"}
-          </button>
-          <button className="btn-withdraw" onClick={handleWithdraw} disabled={isDepositing}>
-            {isDepositing ? "..." : "\u2191 Withdraw"}
-          </button>
+          <button className="btn-deposit" onClick={handleDeposit} disabled={isDepositing}>{isDepositing ? "..." : "\u2193 Deposit"}</button>
+          <button className="btn-withdraw" onClick={handleWithdraw} disabled={isDepositing}>{isDepositing ? "..." : "\u2191 Withdraw"}</button>
         </div>
       </div>
 
-      {/* Protocol Stats */}
       <div className="stats-section">
         <div className="stats-label">Protocol Stats</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {[
-            { l: "Total Bets", v: protocolStats ? protocolStats.totalFlips.toLocaleString() : "...", icon: "\u{1F4C8}" },
-            { l: "Treasury", v: protocolStats ? `${Number(protocolStats.treasury).toFixed(4)} \u039E` : "...", icon: "\u{1F4B0}" },
-            { l: "Max Bet", v: treasuryMax ? `${parseFloat(treasuryMax).toFixed(4)} \u039E` : "...", icon: "\u{1F3AF}" },
-            { l: "Jackpot", v: protocolStats ? `${Number(protocolStats.jackpot).toFixed(4)} \u039E` : "...", icon: "\u{1F3C6}" },
-            { l: "Volume", v: protocolStats ? `${Number(protocolStats.totalVolume).toFixed(3)} \u039E` : "...", icon: "\u{1F4CA}" },
+            { l: "Total Bets", v: protocolStats ? protocolStats.totalFlips.toLocaleString() : "0" },
+            { l: "Treasury", v: protocolStats ? `${Number(protocolStats.treasury).toFixed(4)} \u039E` : "..." },
+            { l: "Max Bet", v: treasuryMax ? `${parseFloat(treasuryMax).toFixed(4)} \u039E` : "..." },
+            { l: "Jackpot", v: protocolStats ? `${Number(protocolStats.jackpot).toFixed(4)} \u039E` : "..." },
+            { l: "Volume", v: protocolStats ? `${Number(protocolStats.totalVolume).toFixed(3)} \u039E` : "0" },
           ].map((r, i) => (
             <div className="protocol-row" key={i}>
-              <span className="protocol-row-label">{r.icon} {r.l}</span>
+              <span className="protocol-row-label">{r.l}</span>
               <span className="protocol-row-val">{r.v}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Player Stats */}
       {connected && playerStats && (
         <div className="stats-section">
           <div className="stats-label">Your Stats</div>
           <div className="player-stats-grid">
-            <div className="player-stat-card">
-              <div className="player-stat-val" style={{ color: "var(--green)" }}>{playerStats.wins}</div>
-              <div className="player-stat-label">Wins</div>
-            </div>
-            <div className="player-stat-card">
-              <div className="player-stat-val" style={{ color: "var(--red)" }}>{playerStats.losses}</div>
-              <div className="player-stat-label">Losses</div>
-            </div>
-            <div className="player-stat-card">
-              <div className="player-stat-val" style={{ color: "var(--gold)" }}>{playerStats.streak > 0 ? `${playerStats.streak}W` : "\u2014"}</div>
-              <div className="player-stat-label">Streak</div>
-            </div>
-            <div className="player-stat-card">
-              <div className="player-stat-val" style={{ color: "#a855f7" }}>{playerStats.bestStreak}W</div>
-              <div className="player-stat-label">Best</div>
-            </div>
+            <div className="player-stat-card"><div className="player-stat-val" style={{ color: "var(--green)" }}>{playerStats.wins}</div><div className="player-stat-label">Wins</div></div>
+            <div className="player-stat-card"><div className="player-stat-val" style={{ color: "var(--red)" }}>{playerStats.losses}</div><div className="player-stat-label">Losses</div></div>
+            <div className="player-stat-card"><div className="player-stat-val" style={{ color: "var(--gold)" }}>{playerStats.streak > 0 ? `${playerStats.streak}W` : "\u2014"}</div><div className="player-stat-label">Streak</div></div>
+            <div className="player-stat-card"><div className="player-stat-val" style={{ color: "#a855f7" }}>{playerStats.bestStreak}W</div><div className="player-stat-label">Best</div></div>
           </div>
-
-          {/* Streak banner */}
           {playerStats.streak >= 3 && (
             <div className="streak-banner">
-              <div className="streak-banner-title">
-                {"\u{1F525}"} Hot Streak!
-              </div>
-              <div className="streak-banner-sub">
-                {playerStats.streak} wins in a row - keep it going!
-              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}>{"\u{1F525}"} Hot Streak!</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>{playerStats.streak} wins in a row - keep it going!</div>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════
+//  BOARD TAB — TAKEOVER.FUN STYLE
+// ═══════════════════════════════════════
+function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
+  const [selectedSeat, setSelectedSeat] = useState(null);
+  const [seatBuyName, setSeatBuyName] = useState("");
+  const [seatBuyDeposit, setSeatBuyDeposit] = useState("0.002");
+  const [seatBuyPrice, setSeatBuyPrice] = useState("0.001");
+
+  const topHolders = useMemo(() => {
+    if (!seatHook.seats || seatHook.seats.length === 0) return [];
+    const counts = {};
+    seatHook.seats.forEach(s => {
+      if (s.owner && s.owner !== ZERO_ADDRESS && s.active) {
+        counts[s.owner] = (counts[s.owner] || 0) + 1;
+      }
+    });
+    return Object.entries(counts)
+      .map(([addr, count]) => ({ address: addr, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }, [seatHook.seats]);
+
+  const ownedCount = useMemo(() => {
+    return seatHook.seats?.filter(s => s.active).length || 0;
+  }, [seatHook.seats]);
+
+  const floorPrice = useMemo(() => {
+    const active = seatHook.seats?.filter(s => s.active);
+    if (!active || active.length === 0) return "0.001";
+    const prices = active.map(s => parseFloat(s.price)).filter(p => p > 0);
+    return prices.length > 0 ? Math.min(...prices).toFixed(4) : "0.001";
+  }, [seatHook.seats]);
+
+  return (
+    <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
+      {/* LEFT INFO PANEL */}
+      <div style={{ width: 220, minWidth: 220, padding: 16, overflowY: "auto", borderRight: "1px solid var(--border)" }}>
+        <div style={{ marginBottom: 20 }}>
+          <div className="stats-label">BOARD STATS</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div style={{ background: "var(--bg-card)", borderRadius: 8, padding: 12, textAlign: "center" }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "var(--gold)", fontFamily: "'JetBrains Mono', monospace" }}>{ownedCount}</div>
+              <div style={{ fontSize: 9, color: "var(--text-muted)" }}>OWNED</div>
+            </div>
+            <div style={{ background: "var(--bg-card)", borderRadius: 8, padding: 12, textAlign: "center" }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text)", fontFamily: "'JetBrains Mono', monospace" }}>{256 - ownedCount}</div>
+              <div style={{ fontSize: 9, color: "var(--text-muted)" }}>AVAILABLE</div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Floor Price</span>
+            <span style={{ color: "var(--gold)", fontSize: 12, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>{floorPrice} {"\u039E"}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Weekly Tax</span>
+            <span style={{ color: "var(--text)", fontSize: 12, fontWeight: 600 }}>5%</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Your Seats</span>
+            <span style={{ color: "var(--gold)", fontSize: 12, fontWeight: 600 }}>{seatHook.mySeats.length}</span>
+          </div>
+        </div>
+
+        <div>
+          <div className="stats-label">TOP TILE HOLDERS</div>
+          {topHolders.length === 0 && <div style={{ fontSize: 11, color: "var(--text-muted)" }}>No seats owned yet</div>}
+          {topHolders.map((h, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", width: 18 }}>{i + 1}</span>
+              <div style={{
+                width: 24, height: 24, borderRadius: "50%",
+                background: addrColor(h.address),
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 8, fontWeight: 700, color: "#fff",
+              }}>{h.address.slice(2, 4).toUpperCase()}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text)" }}>{shortAddr(h.address)}</div>
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", fontFamily: "'JetBrains Mono', monospace" }}>{h.count}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* CENTER GRID 16×16 */}
+      <div style={{ flex: 1, padding: 16, overflowY: "auto" }}>
+        {seatHook.seats.length === 0 ? (
+          <div style={{ textAlign: "center", padding: 40 }}>
+            <div style={{ fontSize: 28, marginBottom: 12 }}>{"\u{1F3B0}"}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>256 Revenue Seats</div>
+            <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 20 }}>Harberger-taxed seats. Earn from every flip.</div>
+            <button className="seat-modal-btn" style={{ width: "auto", padding: "10px 24px" }}
+              onClick={() => seatHook.refreshSeats()}>
+              {seatHook.loading ? "Loading..." : "Load Board"}
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(16, 1fr)", gap: 3 }}>
+            {seatHook.seats.map(seat => {
+              const isOwned = seat.active && seat.owner !== ZERO_ADDRESS;
+              const isMine = isOwned && address && seat.owner.toLowerCase() === address.toLowerCase();
+              return (
+                <div key={seat.id}
+                  onClick={() => { setSelectedSeat(seat); playClickSound(); }}
+                  style={{
+                    aspectRatio: "1", borderRadius: 6, cursor: "pointer", position: "relative",
+                    overflow: "hidden", transition: "all 0.2s",
+                    border: `2px solid ${isMine ? "var(--gold)" : isOwned ? "#22c55e30" : "var(--border)"}`,
+                    background: isOwned ? `linear-gradient(135deg, ${addrColor(seat.owner)}15, var(--bg-card))` : "var(--bg-main)",
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--gold)"; e.currentTarget.style.boxShadow = "0 0 10px #f7b32b20"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = isMine ? "var(--gold)" : isOwned ? "#22c55e30" : "var(--border)"; e.currentTarget.style.boxShadow = "none"; }}
+                >
+                  {isOwned && (
+                    <div style={{
+                      width: 24, height: 24, borderRadius: "50%", marginBottom: 2,
+                      background: `linear-gradient(135deg, ${addrColor(seat.owner)}, ${addrColor(seat.owner)}88)`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 8, fontWeight: 700, color: "#fff",
+                    }}>{seat.owner.slice(2, 4).toUpperCase()}</div>
+                  )}
+                  <div style={{ fontSize: 8, color: "var(--text-muted)", fontWeight: 600 }}>#{seat.id}</div>
+                  {isOwned && (
+                    <div style={{
+                      position: "absolute", bottom: 2, left: 0, right: 0,
+                      textAlign: "center", fontSize: 8, fontWeight: 700,
+                      color: "var(--gold)", fontFamily: "'JetBrains Mono', monospace",
+                      background: "#0b0e11cc", padding: "1px 0",
+                    }}>{parseFloat(seat.price).toFixed(4)}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* SEAT DETAIL MODAL */}
+      {selectedSeat && (
+        <div className="seat-overlay" onClick={(e) => { if (e.target === e.currentTarget) setSelectedSeat(null); }}>
+          <div className="seat-modal">
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
+              <span style={{ fontSize: 20, fontWeight: 800 }}>Seat #{selectedSeat.id}</span>
+              <button onClick={() => setSelectedSeat(null)} style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 20, cursor: "pointer" }}>{"\u2715"}</button>
+            </div>
+
+            {/* Avatar */}
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              <div style={{
+                width: 64, height: 64, borderRadius: "50%", margin: "0 auto 8px",
+                background: selectedSeat.active ? addrColor(selectedSeat.owner) : "var(--border)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 20, fontWeight: 700, color: "#fff",
+              }}>{selectedSeat.active ? selectedSeat.owner.slice(2, 4).toUpperCase() : "?"}</div>
+              <div style={{ fontSize: 13, color: "var(--text-dim)" }}>
+                {selectedSeat.active ? shortAddr(selectedSeat.owner) : "Available"}
+              </div>
+              {selectedSeat.name && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{selectedSeat.name}</div>}
+            </div>
+
+            {/* Info rows */}
+            <div style={{ marginBottom: 20 }}>
+              {[
+                { l: "Price", v: `${parseFloat(selectedSeat.price).toFixed(4)} ETH`, c: "var(--gold)" },
+                { l: "Deposit", v: `${parseFloat(selectedSeat.deposit).toFixed(4)} ETH`, c: "var(--blue)" },
+              ].map((r, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #1f293740" }}>
+                  <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{r.l}</span>
+                  <span style={{ color: r.c, fontSize: 12, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>{r.v}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Actions based on ownership */}
+            {!connected ? (
+              <div style={{ textAlign: "center", fontSize: 12, color: "var(--text-dim)" }}>Connect wallet to interact</div>
+            ) : !selectedSeat.active ? (
+              /* CLAIM empty seat */
+              <div>
+                <input className="seat-modal-input" placeholder="Seat name (optional)" maxLength={32}
+                  value={seatBuyName} onChange={e => setSeatBuyName(e.target.value)} />
+                <input className="seat-modal-input" placeholder="Deposit ETH (min 0.001)" type="number" step="0.001"
+                  value={seatBuyDeposit} onChange={e => setSeatBuyDeposit(e.target.value)} />
+                <button className="seat-modal-btn" onClick={async () => {
+                  try {
+                    const depositWei = parseEther(seatBuyDeposit || "0.002");
+                    const basePrice = parseEther("0.001");
+                    const totalValue = basePrice + depositWei;
+                    await seatHook.buySeat(selectedSeat.id, "0.001", seatBuyName, 0n, seatBuyDeposit);
+                    setSelectedSeat(null); setSeatBuyName(""); setSeatBuyDeposit("0.002");
+                  } catch (err) { addToast("error", decodeError(err)); }
+                }}>CLAIM SEAT</button>
+              </div>
+            ) : selectedSeat.owner?.toLowerCase() === address?.toLowerCase() ? (
+              /* YOUR seat */
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <button className="seat-action-btn" style={{ background: "#22c55e20", border: "1px solid #22c55e40", color: "var(--green)" }}
+                  onClick={async () => { await seatHook.claim(selectedSeat.id); setSelectedSeat(null); }}>
+                  CLAIM REWARDS
+                </button>
+                <button className="seat-action-btn" style={{ background: "transparent", border: "1px solid var(--red)", color: "var(--red)" }}
+                  onClick={async () => { await seatHook.abandon(selectedSeat.id); setSelectedSeat(null); }}>
+                  ABANDON SEAT
+                </button>
+                <button className="seat-action-btn" style={{ background: "#3b82f620", border: "1px solid #3b82f640", color: "var(--blue)" }}
+                  onClick={() => {
+                    const refId = selectedSeat.id;
+                    navigator.clipboard.writeText(`${window.location.origin}?ref=${refId}`);
+                    addToast("success", "Referral link copied!");
+                  }}>
+                  COPY REF LINK
+                </button>
+              </div>
+            ) : (
+              /* Someone else's seat - buyout */
+              <div>
+                <input className="seat-modal-input" placeholder={`Your new price (current: ${parseFloat(selectedSeat.price).toFixed(4)})`}
+                  type="number" step="0.001" value={seatBuyPrice} onChange={e => setSeatBuyPrice(e.target.value)} />
+                <input className="seat-modal-input" placeholder="Deposit ETH" type="number" step="0.001"
+                  value={seatBuyDeposit} onChange={e => setSeatBuyDeposit(e.target.value)} />
+                <button className="seat-modal-btn" onClick={async () => {
+                  try {
+                    await seatHook.buySeat(selectedSeat.id, seatBuyPrice, "", selectedSeat.priceWei, seatBuyDeposit);
+                    setSelectedSeat(null); setSeatBuyPrice("0.001"); setSeatBuyDeposit("0.002");
+                  } catch (err) { addToast("error", decodeError(err)); }
+                }}>BUYOUT {"\u00B7"} {parseFloat(selectedSeat.price).toFixed(4)} ETH</button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -857,16 +984,13 @@ export default function FlipperRooms() {
   const [playerStats, setPlayerStats] = useState(null);
   const [flipModal, setFlipModal] = useState(null);
   const [treasuryMax, setTreasuryMax] = useState(null);
-  const [selectedSeat, setSelectedSeat] = useState(null);
-  const [seatBuyPrice, setSeatBuyPrice] = useState("0.001");
-  const [seatBuyName, setSeatBuyName] = useState("");
-  const [seatBuyDeposit, setSeatBuyDeposit] = useState("0.001");
   const referral = useRef(getReferralFromUrl()).current;
 
-  // Search state (single-button flow)
+  // ═══ SEARCH STATE (single-button flow) ═══
   const [searchState, setSearchState] = useState(null);
+  const [searchCountdown, setSearchCountdown] = useState(60);
 
-  // Coin state for inline coin animation
+  // Coin state
   const [coinState, setCoinState] = useState("idle");
   const [result, setResult] = useState(null);
   const [showResult, setShowResult] = useState(false);
@@ -906,122 +1030,179 @@ export default function FlipperRooms() {
     }
   }, [referral]);
 
-  // ═══ SINGLE FLIP BUTTON HANDLER ═══
+  // ═══ FIXED FLIP HANDLER ═══
   const handleFlip = async () => {
     if (!contract || !connected || coinState !== "idle" || searchState) return;
     playClickSound();
 
-    try {
-      const tierWei = TIERS[tier].wei;
-      const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
+    const tierWei = TIERS[tier].wei;
+    const tierEthVal = TIERS[tier].label;
+    const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
 
-      addToast("pending", "Creating challenge...");
-      const tx = await contract.createChallenge(tierWei, ref, { value: 0 });
+    // Check balance
+    if (parseFloat(sessionBalance) < parseFloat(tierEthVal)) {
+      addToast("error", "Insufficient balance. Deposit ETH first.");
+      return;
+    }
+
+    try {
+      const tx = await contract.createChallenge(tierWei, ref);
+      addToast("info", "Finding opponent...");
       const receipt = await tx.wait();
 
-      const event = receipt.logs?.find(l => {
-        try { return contract.interface.parseLog(l)?.name === "ChallengeCreated"; } catch { return false; }
-      });
-      const challengeId = event ? contract.interface.parseLog(event).args.challengeId : null;
+      // Get challengeId from ChallengeCreated event (field is "id")
+      let challengeId = null;
+      for (const log of receipt.logs) {
+        try {
+          const parsed = contract.interface.parseLog({ topics: log.topics, data: log.data });
+          if (parsed?.name === "ChallengeCreated") {
+            challengeId = parsed.args.id;
+            break;
+          }
+        } catch {}
+      }
 
       if (!challengeId) {
-        addToast("error", "Failed to create challenge");
+        addToast("error", "Could not create challenge");
         return;
       }
 
-      setSearchState({ challengeId, startTime: Date.now(), countdown: 60 });
-      addToast("success", "Challenge created! Searching for opponent...");
+      setSearchState({ challengeId, startTime: Date.now() });
+      setSearchCountdown(60);
+      addToast("success", "Challenge created! Searching...");
+      flipHook.refreshChallenges();
 
     } catch (err) {
       addToast("error", decodeError(err));
     }
   };
 
-  // ═══ SEARCH POLLING EFFECT ═══
+  // ═══ SEARCH POLLING ═══
   useEffect(() => {
     if (!searchState || !contract) return;
 
-    const interval = setInterval(async () => {
-      const elapsed = (Date.now() - searchState.startTime) / 1000;
-      setSearchState(prev => prev ? {...prev, countdown: Math.max(0, 60 - Math.floor(elapsed))} : null);
+    const checkInterval = setInterval(async () => {
+      const elapsed = Math.floor((Date.now() - searchState.startTime) / 1000);
+      setSearchCountdown(Math.max(0, 60 - elapsed));
 
       try {
         const info = await getChallengeInfo(contract, searchState.challengeId);
+
+        // status: 0=Open, 1=Resolved, 2=Cancelled
         if (info.status !== 0) {
-          clearInterval(interval);
+          clearInterval(checkInterval);
+          setSearchState(null);
           setCoinState("spinning");
           playFlipSound();
 
-          const block = await contract.runner.provider.getBlockNumber();
-          const events = await contract.queryFilter("FlipResolved", block - 10, block);
-          const myEvent = events.find(e => e.args?.challengeId?.toString() === searchState.challengeId.toString());
+          // Look for FlipResolved in recent blocks
+          try {
+            const block = await contract.runner.provider.getBlockNumber();
+            const events = await contract.queryFilter("FlipResolved", Math.max(0, block - 10), block);
+            const myEvent = events.find(e =>
+              e.args?.challengeId?.toString() === searchState.challengeId.toString()
+            );
 
-          setSearchState(null);
+            if (myEvent) {
+              const won = myEvent.args.winner?.toLowerCase() === address?.toLowerCase();
+              const payoutStr = formatEther(myEvent.args.payout);
+              const amountStr = formatEther(myEvent.args.amount);
 
-          if (myEvent) {
-            const won = myEvent.args.winner?.toLowerCase() === address?.toLowerCase();
-            setTimeout(() => {
-              setCoinState(won ? "win" : "lose");
-              setResult(won ? "win" : "lose");
-              setShowResult(true);
-              if (won) { playWinSound(); if (playerStats?.streak >= 2) playStreakSound(playerStats.streak + 1); }
-              else playLoseSound();
-              addToast(won ? "success" : "error", won ? `Won ${formatEther(myEvent.args.winnerPayout)} ETH!` : `Lost ${formatEther(myEvent.args.amount)} ETH`);
-              refreshBalance();
-              setTimeout(() => { setCoinState("idle"); setResult(null); setShowResult(false); }, 4000);
-            }, 3000);
-          } else {
-            setTimeout(() => { setCoinState("idle"); }, 5000);
+              setTimeout(() => {
+                setCoinState(won ? "win" : "lose");
+                setResult(won ? "win" : "lose");
+                setShowResult(true);
+                if (won) { playWinSound(); addToast("success", `Won ${payoutStr} ETH!`); }
+                else { playLoseSound(); addToast("error", `Lost ${amountStr} ETH`); }
+                refreshBalance();
+                flipHook.refreshHistory();
+                getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
+
+                setTimeout(() => { setCoinState("idle"); setShowResult(false); setResult(null); }, 3500);
+              }, 2500);
+            } else {
+              setTimeout(() => { setCoinState("idle"); refreshBalance(); }, 3000);
+            }
+          } catch (e) {
+            console.warn("Event query failed:", e.message);
+            setTimeout(() => { setCoinState("idle"); refreshBalance(); }, 2000);
           }
           return;
         }
       } catch {}
 
+      // Timeout: switch to treasury
       if (elapsed >= 60) {
-        clearInterval(interval);
+        clearInterval(checkInterval);
+        setSearchState(null);
         addToast("info", "No opponent found. Flipping vs Treasury...");
+
         try {
-          await contract.cancelChallenge(searchState.challengeId);
+          // Cancel PVP challenge first
+          try {
+            const cancelTx = await contract.cancelChallenge(searchState.challengeId);
+            await cancelTx.wait();
+          } catch {}
+
           const tierWei = TIERS[tier].wei;
           const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
+
           setCoinState("spinning");
           playFlipSound();
-          setSearchState(null);
 
-          const tx2 = await contract.flipVsTreasury(tierWei, ref, { value: 0 });
-          const r2 = await tx2.wait();
-          const ev = r2.logs?.find(l => { try { return contract.interface.parseLog(l)?.name === "FlipResolved"; } catch { return false; } });
-          if (ev) {
-            const p = contract.interface.parseLog(ev);
-            const won = p.args.winner?.toLowerCase() === address?.toLowerCase();
-            setTimeout(() => {
-              setCoinState(won ? "win" : "lose");
-              setResult(won ? "win" : "lose");
-              setShowResult(true);
-              if (won) playWinSound(); else playLoseSound();
-              refreshBalance();
-              setTimeout(() => { setCoinState("idle"); setResult(null); setShowResult(false); }, 4000);
-            }, 2000);
+          const tx = await contract.flipVsTreasury(tierWei, ref);
+          const receipt = await tx.wait();
+
+          // Parse result from FlipResolved event
+          let won = false;
+          let payoutStr = "0";
+          let amountStr = TIERS[tier].label;
+          for (const log of receipt.logs) {
+            try {
+              const parsed = contract.interface.parseLog({ topics: log.topics, data: log.data });
+              if (parsed?.name === "FlipResolved") {
+                won = parsed.args.winner?.toLowerCase() === address?.toLowerCase();
+                payoutStr = formatEther(parsed.args.payout);
+                amountStr = formatEther(parsed.args.amount);
+                break;
+              }
+            } catch {}
           }
+
+          setTimeout(() => {
+            setCoinState(won ? "win" : "lose");
+            setResult(won ? "win" : "lose");
+            setShowResult(true);
+            if (won) { playWinSound(); addToast("success", `Won ${payoutStr} ETH!`); }
+            else { playLoseSound(); addToast("error", `Lost ${amountStr} ETH`); }
+            refreshBalance();
+            flipHook.refreshHistory();
+            getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
+
+            setTimeout(() => { setCoinState("idle"); setShowResult(false); setResult(null); }, 3500);
+          }, 2500);
+
         } catch (err) {
           setCoinState("idle");
-          setSearchState(null);
           addToast("error", decodeError(err));
         }
       }
     }, 3000);
 
-    return () => clearInterval(interval);
-  }, [searchState, contract]);
+    return () => clearInterval(checkInterval);
+  }, [searchState, contract, address, tier]);
 
   // ═══ CANCEL SEARCH ═══
   const cancelSearch = async () => {
     if (!searchState || !contract) return;
     try {
-      addToast("pending", "Cancelling challenge...");
-      await contract.cancelChallenge(searchState.challengeId);
+      addToast("pending", "Cancelling...");
+      const tx = await contract.cancelChallenge(searchState.challengeId);
+      await tx.wait();
       setSearchState(null);
       addToast("success", "Search cancelled");
+      refreshBalance();
+      flipHook.refreshChallenges();
     } catch (err) {
       addToast("error", decodeError(err));
     }
@@ -1040,6 +1221,7 @@ export default function FlipperRooms() {
     if (won) playWinSound(); else playLoseSound();
     setFlipModal(prev => prev ? { ...prev, state: won ? "win" : "lose", winner: won ? prev.playerA : prev.playerB, txHash: resultData.txHash || null } : null);
     refreshBalance();
+    getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
   };
 
   const handleDeposit = async () => {
@@ -1068,19 +1250,17 @@ export default function FlipperRooms() {
 
   const stats = protocol.stats;
   const tierEth = TIERS[tier]?.label || "0.005";
-  const bal = sessionBalance || "0";
 
   return (
     <>
       <style>{CSS}</style>
       <div className="app-root">
 
-        {/* ═══ LEFT — CHAT SIDEBAR ═══ */}
+        {/* ═══ LEFT — CHAT ═══ */}
         <ChatSidebar />
 
-        {/* ═══ CENTER — GAME AREA ═══ */}
+        {/* ═══ CENTER — GAME ═══ */}
         <div className="game-center">
-          {/* Top Bar */}
           <div className="game-topbar">
             <div className="logo">
               <span className="logo-text"><span className="logo-gold">FLIPPER</span><span className="logo-dim">ROOMS</span></span>
@@ -1105,19 +1285,16 @@ export default function FlipperRooms() {
             </div>
           </div>
 
-          {/* Scrollable Content */}
           <div className="game-scroll">
 
             {/* ═══ COINFLIP VIEW ═══ */}
             {view === "flip" && (
               <>
-                {/* Hero Section */}
                 <div className="hero-section">
                   <div className="hero-inner">
-                    <div className="hero-title">COINFLIP</div>
+                    <div className="hero-title-text">COINFLIP</div>
                     <div className="hero-sub">50/50 chance {"\u2022"} Instant results {"\u2022"} Provably fair</div>
 
-                    {/* Tier selector */}
                     <div className="tier-bar">
                       {TIERS.map((t, i) => (
                         <button key={i} className={`tier-btn ${tier === i ? "active" : ""}`}
@@ -1130,21 +1307,18 @@ export default function FlipperRooms() {
                     {/* Coin Area */}
                     <div className="coin-stage">
                       <div className="coin-stage-glow" />
-                      {/* Orbiting particles */}
                       <div className="coin-orbiter coin-orbiter-1">
-                        <div className="orbit-dot" style={{ position: "absolute", top: 0, left: "50%", width: 8, height: 8, marginLeft: -4, borderRadius: "50%", background: "var(--gold)", boxShadow: "0 0 10px #f7b32b80" }} />
+                        <div style={{ position: "absolute", top: 0, left: "50%", width: 8, height: 8, marginLeft: -4, borderRadius: "50%", background: "var(--gold)", boxShadow: "0 0 10px #f7b32b80" }} />
                       </div>
                       <div className="coin-orbiter coin-orbiter-2">
-                        <div className="orbit-dot" style={{ position: "absolute", bottom: 0, left: "50%", width: 6, height: 6, marginLeft: -3, borderRadius: "50%", background: "var(--gold-bright)", boxShadow: "0 0 10px #ffd70080" }} />
+                        <div style={{ position: "absolute", bottom: 0, left: "50%", width: 6, height: 6, marginLeft: -3, borderRadius: "50%", background: "var(--gold-bright)", boxShadow: "0 0 10px #ffd70080" }} />
                       </div>
                       <div style={{ width: "100%", height: "100%" }}>
                         <Coin3D state={coinState} onComplete={() => {}} />
                       </div>
                       {showResult && (
                         <div className="result-overlay" style={{
-                          background: result === "win"
-                            ? "radial-gradient(ellipse, #22c55e20, transparent 70%)"
-                            : "radial-gradient(ellipse, #ef444420, transparent 70%)",
+                          background: result === "win" ? "radial-gradient(ellipse, #22c55e20, transparent 70%)" : "radial-gradient(ellipse, #ef444420, transparent 70%)",
                         }}>
                           <div className={`result-text ${result === "win" ? "result-win" : "result-lose"}`}>
                             {result === "win" ? "YOU WON!" : "YOU LOST"}
@@ -1153,55 +1327,50 @@ export default function FlipperRooms() {
                       )}
                     </div>
 
-                    {/* Streak counter */}
+                    {/* Streak */}
                     {connected && playerStats && playerStats.streak > 0 && (
                       <div style={{ marginBottom: 16, fontSize: 14, fontWeight: 700, color: "var(--gold)" }}>
                         {"\u{1F525}"} {playerStats.streak}x Streak
                       </div>
                     )}
 
-                    {/* FLIP BUTTON */}
+                    {/* FLIP BUTTON / SEARCH / CONNECT */}
                     {!connected ? (
                       <button className="connect-btn" onClick={connect} style={{ padding: "18px 48px", fontSize: 18, borderRadius: 14 }}>
                         Connect Wallet
                       </button>
                     ) : searchState ? (
-                      /* Search overlay inline */
                       <div style={{ padding: 24, background: "var(--bg-card)", borderRadius: 14, border: "1px solid var(--border)", display: "inline-block" }}>
                         <div style={{ fontSize: 14, fontWeight: 700, color: "var(--gold)", letterSpacing: 2, marginBottom: 16, animation: "searchPulse 1.5s ease infinite" }}>
                           SEARCHING FOR OPPONENT...
                         </div>
-                        <div style={{ width: 200, height: 4, background: "var(--border)", borderRadius: 2, marginBottom: 12, overflow: "hidden", margin: "0 auto 12px" }}>
+                        <div style={{ width: 200, height: 4, background: "var(--border)", borderRadius: 2, margin: "0 auto 12px", overflow: "hidden" }}>
                           <div style={{
                             height: "100%", background: "linear-gradient(90deg, var(--gold), var(--gold-bright))",
-                            borderRadius: 2, width: `${((60 - searchState.countdown) / 60) * 100}%`,
-                            transition: "width 1s linear",
+                            borderRadius: 2, width: `${((60 - searchCountdown) / 60) * 100}%`,
+                            transition: "width 3s linear",
                           }} />
                         </div>
                         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>
-                          0:{searchState.countdown.toString().padStart(2, '0')}
+                          0:{searchCountdown.toString().padStart(2, '0')}
                         </div>
-                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 16 }}>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", margin: "8px 0 20px" }}>
                           Auto-flip vs treasury when timer ends
                         </div>
                         <button className="cancel-btn" onClick={cancelSearch}>Cancel</button>
                       </div>
                     ) : (
-                      <button
-                        className={`flip-btn-main ${coinState === "idle" && !searchState ? "pulse" : ""}`}
+                      <button className="flip-btn-main"
                         disabled={coinState !== "idle" || !!searchState}
-                        onClick={handleFlip}
-                      >
+                        onClick={handleFlip}>
                         <div style={{ position: "relative", zIndex: 1 }}>
                           FLIP NOW
-                          <div className="flip-sub">
-                            {tierEth} ETH {"\u00B7"} 2x Payout
-                          </div>
+                          <div className="flip-sub">{tierEth} ETH {"\u00B7"} 2x Payout</div>
                         </div>
                       </button>
                     )}
 
-                    {connected && parseFloat(bal) === 0 && (
+                    {connected && parseFloat(sessionBalance || "0") === 0 && (
                       <div style={{ marginTop: 16, fontSize: 12, color: "var(--text-dim)" }}>
                         Deposit ETH using the panel on the right to start flipping
                       </div>
@@ -1215,10 +1384,9 @@ export default function FlipperRooms() {
                   </div>
                 </div>
 
-                {/* Separator */}
                 <div style={{ height: 1, background: "linear-gradient(90deg, transparent, #f7b32b25, transparent)", margin: "0 24px" }} />
 
-                {/* All Games Section */}
+                {/* All Games */}
                 <div className="games-section" style={{ paddingTop: 20 }}>
                   <div className="games-header">
                     <h2>{"\u26A1"} ALL GAMES</h2>
@@ -1278,12 +1446,10 @@ export default function FlipperRooms() {
                         </div>
                         <div className="game-amount">
                           <div className="game-amount-val" style={{ fontSize: 14 }}>{h.amount} ETH</div>
-                          {h.winnerStreak > 1 && (
-                            <div style={{ fontSize: 10, color: "var(--gold)" }}>{"\u{1F525}"} {h.winnerStreak}x</div>
-                          )}
+                          {h.winnerStreak > 1 && <div style={{ fontSize: 10, color: "var(--gold)" }}>{"\u{1F525}"} {h.winnerStreak}x</div>}
                         </div>
                         <div className="game-actions">
-                          <span className={`game-status ${won ? "status-open" : won === false ? "status-done" : "status-inplay"}`}>
+                          <span className={`game-status ${won ? "status-open" : won === false ? "status-done" : "status-searching"}`}>
                             {won === null ? "FLIP" : won ? "WON" : "LOST"}
                           </span>
                         </div>
@@ -1296,95 +1462,20 @@ export default function FlipperRooms() {
 
             {/* ═══ BOARD VIEW ═══ */}
             {view === "board" && (
-              <div style={{ padding: 24 }}>
-                <div className="section-label" style={{ color: "var(--gold)", fontSize: 12, letterSpacing: 4 }}>REVENUE SEATS</div>
-                <div className="hero-title" style={{ fontSize: 36, marginBottom: 8 }}>THE BOARD</div>
-                <div style={{ fontSize: 13, color: "var(--text-dim)", marginBottom: 20, lineHeight: 1.6 }}>
-                  256 Harberger-taxed seats. Owners earn a share of every flip's fees. Buy a seat, set a price, keep it funded.
-                </div>
-
-                {connected && address && (
-                  <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 16 }}>
-                    Your referral link: <span style={{ color: "var(--gold)", fontFamily: "'JetBrains Mono', monospace" }}>
-                      {window.location.origin}?ref={seatHook.mySeats[0] || "SEATID"}
-                    </span>
-                  </div>
-                )}
-
-                {!seatHook.loading && seatHook.seats.length === 0 && (
-                  <div style={{ textAlign: "center", marginBottom: 16 }}>
-                    <button className="seat-buy-btn" style={{ width: "auto", padding: "10px 24px" }} onClick={() => seatHook.refreshSeats()}>Load Seats</button>
-                  </div>
-                )}
-                {seatHook.loading && <div className="empty-state">Loading 256 seats...</div>}
-                <div className="board-grid">
-                  {seatHook.seats.map(s => {
-                    const isMine = s.active && address && s.owner.toLowerCase() === address.toLowerCase();
-                    return (
-                      <div key={s.id}
-                        className={`seat-card ${s.active ? (isMine ? "mine" : "owned") : ""}`}
-                        onClick={() => { setSelectedSeat(s); playClickSound(); }}>
-                        <div className="seat-id">#{s.id}</div>
-                        {s.active ? (
-                          <>
-                            <div className="seat-name">{s.name || shortAddr(s.owner)}</div>
-                            <div className="seat-price">{parseFloat(s.price).toFixed(4)} ETH</div>
-                          </>
-                        ) : (
-                          <div className="seat-empty">Available</div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Seat detail overlay */}
-                {selectedSeat && (
-                  <div className="seat-detail-overlay" onClick={(e) => { if (e.target === e.currentTarget) setSelectedSeat(null); }}>
-                    <div className="seat-detail">
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                        <h3 style={{ margin: 0 }}>Seat #{selectedSeat.id}</h3>
-                        <button onClick={() => setSelectedSeat(null)} style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 20, cursor: "pointer" }}>{"\u2715"}</button>
-                      </div>
-                      <div className="seat-detail-row"><span className="seat-detail-label">Owner</span><span className="seat-detail-val">{selectedSeat.active ? shortAddr(selectedSeat.owner) : "None"}</span></div>
-                      <div className="seat-detail-row"><span className="seat-detail-label">Price</span><span className="seat-detail-val" style={{ color: "var(--green)" }}>{parseFloat(selectedSeat.price).toFixed(4)} ETH</span></div>
-                      <div className="seat-detail-row"><span className="seat-detail-label">Deposit</span><span className="seat-detail-val">{parseFloat(selectedSeat.deposit).toFixed(4)} ETH</span></div>
-                      {selectedSeat.name && <div className="seat-detail-row"><span className="seat-detail-label">Name</span><span className="seat-detail-val">{selectedSeat.name}</span></div>}
-
-                      {connected && !(selectedSeat.active && address && selectedSeat.owner.toLowerCase() === address.toLowerCase()) && (
-                        <div style={{ marginTop: 16 }}>
-                          <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 6 }}>Buy this seat (pay current price + deposit)</div>
-                          <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-                            <input className="info-input" style={{ marginBottom: 0 }} placeholder="New price" type="number" step="0.001" value={seatBuyPrice} onChange={e => setSeatBuyPrice(e.target.value)} />
-                            <input className="info-input" style={{ marginBottom: 0 }} placeholder="Name" maxLength={32} value={seatBuyName} onChange={e => setSeatBuyName(e.target.value)} />
-                          </div>
-                          <input className="info-input" placeholder="Deposit amount" type="number" step="0.001" value={seatBuyDeposit} onChange={e => setSeatBuyDeposit(e.target.value)} />
-                          <button className="seat-buy-btn" style={{ width: "100%" }} onClick={async () => {
-                            await seatHook.buySeat(selectedSeat.id, seatBuyPrice, seatBuyName, selectedSeat.priceWei, seatBuyDeposit);
-                            setSelectedSeat(null);
-                          }}>
-                            Buy Seat #{selectedSeat.id}
-                          </button>
-                        </div>
-                      )}
-
-                      {connected && selectedSeat.active && address && selectedSeat.owner.toLowerCase() === address.toLowerCase() && (
-                        <div style={{ display: "flex", gap: 6, marginTop: 14 }}>
-                          <button className="seat-buy-btn" onClick={async () => { await seatHook.claim(selectedSeat.id); setSelectedSeat(null); }}>Claim</button>
-                          <button className="cancel-btn" onClick={async () => { await seatHook.abandon(selectedSeat.id); setSelectedSeat(null); }}>Abandon</button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <BoardView
+                seatHook={seatHook}
+                address={address}
+                connected={connected}
+                contract={contract}
+                refreshBalance={refreshBalance}
+              />
             )}
 
             {/* ═══ FAIR VIEW ═══ */}
             {view === "fair" && (
               <div className="fair-section">
                 <div className="section-label" style={{ color: "var(--gold)", fontSize: 12, letterSpacing: 4 }}>PROVABLY FAIR</div>
-                <div className="hero-title" style={{ fontSize: 36, marginBottom: 16 }}>FAIRNESS</div>
+                <div className="hero-title-text" style={{ fontSize: 36, marginBottom: 16 }}>FAIRNESS</div>
                 <p>
                   Every flip uses on-chain randomness via <code style={{ background: "var(--bg-card)", padding: "2px 6px", borderRadius: 4, fontSize: 12 }}>block.prevrandao</code> combined with player addresses, timestamps, and counters.
                 </p>
@@ -1419,7 +1510,7 @@ export default function FlipperRooms() {
           </div>
         </div>
 
-        {/* ═══ RIGHT — STATS SIDEBAR ═══ */}
+        {/* ═══ RIGHT — STATS ═══ */}
         <StatsSidebar
           sessionBalance={sessionBalance}
           connected={connected}
@@ -1438,69 +1529,58 @@ export default function FlipperRooms() {
       {flipModal && (
         <div className="flip-modal-overlay">
           <div className="flip-modal">
-            <div className="flip-modal-header">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 24px", borderBottom: "1px solid var(--border)" }}>
               <span style={{ fontSize: 16, fontWeight: 800, color: "var(--text)" }}>COINFLIP</span>
               <button onClick={() => setFlipModal(null)} style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 20, cursor: "pointer" }}>{"\u2715"}</button>
             </div>
-            <div className="flip-modal-body">
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "32px 28px", background: "radial-gradient(ellipse at 50% 50%, #1a1510, var(--bg-deep))",
+            }}>
               {/* Player A */}
-              <div className="flip-modal-player">
-                <div className="flip-modal-avatar" style={{
+              <div style={{ textAlign: "center", width: 140 }}>
+                <div style={{
+                  width: 72, height: 72, borderRadius: "50%", margin: "0 auto 10px",
                   background: `linear-gradient(135deg, ${addrColor(flipModal.playerA)}, ${addrColor(flipModal.playerA)}88)`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 20, fontWeight: 700, color: "#fff",
                   border: flipModal.state !== "spinning" && flipModal.winner === flipModal.playerA ? "3px solid var(--green)" : "3px solid var(--border)",
                   boxShadow: flipModal.state !== "spinning" && flipModal.winner === flipModal.playerA ? "0 0 20px #22c55e40" : "none",
-                }}>
-                  {flipModal.playerA?.slice(2, 4).toUpperCase()}
-                </div>
-                <div className="flip-modal-name">{flipModal.playerA === address ? "You" : shortAddr(flipModal.playerA)}</div>
-                <div className="flip-modal-bet" style={{ color: "var(--gold)" }}>{flipModal.amount} ETH</div>
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}>{flipModal.playerA?.slice(2, 4).toUpperCase()}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>{flipModal.playerA === address ? "You" : shortAddr(flipModal.playerA)}</div>
+                <div style={{ display: "inline-block", padding: "4px 12px", borderRadius: 8, background: "var(--bg-card)", border: "1px solid var(--border)", fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, color: "var(--gold)" }}>{flipModal.amount} ETH</div>
               </div>
 
               {/* Center Coin */}
               <div style={{ width: 180, height: 180, position: "relative" }}>
-                <Coin3D state={flipModal.state === "spinning" ? "spinning" : flipModal.state} onComplete={() => {
-                  setTimeout(() => setFlipModal(null), 3000);
-                }} />
-                <div style={{
-                  position: "absolute", inset: -15, border: "2px solid #f7b32b30", borderRadius: "50%",
-                  animation: flipModal.state === "spinning" ? "coinGlow 1s ease infinite" : "none",
-                  opacity: flipModal.state === "spinning" ? 1 : 0, transition: "opacity 0.3s",
-                }} />
+                <Coin3D state={flipModal.state === "spinning" ? "spinning" : flipModal.state} onComplete={() => { setTimeout(() => setFlipModal(null), 3000); }} />
               </div>
 
               {/* Player B */}
-              <div className="flip-modal-player">
-                <div className="flip-modal-avatar" style={{
-                  background: flipModal.playerB === "Treasury"
-                    ? "linear-gradient(135deg, var(--gold), var(--gold-dark))"
-                    : `linear-gradient(135deg, ${addrColor(flipModal.playerB)}, ${addrColor(flipModal.playerB)}88)`,
+              <div style={{ textAlign: "center", width: 140 }}>
+                <div style={{
+                  width: 72, height: 72, borderRadius: "50%", margin: "0 auto 10px",
+                  background: flipModal.playerB === "Treasury" ? "linear-gradient(135deg, var(--gold), var(--gold-dark))" : `linear-gradient(135deg, ${addrColor(flipModal.playerB)}, ${addrColor(flipModal.playerB)}88)`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: flipModal.playerB === "Treasury" ? 28 : 20, fontWeight: 700, color: "#fff",
                   border: flipModal.state !== "spinning" && flipModal.winner !== flipModal.playerA ? "3px solid var(--green)" : "3px solid var(--border)",
                   boxShadow: flipModal.state !== "spinning" && flipModal.winner !== flipModal.playerA ? "0 0 20px #22c55e40" : "none",
-                  fontSize: flipModal.playerB === "Treasury" ? 28 : 20,
-                }}>
-                  {flipModal.playerB === "Treasury" ? "T" : flipModal.playerB?.slice(2, 4).toUpperCase() || "??"}
-                </div>
-                <div className="flip-modal-name">
-                  {flipModal.playerB === "Treasury" ? "Treasury" : shortAddr(flipModal.playerB)}
-                </div>
-                <div className="flip-modal-bet" style={{ color: flipModal.playerB === "Treasury" ? "var(--gold)" : "var(--green)" }}>
-                  {flipModal.amount} ETH
-                </div>
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}>{flipModal.playerB === "Treasury" ? "T" : flipModal.playerB?.slice(2, 4).toUpperCase() || "??"}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>{flipModal.playerB === "Treasury" ? "Treasury" : shortAddr(flipModal.playerB)}</div>
+                <div style={{ display: "inline-block", padding: "4px 12px", borderRadius: 8, background: "var(--bg-card)", border: "1px solid var(--border)", fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, color: flipModal.playerB === "Treasury" ? "var(--gold)" : "var(--green)" }}>{flipModal.amount} ETH</div>
               </div>
             </div>
 
-            {/* Result */}
             {flipModal.state !== "spinning" && (
               <div style={{
                 textAlign: "center", padding: "20px 24px",
-                background: flipModal.winner === flipModal.playerA
-                  ? "linear-gradient(180deg, #22c55e10, transparent)"
-                  : "linear-gradient(180deg, #ef444410, transparent)",
+                background: flipModal.winner === flipModal.playerA ? "linear-gradient(180deg, #22c55e10, transparent)" : "linear-gradient(180deg, #ef444410, transparent)",
               }}>
                 <div style={{
                   fontSize: 14, fontWeight: 800, letterSpacing: 2,
                   color: flipModal.winner === flipModal.playerA ? "var(--green)" : "var(--red)",
-                  textShadow: flipModal.winner === flipModal.playerA ? "0 0 30px #22c55e50" : "0 0 30px #ef444450",
                 }}>
                   {flipModal.winner === flipModal.playerA
                     ? (flipModal.playerA === address ? "YOU WON!" : shortAddr(flipModal.playerA) + " WON")
@@ -1509,15 +1589,10 @@ export default function FlipperRooms() {
               </div>
             )}
 
-            {/* Footer */}
-            <div style={{
-              padding: "14px 24px", borderTop: "1px solid var(--border)",
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-            }}>
+            <div style={{ padding: "14px 24px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Provably Fair</div>
               {flipModal.txHash && (
-                <a href={`${EXPLORER}/tx/${flipModal.txHash}`} target="_blank" rel="noreferrer"
-                  style={{ fontSize: 10, color: "var(--blue)", fontFamily: "'JetBrains Mono', monospace" }}>
+                <a href={`${EXPLORER}/tx/${flipModal.txHash}`} target="_blank" rel="noreferrer" style={{ fontSize: 10, color: "var(--blue)", fontFamily: "'JetBrains Mono', monospace" }}>
                   {flipModal.txHash.slice(0, 20)}...
                 </a>
               )}
