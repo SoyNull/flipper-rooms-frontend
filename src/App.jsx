@@ -82,6 +82,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Rajdhani', 
 }
 @keyframes searchPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
 @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ═══ 3-COLUMN LAYOUT ═══ */
 .app-root {
@@ -1144,6 +1145,7 @@ export default function FlipperRooms() {
   const [result, setResult] = useState(null);
   const [showResult, setShowResult] = useState(false);
   const pendingResultRef = useRef(null);
+  const [waitingConfirm, setWaitingConfirm] = useState(false);
 
   // Called by Coin3D when landing animation completes
   const onFlipDone = useCallback(() => {
@@ -1225,10 +1227,23 @@ export default function FlipperRooms() {
       return;
     }
 
-    try {
-      const tx = await contract.flipVsTreasury(tierWei, ref);
+    // Embedded wallet: start animation immediately (auto-signs)
+    if (isEmbedded) {
       setCoinState("spinning");
       playFlipSound();
+    } else {
+      setWaitingConfirm(true);
+    }
+
+    try {
+      const tx = await contract.flipVsTreasury(tierWei, ref);
+
+      // External wallet: TX signed, now animate
+      if (!isEmbedded) {
+        setWaitingConfirm(false);
+        setCoinState("spinning");
+        playFlipSound();
+      }
 
       const receipt = await tx.wait();
 
@@ -1247,12 +1262,12 @@ export default function FlipperRooms() {
         } catch {}
       }
 
-      // Store result — onFlipDone fires when coin lands
       pendingResultRef.current = { won, payout: payoutStr, amount: amountStr };
       setCoinState(won ? "win" : "lose");
 
     } catch (err) {
       setCoinState("idle");
+      setWaitingConfirm(false);
       const msg = decodeError(err);
       if (msg.includes("TreasuryBetTooHigh") || msg.includes("treasury") || msg.includes("Treasury")) {
         addToast("error", "Treasury can't cover this bet. Try a smaller tier.");
@@ -1297,11 +1312,23 @@ export default function FlipperRooms() {
 
     try {
       const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
+
+      if (isEmbedded) {
+        setCoinState("spinning");
+        playFlipSound();
+        setFlipModal({ playerA: address, playerB: creatorAddr || "Opponent", amount: amt, state: "spinning", winner: null, txHash: null });
+      } else {
+        setWaitingConfirm(true);
+      }
+
       const tx = await contract.acceptChallenge(challengeId, ref);
 
-      setCoinState("spinning");
-      playFlipSound();
-      setFlipModal({ playerA: address, playerB: creatorAddr || "Opponent", amount: amt, state: "spinning", winner: null, txHash: null });
+      if (!isEmbedded) {
+        setWaitingConfirm(false);
+        setCoinState("spinning");
+        playFlipSound();
+        setFlipModal({ playerA: address, playerB: creatorAddr || "Opponent", amount: amt, state: "spinning", winner: null, txHash: null });
+      }
 
       const receipt = await tx.wait();
 
@@ -1387,9 +1414,21 @@ export default function FlipperRooms() {
             </div>
             <div className="header-right">
               {connected ? (
-                <div className="addr-pill" onClick={disconnect}>{shortAddr(address)}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {isEmbedded && (
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 4, background: "#f7b32b20", color: "var(--gold)", letterSpacing: 0.5 }}>{"\u26A1"} INSTANT</span>
+                  )}
+                  <div className="addr-pill" onClick={disconnect}>{shortAddr(address)}</div>
+                </div>
               ) : (
-                <button className="connect-btn" onClick={connect}>Connect</button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="connect-btn" onClick={connect}>{"\u26A1"} Instant Play</button>
+                  <button onClick={connect} style={{
+                    padding: "8px 18px", borderRadius: 8, background: "transparent",
+                    border: "1px solid var(--border)", color: "var(--text-dim)",
+                    fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                  }}>Wallet</button>
+                </div>
               )}
             </div>
           </div>
@@ -1431,6 +1470,22 @@ export default function FlipperRooms() {
                         }}>
                           <div className={`result-text ${result === "win" ? "result-win" : "result-lose"}`}>
                             {result === "win" ? "YOU WON!" : "YOU LOST"}
+                          </div>
+                        </div>
+                      )}
+                      {waitingConfirm && (
+                        <div style={{
+                          position: "absolute", inset: 0, zIndex: 20, borderRadius: 16,
+                          background: "rgba(11,14,17,0.9)",
+                          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                        }}>
+                          <div style={{
+                            width: 28, height: 28, border: "3px solid #f7b32b30",
+                            borderTopColor: "#f7b32b", borderRadius: "50%",
+                            animation: "spin 0.8s linear infinite", marginBottom: 12,
+                          }} />
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--gold)" }}>
+                            Confirm in wallet...
                           </div>
                         </div>
                       )}
@@ -1499,6 +1554,15 @@ export default function FlipperRooms() {
                         >
                           Create PVP Challenge
                         </button>
+                        {connected && !isEmbedded && (
+                          <div style={{ fontSize: 10, color: "var(--text-muted)", textAlign: "center", marginTop: 2 }}>
+                            Using external wallet {"\u2014"} each flip requires approval.
+                            <span onClick={() => { disconnect(); setTimeout(connect, 500); }}
+                              style={{ color: "var(--gold)", cursor: "pointer", marginLeft: 4 }}>
+                              Switch to Instant Play {"\u2192"}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
 

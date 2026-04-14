@@ -47,7 +47,7 @@ createRoot(document.getElementById('root')).render(
             requireUserPasswordOnCreate: false,
             showWalletUIs: false,
           },
-          loginMethods: ['wallet', 'email', 'google'],
+          loginMethods: ['email', 'google', 'wallet'],
         }}
       >
         <App />
