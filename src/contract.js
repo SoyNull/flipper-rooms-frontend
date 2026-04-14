@@ -103,22 +103,32 @@ export async function getSeatInfo(contract, seatId) {
 }
 
 export async function getAllSeats(contract) {
-  const seats = [];
-  const promises = [];
-  for (let i = 1; i <= 256; i++) {
-    promises.push(
-      contract.seats(i).then(s => ({
-        id: i,
-        owner: s.owner,
-        price: formatEther(s.listedPrice),
-        priceWei: s.listedPrice,
-        deposit: formatEther(s.deposit),
-        name: s.name,
-        active: s.owner !== "0x0000000000000000000000000000000000000000",
-      }))
-    );
+  const ZERO = "0x0000000000000000000000000000000000000000";
+  const results = [];
+  // Batch in groups of 16 to avoid rate limits on public RPC
+  for (let batch = 0; batch < 16; batch++) {
+    const promises = [];
+    for (let j = 0; j < 16; j++) {
+      const i = batch * 16 + j + 1;
+      promises.push(
+        contract.seats(i).then(s => ({
+          id: i,
+          owner: s.owner,
+          price: formatEther(s.listedPrice),
+          priceWei: s.listedPrice,
+          deposit: formatEther(s.deposit),
+          name: s.name,
+          active: s.owner !== ZERO,
+        })).catch(() => ({
+          id: i, owner: ZERO, price: "0.001", priceWei: 0n,
+          deposit: "0", name: "", active: false,
+        }))
+      );
+    }
+    const batchResults = await Promise.all(promises);
+    results.push(...batchResults);
   }
-  return Promise.all(promises);
+  return results;
 }
 
 export async function getOpenChallenges(contract, tierAmountWei) {

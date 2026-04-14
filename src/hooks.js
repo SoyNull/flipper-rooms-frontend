@@ -75,27 +75,20 @@ export function useWallet() {
   const [contract, setContract] = useState(null);
   const [address, setAddress] = useState(null);
   const [sessionBalance, setSessionBalance] = useState("0");
+  const [isEmbedded, setIsEmbedded] = useState(false);
 
   // Auto-connect when Privy session exists (page load or login)
   useEffect(() => {
-    console.log("Privy state:", { authenticated, ready, walletsLength: wallets.length });
     if (!authenticated || !ready) return;
-
-    if (wallets.length === 0) {
-      console.log("No wallets yet, waiting...");
-      return;
-    }
+    if (wallets.length === 0) return;
 
     async function setup() {
       try {
         const wallet = wallets[0];
-        console.log("Wallet found:", wallet.address, wallet.walletClientType);
+        setIsEmbedded(wallet.walletClientType === "privy");
 
-        try {
-          await wallet.switchChain(84532);
-        } catch (e) {
-          console.warn("switchChain failed (may already be on correct chain):", e.message);
-        }
+        try { await wallet.switchChain(84532); }
+        catch (e) { /* may already be on correct chain */ }
 
         const rawProvider = await wallet.getEthereumProvider();
         const ethProvider = new BrowserProvider(rawProvider);
@@ -103,22 +96,16 @@ export function useWallet() {
         const addr = await sgnr.getAddress();
         const ctr = getContract(sgnr);
 
-        console.log("Connected:", addr, "Contract:", ctr.target);
-
         setProvider(ethProvider);
         setSigner(sgnr);
         setContract(ctr);
         setAddress(addr);
 
         try {
-          console.log("Reading session balance for:", addr);
           const rawBal = await ctr.sessionBalance(addr);
-          console.log("Raw balance:", rawBal.toString());
-          const bal = formatEther(rawBal);
-          console.log("Formatted balance:", bal);
-          setSessionBalance(bal);
+          setSessionBalance(formatEther(rawBal));
         } catch (e) {
-          console.warn("getSessionBalance failed:", e.message, e);
+          console.warn("getSessionBalance failed:", e.message);
         }
       } catch (err) {
         console.error("Wallet setup failed:", err);
@@ -133,14 +120,13 @@ export function useWallet() {
     try {
       const rawBal = await contract.sessionBalance(address);
       setSessionBalance(formatEther(rawBal));
-    } catch (e) {
-      console.warn("refreshBalance failed:", e.message);
-    }
+    } catch (e) { /* silent */ }
   }, [contract, address]);
 
   return {
     connected: authenticated && !!contract,
     authenticated,
+    isEmbedded,
     address,
     provider,
     signer,

@@ -227,7 +227,7 @@ export default function FlipperRooms() {
 
   const { toasts, remove: removeToast } = useToasts();
   const wallet = useWallet();
-  const { connected, address, contract, sessionBalance, refreshBalance, connect, disconnect, ready, authenticated } = wallet;
+  const { connected, address, contract, sessionBalance, refreshBalance, connect, disconnect, ready, authenticated, isEmbedded } = wallet;
   const flipHook = useFlip(contract, address, refreshBalance);
   const seatHook = useSeats(contract, address, refreshBalance);
   const protocolHook = useProtocol(contract);
@@ -261,40 +261,42 @@ export default function FlipperRooms() {
     getSeatInfoFn(contract, selectedSeat.id).then(setSeatDetail).catch(() => {});
   }, [contract, selectedSeat]);
 
-  // Flip handlers
+  // Flip handlers — embedded wallet spins immediately, external shows "confirm" first
   const handleFlipPvp = async () => {
     if (coinState !== "idle" || !connected) return;
     playClickSound();
-    setCoinState("spinning");
-    playFlipSound();
+    if (isEmbedded) { setCoinState("spinning"); playFlipSound(); }
     const result = await flipHook.flipPvp(TIERS[tier].wei);
     setCoinState("idle");
+    if (result) refreshBalance();
   };
 
   const handleFlipTreasury = async () => {
     if (coinState !== "idle" || !connected) return;
     playClickSound();
-    setCoinState("spinning");
-    playFlipSound();
+    if (isEmbedded) { setCoinState("spinning"); playFlipSound(); }
     const result = await flipHook.flipTreasury(TIERS[tier].wei);
     if (!result) { setCoinState("idle"); return; }
+    if (!isEmbedded) { setCoinState("spinning"); playFlipSound(); await new Promise(r => setTimeout(r, 2000)); }
     const won = result.winner.toLowerCase() === address?.toLowerCase();
     if (won) { playWinSound(); if (result.winnerStreak >= 3) playStreakSound(result.winnerStreak); }
     else playLoseSound();
     setCoinState(won ? "win" : "lose");
+    refreshBalance();
   };
 
   const handleAccept = async (challengeId) => {
     if (coinState !== "idle" || !connected) return;
     playClickSound();
-    setCoinState("spinning");
-    playFlipSound();
+    if (isEmbedded) { setCoinState("spinning"); playFlipSound(); }
     const result = await flipHook.acceptCh(challengeId);
     if (!result) { setCoinState("idle"); return; }
+    if (!isEmbedded) { setCoinState("spinning"); playFlipSound(); await new Promise(r => setTimeout(r, 2000)); }
     const won = result.winner.toLowerCase() === address?.toLowerCase();
     if (won) { playWinSound(); if (result.winnerStreak >= 3) playStreakSound(result.winnerStreak); }
     else playLoseSound();
     setCoinState(won ? "win" : "lose");
+    refreshBalance();
   };
 
   const onFlipDone = useCallback(() => {
@@ -329,8 +331,9 @@ export default function FlipperRooms() {
     finally { setIsDepositing(false); }
   };
 
-  const shortAddr = (addr) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
   const ownedCount = seatHook.seats.filter(s => s.active).length;
+  const balDisplay = Number(sessionBalance) > 0 ? `${Number(sessionBalance).toFixed(4)} ETH` : "No balance";
+  const treasuryMax = protocolHook.stats ? Number(protocolHook.stats.treasury) * 0.05 : 0;
 
   const leaderboard = useMemo(() => {
     const map = {};
@@ -400,9 +403,10 @@ export default function FlipperRooms() {
             <span style={{ color: "#555", fontSize: 11 }}>Loading...</span>
           ) : connected ? (
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {isEmbedded && <div style={{ fontSize: 8, color: "#00e87b", fontWeight: 600, letterSpacing: 0.5 }}>AUTO</div>}
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 8, color: "#444", letterSpacing: 1.5, fontWeight: 600 }}>SESSION</div>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>{Number(sessionBalance).toFixed(4)} ETH</div>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>{balDisplay}</div>
               </div>
               <div onClick={disconnect} style={{ padding: "7px 12px", borderRadius: 6, background: "#12121e", border: "1px solid #1a1a28", fontSize: 10, cursor: "pointer" }}>
                 {shortAddr(address)}
@@ -489,13 +493,17 @@ export default function FlipperRooms() {
                 <div style={{ padding: "14px 16px 0" }}>
                   <div style={{ fontSize: 9, color: "#444", letterSpacing: 2, marginBottom: 8, fontWeight: 600 }}>BET TIER</div>
                   <div style={{ display: "flex", gap: isMobile ? 4 : 6 }}>
-                    {TIERS.map((t, i) => (
-                      <button key={t.wei} className={`tier-btn ${tier === i ? "active" : ""}`}
-                        onClick={() => { playClickSound(); setTier(i); }}
-                        style={isMobile ? { fontSize: 10, padding: "8px 0" } : {}}>
-                        {t.label} Ξ
-                      </button>
-                    ))}
+                    {TIERS.map((t, i) => {
+                      const tooHigh = treasuryMax > 0 && Number(t.label) > treasuryMax;
+                      return (
+                        <button key={t.wei} className={`tier-btn ${tier === i ? "active" : ""}`}
+                          onClick={() => { playClickSound(); setTier(i); }}
+                          title={tooHigh ? "Treasury too low for this tier" : ""}
+                          style={{ ...(isMobile ? { fontSize: 10, padding: "8px 0" } : {}), ...(tooHigh ? { opacity: 0.3 } : {}) }}>
+                          {t.label} Ξ
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -563,6 +571,11 @@ export default function FlipperRooms() {
                     VS TREASURY
                     <div style={{ fontSize: 10, fontWeight: 400, marginTop: 4, opacity: 0.6 }}>{TIERS[tier].label} ETH</div>
                   </button>
+                {connected && !isEmbedded && (
+                  <div style={{ padding: "0 16px 12px", fontSize: 9, color: "#444", textAlign: "center" }}>
+                    Login with email for instant flips without wallet popups
+                  </div>
+                )}
                 </div>
               </div>
             </div>

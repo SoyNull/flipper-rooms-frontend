@@ -12,14 +12,15 @@ createRoot(document.getElementById('root')).render(
         appearance: {
           theme: 'dark',
           accentColor: '#00e87b',
-          logo: null,
         },
         defaultChain: baseSepolia,
         supportedChains: [baseSepolia],
         embeddedWallets: {
           createOnLogin: 'users-without-wallets',
+          requireUserPasswordOnCreate: false,
+          showWalletUIs: false,
         },
-        loginMethods: ['wallet', 'email'],
+        loginMethods: ['wallet', 'email', 'google'],
       }}
     >
       <App />
