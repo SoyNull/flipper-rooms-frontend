@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import * as THREE from "three";
 import { useWallet, useFlip, useSeats, useProtocol, useToasts, addToast, EXPLORER } from "./hooks.js";
-import { getOpenChallenges, getChallengeInfo, getPlayerInfo, getTreasuryMaxBet, decodeError } from "./contract.js";
+import { getOpenChallenges, getChallengeInfo, getPlayerInfo, getTreasuryMaxBet, getSeatInfo, decodeError } from "./contract.js";
 import { CONTRACT_ADDRESS, TIERS } from "./config.js";
 import { parseEther, formatEther } from "ethers";
 import { playClickSound, playFlipSound, playWinSound, playLoseSound, playDepositSound, playStreakSound } from "./sounds.js";
@@ -692,10 +692,10 @@ function StatsSidebar({ sessionBalance, connected, playerStats, protocolStats, t
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {[
             { l: "Total Bets", v: protocolStats ? protocolStats.totalFlips.toLocaleString() : "0" },
-            { l: "Treasury", v: protocolStats ? `${Number(protocolStats.treasury).toFixed(4)} \u039E` : "..." },
-            { l: "Max Bet", v: treasuryMax ? `${parseFloat(treasuryMax).toFixed(4)} \u039E` : "..." },
-            { l: "Jackpot", v: protocolStats ? `${Number(protocolStats.jackpot).toFixed(4)} \u039E` : "..." },
-            { l: "Volume", v: protocolStats ? `${Number(protocolStats.totalVolume).toFixed(3)} \u039E` : "0" },
+            { l: "Treasury", v: protocolStats ? `${Number(protocolStats.treasury).toFixed(4)} \u039E` : "0.0000 \u039E" },
+            { l: "Max Bet", v: treasuryMax ? `${parseFloat(treasuryMax).toFixed(4)} \u039E` : "0.0000 \u039E" },
+            { l: "Jackpot", v: protocolStats ? `${Number(protocolStats.jackpot).toFixed(4)} \u039E` : "0.0000 \u039E" },
+            { l: "Volume", v: protocolStats ? `${Number(protocolStats.totalVolume).toFixed(3)} \u039E` : "0.000 \u039E" },
           ].map((r, i) => (
             <div className="protocol-row" key={i}>
               <span className="protocol-row-label">{r.l}</span>
@@ -731,9 +731,37 @@ function StatsSidebar({ sessionBalance, connected, playerStats, protocolStats, t
 // ═══════════════════════════════════════
 function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
   const [selectedSeat, setSelectedSeat] = useState(null);
+  const [seatDetail, setSeatDetail] = useState(null);
   const [seatBuyName, setSeatBuyName] = useState("");
   const [seatBuyDeposit, setSeatBuyDeposit] = useState("0.002");
   const [seatBuyPrice, setSeatBuyPrice] = useState("0.001");
+  const [recentActivity, setRecentActivity] = useState([]);
+
+  // Fetch detailed seat info when modal opens
+  useEffect(() => {
+    if (!selectedSeat || !contract) { setSeatDetail(null); return; }
+    getSeatInfo(contract, selectedSeat.id).then(setSeatDetail).catch(() => setSeatDetail(null));
+  }, [selectedSeat, contract]);
+
+  // Fetch recent seat activity (SeatBought events)
+  useEffect(() => {
+    if (!contract || !contract.runner?.provider) return;
+    (async () => {
+      try {
+        const block = await contract.runner.provider.getBlockNumber();
+        const from = Math.max(0, block - 2000);
+        const events = await contract.queryFilter("SeatBought", from, block);
+        const items = events.slice(-15).reverse().map(e => ({
+          seatId: Number(e.args.seatId),
+          newOwner: e.args.newOwner,
+          prevOwner: e.args.prevOwner,
+          price: formatEther(e.args.price),
+          block: e.blockNumber,
+        }));
+        setRecentActivity(items);
+      } catch {}
+    })();
+  }, [contract, seatHook.seats]);
 
   const topHolders = useMemo(() => {
     if (!seatHook.seats || seatHook.seats.length === 0) return [];
@@ -760,6 +788,12 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
     return prices.length > 0 ? Math.min(...prices).toFixed(4) : "0.001";
   }, [seatHook.seats]);
 
+  const totalValue = useMemo(() => {
+    const active = seatHook.seats?.filter(s => s.active);
+    if (!active || active.length === 0) return "0.0000";
+    return active.reduce((sum, s) => sum + parseFloat(s.price), 0).toFixed(4);
+  }, [seatHook.seats]);
+
   return (
     <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
       {/* LEFT INFO PANEL */}
@@ -782,6 +816,10 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
           <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
             <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Floor Price</span>
             <span style={{ color: "var(--gold)", fontSize: 12, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>{floorPrice} {"\u039E"}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Total Value</span>
+            <span style={{ color: "var(--text)", fontSize: 12, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>{totalValue} {"\u039E"}</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
             <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Weekly Tax</span>
@@ -814,7 +852,7 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
         </div>
       </div>
 
-      {/* CENTER GRID 16×16 */}
+      {/* CENTER GRID 16x16 */}
       <div style={{ flex: 1, padding: 16, overflowY: "auto" }}>
         {seatHook.seats.length === 0 ? (
           <div style={{ textAlign: "center", padding: 40 }}>
@@ -868,6 +906,75 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
         )}
       </div>
 
+      {/* RIGHT PANEL — ACTIVITY FEED */}
+      <div style={{ width: 220, minWidth: 220, padding: 16, overflowY: "auto", borderLeft: "1px solid var(--border)" }}>
+        <div className="stats-label">RECENT ACTIVITY</div>
+        {recentActivity.length === 0 && (
+          <div style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", padding: "20px 0" }}>No recent activity</div>
+        )}
+        {recentActivity.map((a, i) => (
+          <div key={i} style={{
+            padding: "10px 0", borderBottom: "1px solid var(--border)",
+            animation: i < 3 ? "fadeInUp 0.3s ease" : "none",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <div style={{
+                width: 22, height: 22, borderRadius: "50%",
+                background: addrColor(a.newOwner),
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 7, fontWeight: 700, color: "#fff",
+              }}>{a.newOwner.slice(2, 4).toUpperCase()}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text)" }}>{shortAddr(a.newOwner)}</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                {a.prevOwner === ZERO_ADDRESS ? "Claimed" : "Bought"} #{a.seatId}
+              </span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--gold)", fontFamily: "'JetBrains Mono', monospace" }}>
+                {parseFloat(a.price).toFixed(4)} {"\u039E"}
+              </span>
+            </div>
+          </div>
+        ))}
+
+        {/* My Seats section */}
+        {connected && seatHook.mySeats.length > 0 && (
+          <div style={{ marginTop: 20 }}>
+            <div className="stats-label">YOUR SEATS</div>
+            {seatHook.mySeats.map(seatId => {
+              const seat = seatHook.seats.find(s => s.id === seatId);
+              if (!seat) return null;
+              return (
+                <div key={seatId}
+                  onClick={() => { setSelectedSeat(seat); playClickSound(); }}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "8px 10px", marginBottom: 4, borderRadius: 8, cursor: "pointer",
+                    background: "var(--bg-card)", border: "1px solid #f7b32b20",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{
+                      width: 20, height: 20, borderRadius: "50%",
+                      background: `linear-gradient(135deg, var(--gold), var(--gold-dark))`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 8, fontWeight: 700, color: "#0b0e11",
+                    }}>#{seatId}</div>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text)" }}>{seat.name || `Seat #${seatId}`}</span>
+                  </div>
+                  <span style={{ fontSize: 10, color: "var(--gold)", fontFamily: "'JetBrains Mono', monospace" }}>
+                    {parseFloat(seat.price).toFixed(3)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* SEAT DETAIL MODAL */}
       {selectedSeat && (
         <div className="seat-overlay" onClick={(e) => { if (e.target === e.currentTarget) setSelectedSeat(null); }}>
@@ -891,11 +998,18 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
               {selectedSeat.name && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{selectedSeat.name}</div>}
             </div>
 
-            {/* Info rows */}
+            {/* Info rows — enriched with getSeatInfo data */}
             <div style={{ marginBottom: 20 }}>
               {[
-                { l: "Price", v: `${parseFloat(selectedSeat.price).toFixed(4)} ETH`, c: "var(--gold)" },
-                { l: "Deposit", v: `${parseFloat(selectedSeat.deposit).toFixed(4)} ETH`, c: "var(--blue)" },
+                { l: "Price", v: `${parseFloat(seatDetail?.price || selectedSeat.price).toFixed(4)} ETH`, c: "var(--gold)" },
+                { l: "Deposit", v: `${parseFloat(seatDetail?.deposit || selectedSeat.deposit).toFixed(4)} ETH`, c: "var(--blue)" },
+                ...(seatDetail ? [
+                  { l: "Rewards", v: `${parseFloat(seatDetail.rewards).toFixed(4)} ETH`, c: "var(--green)" },
+                  { l: "Total Earned", v: `${parseFloat(seatDetail.earned).toFixed(4)} ETH`, c: "var(--teal)" },
+                  { l: "Pending Tax", v: `${parseFloat(seatDetail.pendingTax).toFixed(4)} ETH`, c: "var(--red)" },
+                  { l: "Runway", v: seatDetail.runway > 0 ? `${Math.floor(seatDetail.runway / 86400)}d ${Math.floor((seatDetail.runway % 86400) / 3600)}h` : "\u2014", c: "var(--text-dim)" },
+                ] : []),
+                { l: "Name", v: (seatDetail?.name || selectedSeat.name) || "\u2014", c: "var(--text-dim)" },
               ].map((r, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #1f293740" }}>
                   <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{r.l}</span>
@@ -916,9 +1030,6 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
                   value={seatBuyDeposit} onChange={e => setSeatBuyDeposit(e.target.value)} />
                 <button className="seat-modal-btn" onClick={async () => {
                   try {
-                    const depositWei = parseEther(seatBuyDeposit || "0.002");
-                    const basePrice = parseEther("0.001");
-                    const totalValue = basePrice + depositWei;
                     await seatHook.buySeat(selectedSeat.id, "0.001", seatBuyName, 0n, seatBuyDeposit);
                     setSelectedSeat(null); setSeatBuyName(""); setSeatBuyDeposit("0.002");
                   } catch (err) { addToast("error", decodeError(err)); }
@@ -929,7 +1040,7 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <button className="seat-action-btn" style={{ background: "#22c55e20", border: "1px solid #22c55e40", color: "var(--green)" }}
                   onClick={async () => { await seatHook.claim(selectedSeat.id); setSelectedSeat(null); }}>
-                  CLAIM REWARDS
+                  CLAIM REWARDS {seatDetail?.rewards && parseFloat(seatDetail.rewards) > 0 ? `(${parseFloat(seatDetail.rewards).toFixed(4)} ETH)` : ""}
                 </button>
                 <button className="seat-action-btn" style={{ background: "transparent", border: "1px solid var(--red)", color: "var(--red)" }}
                   onClick={async () => { await seatHook.abandon(selectedSeat.id); setSelectedSeat(null); }}>
@@ -937,8 +1048,7 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance }) {
                 </button>
                 <button className="seat-action-btn" style={{ background: "#3b82f620", border: "1px solid #3b82f640", color: "var(--blue)" }}
                   onClick={() => {
-                    const refId = selectedSeat.id;
-                    navigator.clipboard.writeText(`${window.location.origin}?ref=${refId}`);
+                    navigator.clipboard.writeText(`${window.location.origin}?ref=${selectedSeat.id}`);
                     addToast("success", "Referral link copied!");
                   }}>
                   COPY REF LINK
@@ -1325,6 +1435,28 @@ export default function FlipperRooms() {
                           </div>
                         </div>
                       )}
+                      {/* Search overlay inside coin stage */}
+                      {searchState && (
+                        <div style={{
+                          position: "absolute", inset: 0, zIndex: 20, borderRadius: 16,
+                          background: "rgba(11,14,17,0.92)", backdropFilter: "blur(4px)",
+                          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                        }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--gold)", letterSpacing: 2, marginBottom: 16, animation: "searchPulse 1.5s ease infinite" }}>
+                            SEARCHING...
+                          </div>
+                          <div style={{ width: 140, height: 4, background: "var(--border)", borderRadius: 2, marginBottom: 12, overflow: "hidden" }}>
+                            <div style={{
+                              height: "100%", background: "linear-gradient(90deg, var(--gold), var(--gold-bright))",
+                              borderRadius: 2, width: `${((60 - searchCountdown) / 60) * 100}%`,
+                              transition: "width 3s linear",
+                            }} />
+                          </div>
+                          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700, color: "var(--text)" }}>
+                            0:{searchCountdown.toString().padStart(2, '0')}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Streak */}
@@ -1340,24 +1472,11 @@ export default function FlipperRooms() {
                         Connect Wallet
                       </button>
                     ) : searchState ? (
-                      <div style={{ padding: 24, background: "var(--bg-card)", borderRadius: 14, border: "1px solid var(--border)", display: "inline-block" }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--gold)", letterSpacing: 2, marginBottom: 16, animation: "searchPulse 1.5s ease infinite" }}>
-                          SEARCHING FOR OPPONENT...
-                        </div>
-                        <div style={{ width: 200, height: 4, background: "var(--border)", borderRadius: 2, margin: "0 auto 12px", overflow: "hidden" }}>
-                          <div style={{
-                            height: "100%", background: "linear-gradient(90deg, var(--gold), var(--gold-bright))",
-                            borderRadius: 2, width: `${((60 - searchCountdown) / 60) * 100}%`,
-                            transition: "width 3s linear",
-                          }} />
-                        </div>
-                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>
-                          0:{searchCountdown.toString().padStart(2, '0')}
-                        </div>
-                        <div style={{ fontSize: 11, color: "var(--text-muted)", margin: "8px 0 20px" }}>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-dim)" }}>
                           Auto-flip vs treasury when timer ends
                         </div>
-                        <button className="cancel-btn" onClick={cancelSearch}>Cancel</button>
+                        <button className="cancel-btn" onClick={cancelSearch} style={{ padding: "10px 28px" }}>Cancel Search</button>
                       </div>
                     ) : (
                       <button className="flip-btn-main"
