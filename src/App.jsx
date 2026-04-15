@@ -4,7 +4,7 @@ import { useWallet, useFlip, useSeats, useProtocol, useToasts, addToast, EXPLORE
 import { getPlayerInfo, getTreasuryMaxBet, getSeatInfo, decodeError } from "./contract.js";
 import { CONTRACT_ADDRESS, TIERS } from "./config.js";
 import { parseEther, formatEther } from "ethers";
-import { playClickSound, playFlipSound, playWinSound, playLoseSound, playDepositSound, playStreakSound } from "./sounds.js";
+import { playClickSound, playFlipSound, playWinSound, playLoseSound, playStreakSound } from "./sounds.js";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -85,6 +85,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes flashBright { 0%, 100% { opacity: 0.1; } 50% { opacity: 0.6; } }
 @keyframes scrollTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.2); } }
 
 /* ═══ COIN STAGE — DUEL LAYOUT ═══ */
 .coin-wrapper {
@@ -258,7 +259,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 /* ═══ CHAT SIDEBAR (LEFT) ═══ */
 .chat-sidebar {
   display: flex; flex-direction: column; height: 100%;
-  background: linear-gradient(180deg, #0d1118 0%, #0a0d13 50%, #0d1118 100%);
+  background: linear-gradient(180deg, #0c1019 0%, #090c12 50%, #0c1019 100%);
   border-right: 1px solid #151b25;
   position: relative; z-index: 1;
 }
@@ -307,6 +308,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
   border-left: 1px solid var(--border); border-right: 1px solid var(--border);
   overflow: hidden; display: flex; flex-direction: column;
   position: relative; z-index: 1;
+  background: radial-gradient(ellipse at 50% 0%, #f7b32b04 0%, transparent 50%), #0b0e11;
 }
 .game-topbar {
   height: 52px; display: flex; align-items: center; justify-content: space-between;
@@ -480,13 +482,13 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 /* ═══ STATS SIDEBAR (RIGHT) ═══ */
 .stats-sidebar {
   display: flex; flex-direction: column; height: 100%;
-  background: linear-gradient(180deg, #0d1118 0%, #0a0d13 50%, #0d1118 100%);
+  background: linear-gradient(180deg, #0c1019 0%, #090c12 50%, #0c1019 100%);
   border-left: 1px solid #151b25;
   overflow-y: auto; position: relative; z-index: 1;
 }
 .stats-section { padding: 16px; border-bottom: 1px solid var(--border); }
 .stats-label {
-  font-size: 10px; font-weight: 700; color: var(--text-muted);
+  font-size: 11px; font-weight: 700; color: var(--text-muted);
   letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px;
 }
 .balance-display {
@@ -570,7 +572,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 
 /* Section label */
 .section-label {
-  font-size: 11px; font-weight: 700; color: var(--text-muted);
+  font-size: 12px; font-weight: 700; color: var(--text-muted);
   letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px;
 }
 
@@ -605,7 +607,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 .board-left { width: 200px; min-width: 200px; border-right: 1px solid #151b25; padding: 14px; overflow-y: auto; background: linear-gradient(180deg, #0d1118, #0a0d13); }
 .board-grid-area { flex: 1; padding: 12px; overflow-y: auto; display: flex; flex-direction: column; }
 .board-right { width: 200px; min-width: 200px; border-left: 1px solid #151b25; padding: 14px; overflow-y: auto; background: linear-gradient(180deg, #0d1118, #0a0d13); }
-.board-label { font-size: 9px; color: #475569; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 10px; }
+.board-label { font-size: 10px; color: #475569; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 10px; }
 .board-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 16px; }
 .board-stat-card { background: #131820; border-radius: 8px; padding: 10px 8px; text-align: center; }
 .board-stat-value { font-size: 18px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
@@ -685,21 +687,6 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 }
 `;
 
-// ═══════════════════════════════════════
-//  MOCK CHAT
-// ═══════════════════════════════════════
-const MOCK_CHAT = [
-  { name: "BasedDegen", level: 12, msg: "LFG", color: "#f7b32b" },
-  { name: "FlipperKing", level: 34, msg: "just hit 5x streak \u{1f525}", color: "#ffd700" },
-  { name: "0xWhale", level: 8, msg: "bought seat #42", color: "#3b82f6" },
-  { name: "CryptoNova", level: 21, msg: "treasury needs funding", color: "#ec4899" },
-  { name: "SigmaGrind", level: 15, msg: "0.05 tier is the sweet spot", color: "#22c55e" },
-  { name: "MoonBoi", level: 5, msg: "wen jackpot", color: "#14b8a6" },
-  { name: "AlphaSeeker", level: 29, msg: "seat yield looking good today", color: "#f97316" },
-  { name: "DegenApe", level: 7, msg: "lost 3 in a row lol", color: "#ef4444" },
-  { name: "BaseMaxi", level: 18, msg: "this is the best coinflip on base", color: "#06b6d4" },
-  { name: "FlipMaster", level: 44, msg: "GG everyone", color: "#b8860b" },
-];
 
 // ═══════════════════════════════════════
 //  3D COIN — GOLD CASINO
@@ -1347,22 +1334,23 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
                   value={seatBuyName} onChange={e => setSeatBuyName(e.target.value)} />
                 <div className="modal-section-label">DEPOSIT DURATION</div>
                 <div className="duration-options">
-                  {[{l:"1d",h:24},{l:"7d",h:168},{l:"30d",h:720}].map(d => (
+                  {[{l:"1h",h:1},{l:"1d",h:24},{l:"7d",h:168},{l:"30d",h:720}].map(d => (
                     <button key={d.h} className={`duration-btn ${selectedDuration === d.h ? "active" : ""}`}
                       onClick={() => setSelectedDuration(d.h)}>{d.l}</button>
                   ))}
                 </div>
-                <div className="cost-row">
-                  <span className="cost-label">Base price</span>
-                  <span className="cost-value">0.0010 ETH</span>
-                </div>
-                <div className="cost-row">
-                  <span className="cost-label">Tax deposit</span>
-                  <span className="cost-value">{(0.001 * 0.05 * selectedDuration / 168).toFixed(4)} ETH</span>
-                </div>
-                <div className="total-row">
-                  <span className="total-label">Total</span>
-                  <span className="total-value">{(0.001 + 0.001 * 0.05 * selectedDuration / 168).toFixed(4)} ETH</span>
+                <div style={{ padding: 10, background: "#0b0e11", borderRadius: 8, marginBottom: 12 }}>
+                  {[
+                    { l: "Seat price", v: "0.0010 ETH" },
+                    { l: "Weekly tax", v: (0.001 * 0.05).toFixed(4) + " ETH/wk" },
+                    { l: "Deposit (" + (selectedDuration < 24 ? selectedDuration + "h" : Math.round(selectedDuration / 24) + "d") + ")", v: (0.001 * 0.05 * selectedDuration / 168).toFixed(4) + " ETH" },
+                    { l: "Total", v: (0.001 + 0.001 * 0.05 * selectedDuration / 168).toFixed(4) + " ETH", color: "#f7b32b", bold: true },
+                  ].map((r, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 10 }}>
+                      <span style={{ color: "#475569" }}>{r.l}</span>
+                      <span style={{ color: r.color || "#e2e8f0", fontWeight: r.bold ? 700 : 400, fontFamily: "'JetBrains Mono', monospace" }}>{r.v}</span>
+                    </div>
+                  ))}
                 </div>
                 <button className="modal-buy-btn" onClick={async () => {
                   try {
@@ -1438,7 +1426,7 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
 
                 <div className="modal-section-label">DEPOSIT DURATION</div>
                 <div className="duration-options">
-                  {[{l:"1d",h:24},{l:"7d",h:168},{l:"30d",h:720}].map(d => (
+                  {[{l:"1h",h:1},{l:"1d",h:24},{l:"7d",h:168},{l:"30d",h:720}].map(d => (
                     <button key={d.h} className={`duration-btn ${selectedDuration === d.h ? "active" : ""}`}
                       onClick={() => setSelectedDuration(d.h)}>{d.l}</button>
                   ))}
@@ -1656,8 +1644,6 @@ export default function FlipperRooms() {
 
   const [view, setView] = useState("flip");
   const [tier, setTier] = useState(1);
-  const [depositAmt, setDepositAmt] = useState("");
-  const [isDepositing, setIsDepositing] = useState(false);
   const [playerStats, setPlayerStats] = useState(null);
   const [flipModal, setFlipModal] = useState(null);
   const [treasuryMax, setTreasuryMax] = useState(null);
@@ -1828,7 +1814,9 @@ export default function FlipperRooms() {
         const myAddr = address.toLowerCase();
         const isMyFlip = winner.toLowerCase() === myAddr || loser.toLowerCase() === myAddr;
 
-        // Only trigger if we're NOT already showing coin stage (i.e. we're the creator waiting)
+        // Always refresh rooms when ANY flip resolves (closes resolved rooms)
+        refreshOpenRooms();
+
         // Clear auto-match timer if our room was accepted
         if (isMyFlip && myRoomId) {
           if (roomTimerRef.current) { clearInterval(roomTimerRef.current); roomTimerRef.current = null; }
@@ -2109,30 +2097,6 @@ export default function FlipperRooms() {
       setWaitingConfirm(false);
       addToast("error", decodeError(err));
     }
-  };
-
-  const handleDeposit = async () => {
-    if (!depositAmt || !contract || isDepositing) return;
-    setIsDepositing(true); playClickSound();
-    try {
-      const tx = await contract.deposit({ value: parseEther(depositAmt) });
-      await tx.wait(); playDepositSound();
-      addToast("success", `Deposited ${depositAmt} ETH`);
-      setDepositAmt(""); refreshBalance();
-    } catch (err) { addToast("error", decodeError(err)); }
-    setIsDepositing(false);
-  };
-
-  const handleWithdraw = async () => {
-    if (!depositAmt || !contract || isDepositing) return;
-    setIsDepositing(true);
-    try {
-      const tx = await contract.withdraw(parseEther(depositAmt));
-      await tx.wait();
-      addToast("success", `Withdrew ${depositAmt} ETH`);
-      setDepositAmt(""); refreshBalance();
-    } catch (err) { addToast("error", decodeError(err)); }
-    setIsDepositing(false);
   };
 
   const stats = protocol.stats;
@@ -2476,8 +2440,8 @@ export default function FlipperRooms() {
                 {/* ═══ CREATE ROOM ═══ */}
                 <div className="games-section" style={{ paddingTop: 20 }}>
                   <div style={{
-                    padding: "16px 20px", background: "linear-gradient(135deg, #f7b32b04, #131820)",
-                    borderRadius: 12, border: "1px solid #f7b32b15", marginBottom: 16,
+                    padding: "16px 20px", background: "linear-gradient(135deg, #f7b32b06, #131820)",
+                    borderRadius: 12, border: "1px solid #f7b32b20", marginBottom: 16,
                   }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: 1.5, marginBottom: 12 }}>
                       CREATE PVP ROOM
