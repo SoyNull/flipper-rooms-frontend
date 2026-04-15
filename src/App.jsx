@@ -1771,8 +1771,10 @@ export default function FlipperRooms() {
   // Uses refs to avoid stale closures — listener is stable, not recreated on state changes
   const coinStateRef = useRef(coinState);
   const showCoinStageRef = useRef(showCoinStage);
+  const showResultRef = useRef(false);
   useEffect(() => { coinStateRef.current = coinState; }, [coinState]);
   useEffect(() => { showCoinStageRef.current = showCoinStage; }, [showCoinStage]);
+  useEffect(() => { showResultRef.current = showResult; }, [showResult]);
 
   useEffect(() => {
     if (!contract || !address) return;
@@ -1798,8 +1800,8 @@ export default function FlipperRooms() {
           setRoomCountdown(0);
         }
 
-        // Only show animation if we're not already flipping (avoid double animation)
-        if (showCoinStageRef.current || coinStateRef.current !== "idle") return;
+        // If we already showing result, we sent the TX ourselves — skip
+        if (showResultRef.current) return;
 
         const won = winner.toLowerCase() === myAddr;
         const opponent = won ? loser : winner;
@@ -1966,8 +1968,10 @@ export default function FlipperRooms() {
     if (!myRoomId || !contract || !address) return;
     const checkRoom = async () => {
       try {
+        console.log("ROOM POLL: checking room", myRoomId);
         const info = await contract.getChallengeInfo(myRoomId);
         const status = Number(info.status_ ?? info[4] ?? 0);
+        console.log("ROOM POLL: status =", status);
         if (status === 0) return; // still open
 
         // Room was accepted — clear state, find result
@@ -1981,6 +1985,7 @@ export default function FlipperRooms() {
         const events = await contract.queryFilter("FlipResolved", Math.max(0, block - 100), block);
         for (const ev of events) {
           if (Number(ev.args[0]) !== roomId) continue;
+          console.log("ROOM POLL: found FlipResolved event for room", roomId);
           const winner = ev.args[1];
           const loser = ev.args[2];
           const payout = ev.args[3];
@@ -2354,7 +2359,7 @@ export default function FlipperRooms() {
                                 {result === "win" ? "YOU WON" : result === "lose" ? "YOU LOST" : ""}
                               </div>
                               <div className={`result-amount ${showResult ? "visible" : ""} ${result === "win" ? "win-amount" : result === "lose" ? "lose-amount" : ""}`}>
-                                {result === "win" ? `+${lastPayout} ETH` : result === "lose" ? `-${tierEth} ETH` : ""}
+                                {result === "win" ? `+${lastPayout} ETH` : result === "lose" ? `-${displayBet} ETH` : ""}
                               </div>
                               {showResult && (
                                 <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "center", flexWrap: "wrap", animation: "fadeIn 0.4s ease 0.5s both" }}>
