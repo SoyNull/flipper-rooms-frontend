@@ -1630,6 +1630,9 @@ export default function FlipperRooms() {
   const [borderState, setBorderState] = useState("idle");
   const spinStartRef = useRef(0);
   const forceFlipRef = useRef(false);
+  const [currentOpponent, setCurrentOpponent] = useState(null);
+  const [currentBet, setCurrentBet] = useState("0");
+  const [lastFlipData, setLastFlipData] = useState(null);
 
   const resetFlip = useCallback(() => {
     setCoinState("idle");
@@ -1701,29 +1704,32 @@ export default function FlipperRooms() {
     }
   }, [referral]);
 
-  // V7: Poll open rooms
+  // V7: Stable refresh function for open rooms
+  const refreshOpenRooms = useCallback(async () => {
+    if (!contract) return;
+    try {
+      const data = await contract.getAllOpenChallenges();
+      const rooms = [];
+      for (let i = 0; i < data.ids.length; i++) {
+        rooms.push({
+          id: Number(data.ids[i]),
+          creator: data.creators[i],
+          amount: formatEther(data.amounts[i]),
+          amountWei: data.amounts[i],
+          createdAt: Number(data.createdAts[i]),
+        });
+      }
+      setOpenRooms(rooms.reverse());
+    } catch {}
+  }, [contract]);
+
+  // V7: Poll open rooms every 5s
   useEffect(() => {
     if (!contract) return;
-    const poll = async () => {
-      try {
-        const data = await contract.getAllOpenChallenges();
-        const rooms = [];
-        for (let i = 0; i < data.ids.length; i++) {
-          rooms.push({
-            id: Number(data.ids[i]),
-            creator: data.creators[i],
-            amount: formatEther(data.amounts[i]),
-            amountWei: data.amounts[i],
-            createdAt: Number(data.createdAts[i]),
-          });
-        }
-        setOpenRooms(rooms.reverse());
-      } catch {}
-    };
-    poll();
-    const iv = setInterval(poll, 5000);
+    refreshOpenRooms();
+    const iv = setInterval(refreshOpenRooms, 5000);
     return () => clearInterval(iv);
-  }, [contract]);
+  }, [refreshOpenRooms]);
 
   // V7: Wallet native balance
   useEffect(() => {
@@ -1740,6 +1746,48 @@ export default function FlipperRooms() {
   }, [contract, address]);
 
   const isAdmin = address?.toLowerCase() === OWNER.toLowerCase();
+
+  // V7: Listen for FlipResolved where we are a participant (BUG 2: creator sees flip)
+  useEffect(() => {
+    if (!contract || !address) return;
+    const onFlipResolved = (...args) => {
+      try {
+        const winner = args[1];
+        const loser = args[2];
+        const payout = args[3];
+        const betAmount = args[4];
+        const myAddr = address.toLowerCase();
+        const isMyFlip = winner.toLowerCase() === myAddr || loser.toLowerCase() === myAddr;
+
+        // Only trigger if we're NOT already showing coin stage (i.e. we're the creator waiting)
+        if (isMyFlip && !showCoinStage && coinState === "idle") {
+          const won = winner.toLowerCase() === myAddr;
+          const opponent = won ? loser : winner;
+
+          setCurrentOpponent(opponent);
+          setCurrentBet(formatEther(betAmount));
+          setShowCoinStage(true);
+          setCoinState("spinning");
+          setBorderState("spinning");
+          spinStartRef.current = Date.now();
+          playFlipSound();
+
+          setLastFlipData({ amount: formatEther(betAmount), opponent, isPvP: true });
+
+          setTimeout(() => {
+            pendingResultRef.current = { won, payout: formatEther(payout), amount: formatEther(betAmount) };
+            setCoinState(won ? "win" : "lose");
+            setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
+          }, 2500);
+
+          refreshOpenRooms();
+        }
+      } catch {}
+    };
+
+    contract.on("FlipResolved", onFlipResolved);
+    return () => { contract.off("FlipResolved", onFlipResolved); };
+  }, [contract, address, showCoinStage, coinState]);
 
   // Auto-trigger flip after reset from Rematch/Double
   useEffect(() => {
@@ -1796,14 +1844,16 @@ export default function FlipperRooms() {
         } catch {}
       }
 
-      // Ensure border spins for at least 3 seconds
+      setCurrentOpponent(null); // treasury
+      setCurrentBet(tierEthVal);
+      setLastFlipData({ amount: tierEthVal, opponent: null, isPvP: false });
+
       const elapsed = Date.now() - spinStartRef.current;
       const extraWait = Math.max(0, 3000 - elapsed);
 
       setTimeout(() => {
         pendingResultRef.current = { won, payout: payoutStr, amount: amountStr };
         setCoinState(won ? "win" : "lose");
-        // Border crossfade slightly after coin starts landing
         setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
       }, extraWait);
 
@@ -1827,9 +1877,16 @@ export default function FlipperRooms() {
     const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
     try {
       const tx = await contract.createChallengeDirect(ref, { value: parseEther(customBet) });
-      await tx.wait();
-      addToast("success", "Room created! Waiting for opponent...");
-      flipHook.refreshChallenges();
+      const receipt = await tx.wait();
+      let challengeId = null;
+      for (const log of receipt.logs) {
+        try {
+          const parsed = contract.interface.parseLog(log);
+          if (parsed?.name === "ChallengeCreated") { challengeId = Number(parsed.args[0]); break; }
+        } catch {}
+      }
+      addToast("success", "Room #" + (challengeId || "?") + " created!");
+      await refreshOpenRooms();
     } catch (err) { addToast("error", decodeError(err)); }
   };
 
@@ -1839,48 +1896,40 @@ export default function FlipperRooms() {
       const tx = await contract.cancelChallengeDirect(id);
       await tx.wait();
       addToast("success", "Room cancelled, ETH refunded");
-      flipHook.refreshChallenges();
+      await refreshOpenRooms();
     } catch (err) { addToast("error", decodeError(err)); }
   };
 
-  // ═══ ACCEPT CHALLENGE — SINGLE TX ═══
+  // ═══ JOIN PVP ROOM ═══
   const handleAccept = async (challengeId, creatorAddr) => {
     if (coinState !== "idle" || !connected) return;
     playClickSound();
 
-    const c = flipHook.challenges.find(ch => ch.id === challengeId);
+    const c = openRooms.find(ch => ch.id === challengeId) || flipHook.challenges.find(ch => ch.id === challengeId);
     const amt = c ? c.amount : "?";
+    const amtWei = c?.amountWei || 0;
+
+    setCurrentOpponent(creatorAddr);
+    setCurrentBet(amt);
+    setShowCoinStage(true);
 
     try {
       const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
-      setShowCoinStage(true);
 
-      if (isEmbedded) {
-        setCoinState("spinning");
-        setBorderState("spinning");
-        spinStartRef.current = Date.now();
-        playFlipSound();
-        setFlipModal({ playerA: address, playerB: creatorAddr || "Opponent", amount: amt, state: "spinning", winner: null, txHash: null });
-      } else {
-        setWaitingConfirm(true);
-      }
+      if (!isEmbedded) setWaitingConfirm(true);
 
-      const tx = await contract.acceptChallengeDirect(challengeId, ref, { value: c?.amountWei || 0 });
+      const tx = await contract.acceptChallengeDirect(challengeId, ref, { value: amtWei });
 
-      if (!isEmbedded) {
-        setWaitingConfirm(false);
-        setCoinState("spinning");
-        setBorderState("spinning");
-        spinStartRef.current = Date.now();
-        playFlipSound();
-        setFlipModal({ playerA: address, playerB: creatorAddr || "Opponent", amount: amt, state: "spinning", winner: null, txHash: null });
-      }
+      setWaitingConfirm(false);
+      setCoinState("spinning");
+      setBorderState("spinning");
+      spinStartRef.current = Date.now();
+      playFlipSound();
 
       const receipt = await tx.wait();
 
       let won = false;
       let payoutStr = "0";
-      let txHash = receipt.hash;
       for (const log of receipt.logs) {
         try {
           const parsed = contract.interface.parseLog({ topics: log.topics, data: log.data });
@@ -1892,23 +1941,24 @@ export default function FlipperRooms() {
         } catch {}
       }
 
+      setLastFlipData({ amount: amt, opponent: creatorAddr, isPvP: true });
+
       const elapsed = Date.now() - spinStartRef.current;
       const extraWait = Math.max(0, 3000 - elapsed);
 
       setTimeout(() => {
-        pendingResultRef.current = {
-          won, payout: payoutStr, amount: amt,
-          flipModalUpdate: { state: won ? "win" : "lose", winner: won ? address : creatorAddr, txHash },
-        };
-        flipHook.refreshChallenges();
+        pendingResultRef.current = { won, payout: payoutStr, amount: amt };
         setCoinState(won ? "win" : "lose");
         setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
       }, extraWait);
 
+      refreshOpenRooms();
+
     } catch (err) {
       setCoinState("idle");
       setBorderState("idle");
-      setFlipModal(null);
+      setShowCoinStage(false);
+      setWaitingConfirm(false);
       addToast("error", decodeError(err));
     }
   };
@@ -2133,11 +2183,20 @@ export default function FlipperRooms() {
                                 </div>
                               </div>
 
-                              {/* Opponent */}
+                              {/* Opponent — dynamic */}
                               <div className={`arena-player ${p2Class}`}>
-                                <div className={`arena-avatar avatar-opp ${a2Class}`}>TR</div>
-                                <div className={`arena-name ${n2Class}`}>Treasury</div>
-                                <div className={`arena-bet ${b2Class}`}>{tierEth} ETH</div>
+                                <div className={`arena-avatar ${a2Class}`} style={{
+                                  background: currentOpponent
+                                    ? `linear-gradient(135deg, ${addrColor(currentOpponent)}, ${addrColor(currentOpponent)}88)`
+                                    : "linear-gradient(135deg, #b8860b, #f7b32b)",
+                                  borderColor: currentOpponent ? addrColor(currentOpponent) + "40" : "#f7b32b40",
+                                }}>
+                                  {currentOpponent ? currentOpponent.slice(2,4).toUpperCase() : "TR"}
+                                </div>
+                                <div className={`arena-name ${n2Class}`}>
+                                  {currentOpponent ? shortAddr(currentOpponent) : "Treasury"}
+                                </div>
+                                <div className={`arena-bet ${b2Class}`}>{currentBet || tierEth} ETH</div>
                               </div>
                             </div>
 
@@ -2156,20 +2215,44 @@ export default function FlipperRooms() {
                                 {result === "win" ? `+${lastPayout} ETH` : result === "lose" ? `-${tierEth} ETH` : ""}
                               </div>
                               {showResult && (
-                                <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "center", animation: "fadeIn 0.4s ease 0.5s both" }}>
-                                  <button className="action-btn btn-rematch" onClick={() => {
-                                    if (!isEmbedded) addToast("info", "Use email login for instant flips");
+                                <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "center", flexWrap: "wrap", animation: "fadeIn 0.4s ease 0.5s both" }}>
+                                  <button className="action-btn btn-rematch" onClick={async () => {
                                     resetFlip();
-                                    forceFlipRef.current = true;
-                                  }}>Rematch</button>
-                                  {result === "win" && (
-                                    <button className="action-btn btn-double" onClick={() => {
-                                      setTier(prev => Math.min(TIERS.length - 1, prev + 1));
-                                      resetFlip();
+                                    setShowCoinStage(false);
+                                    if (lastFlipData?.isPvP) {
+                                      try {
+                                        const tx = await contract.createChallengeDirect(
+                                          parseInt(localStorage.getItem('flipper_ref')) || 0,
+                                          { value: parseEther(lastFlipData.amount) }
+                                        );
+                                        await tx.wait();
+                                        addToast("success", "Rematch room created!");
+                                        await refreshOpenRooms();
+                                      } catch (err) { addToast("error", decodeError(err)); }
+                                    } else {
                                       forceFlipRef.current = true;
-                                    }}>Double or nothing</button>
+                                    }
+                                  }}>Rematch {lastFlipData?.amount || tierEth} ETH</button>
+                                  {result === "win" && (
+                                    <button className="action-btn btn-double" onClick={async () => {
+                                      const doubleAmt = (parseFloat(lastFlipData?.amount || tierEth) * 2).toFixed(4);
+                                      resetFlip();
+                                      setShowCoinStage(false);
+                                      try {
+                                        const tx = await contract.createChallengeDirect(
+                                          parseInt(localStorage.getItem('flipper_ref')) || 0,
+                                          { value: parseEther(doubleAmt) }
+                                        );
+                                        await tx.wait();
+                                        addToast("success", "Double room: " + doubleAmt + " ETH!");
+                                        await refreshOpenRooms();
+                                      } catch (err) { addToast("error", decodeError(err)); }
+                                    }}>Double ({(parseFloat(lastFlipData?.amount || tierEth) * 2).toFixed(4)})</button>
                                   )}
-                                  <button className="action-btn btn-change" onClick={resetFlip}>New bet</button>
+                                  <button className="action-btn btn-change" onClick={() => {
+                                    resetFlip();
+                                    setShowCoinStage(false);
+                                  }}>Back to lobby</button>
                                 </div>
                               )}
                             </div>
@@ -2203,13 +2286,6 @@ export default function FlipperRooms() {
                       );
                     })()}
 
-                    {showResult && (
-                      <div style={{ textAlign: "center", marginTop: 12 }}>
-                        <button onClick={() => { resetFlip(); setShowCoinStage(false); }} className="action-btn btn-change">
-                          Back to lobby
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -2263,6 +2339,20 @@ export default function FlipperRooms() {
 
                   {/* ═══ OPEN ROOMS ═══ */}
                   <div style={{ marginBottom: 16 }}>
+                    {/* Your room is open banner */}
+                    {connected && openRooms.some(r => r.creator?.toLowerCase() === address?.toLowerCase()) && (
+                      <div style={{
+                        padding: "10px 14px", marginBottom: 10, borderRadius: 8,
+                        background: "#f7b32b08", border: "1px solid #f7b32b20",
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                      }}>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "#f7b32b" }}>Your room is open</div>
+                          <div style={{ fontSize: 9, color: "#475569" }}>Waiting for opponent to join...</div>
+                        </div>
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#f7b32b", animation: "blink 1.5s ease infinite" }} />
+                      </div>
+                    )}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: 1.5 }}>
                         OPEN ROOMS
