@@ -1,47 +1,6 @@
-import { BrowserProvider, Contract, parseEther, formatEther, parseUnits } from "ethers";
+import { Contract, parseEther, formatEther } from "ethers";
 import ABI from "./abi.json";
-import { CONTRACT_ADDRESS, CHAIN_ID, CHAIN_ID_HEX, RPC_URL, CHAIN_NAME, EXPLORER } from "./config.js";
-
-// ═══════════════════════════════════════
-//          WALLET CONNECTION
-// ═══════════════════════════════════════
-
-export async function connectWallet() {
-  if (!window.ethereum) throw new Error("MetaMask not found");
-  const provider = new BrowserProvider(window.ethereum);
-  await provider.send("eth_requestAccounts", []);
-  const network = await provider.getNetwork();
-  if (Number(network.chainId) !== CHAIN_ID) {
-    await switchToBaseSepolia();
-  }
-  const signer = await provider.getSigner();
-  const address = await signer.getAddress();
-  return { provider, signer, address };
-}
-
-export async function switchToBaseSepolia() {
-  try {
-    await window.ethereum.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: CHAIN_ID_HEX }],
-    });
-  } catch (e) {
-    if (e.code === 4902) {
-      await window.ethereum.request({
-        method: "wallet_addEthereumChain",
-        params: [{
-          chainId: CHAIN_ID_HEX,
-          chainName: CHAIN_NAME,
-          nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-          rpcUrls: [RPC_URL],
-          blockExplorerUrls: [EXPLORER],
-        }],
-      });
-    } else {
-      throw e;
-    }
-  }
-}
+import { CONTRACT_ADDRESS, EXPLORER } from "./config.js";
 
 export function getContract(signer) {
   return new Contract(CONTRACT_ADDRESS, ABI, signer);
@@ -164,17 +123,9 @@ export async function getChallengeInfo(contract, id) {
   };
 }
 
-export async function getOwnerSeats(contract, address) {
-  return contract.getOwnerSeats(address);
-}
-
 export async function getTreasuryMaxBet(contract) {
   const r = await contract.getTreasuryMaxBet();
   return formatEther(r);
-}
-
-export async function getBetTiers(contract) {
-  return contract.getBetTiers();
 }
 
 // ═══════════════════════════════════════
@@ -207,10 +158,6 @@ export async function cancelChallenge(contract, challengeId) {
   return sendTx(contract.cancelChallengeDirect(challengeId));
 }
 
-export async function flipVsTreasury(contract, tierAmountWei, referralSeatId = 0) {
-  return sendTx(contract.flipVsTreasury(tierAmountWei, referralSeatId));
-}
-
 export async function buySeat(contract, seatId, newPriceWei, name, maxPriceWei, totalValue) {
   return sendTx(contract.buySeat(seatId, newPriceWei, name, maxPriceWei, { value: totalValue }));
 }
@@ -221,10 +168,6 @@ export async function updateSeatPrice(contract, seatId, newPriceWei) {
 
 export async function addSeatDeposit(contract, seatId, amountWei) {
   return sendTx(contract.addSeatDeposit(seatId, { value: amountWei }));
-}
-
-export async function withdrawSeatDeposit(contract, seatId, amountWei) {
-  return sendTx(contract.withdrawSeatDeposit(seatId, amountWei));
 }
 
 export async function abandonSeat(contract, seatId) {
@@ -266,25 +209,6 @@ export function parseFlipResolved(receipt, contract) {
   }
   if (flip) flip.jackpotAmount = jackpotAmount;
   return flip;
-}
-
-export function parseSeatBought(receipt, contract) {
-  const iface = contract.interface;
-  for (const log of receipt.logs) {
-    try {
-      const parsed = iface.parseLog({ topics: log.topics, data: log.data });
-      if (parsed?.name === "SeatBought") {
-        return {
-          seatId: Number(parsed.args.seatId),
-          newOwner: parsed.args.newOwner,
-          prevOwner: parsed.args.prevOwner,
-          price: formatEther(parsed.args.price),
-          deposit: formatEther(parsed.args.deposit),
-        };
-      }
-    } catch {}
-  }
-  return null;
 }
 
 export function decodeError(err) {

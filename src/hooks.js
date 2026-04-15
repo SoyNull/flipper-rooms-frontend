@@ -9,7 +9,6 @@ import {
   createChallenge as createChallengeFn,
   acceptChallenge as acceptChallengeFn,
   cancelChallenge as cancelChallengeFn,
-  flipVsTreasury as flipVsTreasuryFn,
   buySeat as buySeatFn,
   updateSeatPrice as updateSeatPriceFn,
   addSeatDeposit as addSeatDepositFn,
@@ -224,37 +223,6 @@ export function useFlip(contract, address, refreshBalance) {
     }
   }, [contract, refreshBalance, refreshChallenges]);
 
-  const flipTreasury = useCallback(async (tierWei, referral = 0) => {
-    if (!contract) return null;
-    setIsFlipping(true);
-    setLastResult(null);
-    setLastFlipDetails(null);
-    const pendingId = addToast("pending", "Flipping vs Treasury...");
-    try {
-      const receipt = await flipVsTreasuryFn(contract, tierWei, referral);
-      removeToast(pendingId);
-      const result = parseFlipResolved(receipt, contract);
-      if (result) {
-        const won = result.winner.toLowerCase() === address?.toLowerCase();
-        setLastResult(won ? "win" : "lose");
-        setLastFlipDetails({ ...result, txHash: receipt.hash, won });
-        addToast(won ? "success" : "error",
-          won ? `Won ${result.payout} ETH!` : `Lost ${result.amount} ETH`,
-          receipt.hash
-        );
-      }
-      refreshBalance?.();
-      refreshHistory();
-      return result;
-    } catch (err) {
-      removeToast(pendingId);
-      addToast("error", decodeError(err));
-      return null;
-    } finally {
-      setIsFlipping(false);
-    }
-  }, [contract, address, refreshBalance, refreshHistory]);
-
   const acceptCh = useCallback(async (challengeId, betAmountWei, referral = 0) => {
     if (!contract) return null;
     setIsFlipping(true);
@@ -306,7 +274,7 @@ export function useFlip(contract, address, refreshBalance) {
     isFlipping, lastResult, setLastResult, lastFlipDetails, setLastFlipDetails,
     challenges, history,
     refreshChallenges, refreshHistory,
-    flipPvp, flipTreasury, acceptCh, cancelCh,
+    flipPvp, acceptCh, cancelCh,
   };
 }
 

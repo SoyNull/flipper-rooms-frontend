@@ -1837,7 +1837,7 @@ export default function FlipperRooms() {
     }
 
     try {
-      const tx = await contract.flipDirect(ref, { value: tierWei });
+      const tx = await contract.flipDirect(ref, { value: tierWei, gasLimit: 500000n });
 
       if (!isEmbedded) {
         setWaitingConfirm(false);
@@ -1907,7 +1907,8 @@ export default function FlipperRooms() {
       // ONE TX: cancel room + flip vs treasury + auto-withdraw
       const tx = await contract.cancelAndFlipTreasury(
         myRoomId,
-        parseInt(localStorage.getItem('flipper_ref')) || 0
+        parseInt(localStorage.getItem('flipper_ref')) || 0,
+        { gasLimit: 500000n }
       );
 
       setMyRoomId(null);
@@ -2010,7 +2011,7 @@ export default function FlipperRooms() {
 
       if (!isEmbedded) setWaitingConfirm(true);
 
-      const tx = await contract.acceptChallengeDirect(challengeId, ref, { value: amtWei });
+      const tx = await contract.acceptChallengeDirect(challengeId, ref, { value: amtWei, gasLimit: 500000n });
 
       setWaitingConfirm(false);
       setCoinState("spinning");
@@ -2601,9 +2602,14 @@ export default function FlipperRooms() {
                           border: "1px solid #1c2430", color: "#f7b32b", fontSize: 11,
                           fontFamily: "'JetBrains Mono', monospace", outline: "none",
                         }}>
-                          {TIERS.map((t, i) => (
-                            <option key={i} value={i}>{t.label} ETH</option>
-                          ))}
+                          {TIERS.map((t, i) => {
+                            const tooHigh = treasuryMax && parseFloat(t.label) > parseFloat(treasuryMax);
+                            return (
+                              <option key={i} value={i} disabled={tooHigh}>
+                                {t.label} ETH{tooHigh ? " (low treasury)" : ""}
+                              </option>
+                            );
+                          })}
                         </select>
                         <button onClick={handleFlip} disabled={coinState !== "idle" || !connected}
                           style={{
