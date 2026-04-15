@@ -1728,13 +1728,20 @@ export default function FlipperRooms() {
     } catch {}
   }, [contract]);
 
-  // V7: Poll open rooms every 5s
+  // V7: Poll open rooms every 3s + event-driven updates
   useEffect(() => {
     if (!contract) return;
     refreshOpenRooms();
-    const iv = setInterval(refreshOpenRooms, 5000);
-    return () => clearInterval(iv);
-  }, [refreshOpenRooms]);
+    const iv = setInterval(refreshOpenRooms, 3000);
+    const onRoomChange = () => refreshOpenRooms();
+    contract.on("ChallengeCreated", onRoomChange);
+    contract.on("ChallengeCancelled", onRoomChange);
+    return () => {
+      clearInterval(iv);
+      contract.off("ChallengeCreated", onRoomChange);
+      contract.off("ChallengeCancelled", onRoomChange);
+    };
+  }, [refreshOpenRooms, contract]);
 
   // V7: Wallet native balance
   useEffect(() => {
@@ -1760,55 +1767,64 @@ export default function FlipperRooms() {
     return () => document.removeEventListener('click', close);
   }, [showWalletMenu]);
 
-  // V7: Listen for FlipResolved where we are a participant (BUG 2: creator sees flip)
+  // V7: Listen for FlipResolved where we are a participant
+  // Uses refs to avoid stale closures — listener is stable, not recreated on state changes
+  const coinStateRef = useRef(coinState);
+  const showCoinStageRef = useRef(showCoinStage);
+  useEffect(() => { coinStateRef.current = coinState; }, [coinState]);
+  useEffect(() => { showCoinStageRef.current = showCoinStage; }, [showCoinStage]);
+
   useEffect(() => {
     if (!contract || !address) return;
+    const myAddr = address.toLowerCase();
+
     const onFlipResolved = (...args) => {
       try {
         const winner = args[1];
         const loser = args[2];
         const payout = args[3];
         const betAmount = args[4];
-        const myAddr = address.toLowerCase();
         const isMyFlip = winner.toLowerCase() === myAddr || loser.toLowerCase() === myAddr;
 
-        // Always refresh rooms when ANY flip resolves (closes resolved rooms)
+        // Always refresh rooms when ANY flip resolves
         refreshOpenRooms();
 
-        // Clear auto-match timer if our room was accepted
-        if (isMyFlip && myRoomId) {
+        if (!isMyFlip) return;
+
+        // Clear auto-match timer if our room was accepted by someone
+        if (myRoomIdRef.current) {
           setMyRoomId(null);
+          myRoomIdRef.current = null;
           setRoomCountdown(0);
         }
 
-        if (isMyFlip && !showCoinStage && coinState === "idle") {
-          const won = winner.toLowerCase() === myAddr;
-          const opponent = won ? loser : winner;
+        // Only show animation if we're not already flipping (avoid double animation)
+        if (showCoinStageRef.current || coinStateRef.current !== "idle") return;
 
-          setCurrentOpponent(opponent);
-          setCurrentBet(formatEther(betAmount));
-          setShowCoinStage(true);
-          setCoinState("spinning");
-          setBorderState("spinning");
-          spinStartRef.current = Date.now();
-          playFlipSound();
+        const won = winner.toLowerCase() === myAddr;
+        const opponent = won ? loser : winner;
 
-          setLastFlipData({ amount: formatEther(betAmount), opponent, isPvP: true });
+        setCurrentOpponent(opponent);
+        setCurrentBet(formatEther(betAmount));
+        setShowCoinStage(true);
+        setCoinState("spinning");
+        setBorderState("spinning");
+        spinStartRef.current = Date.now();
+        playFlipSound();
 
-          setTimeout(() => {
-            pendingResultRef.current = { won, payout: formatEther(payout), amount: formatEther(betAmount) };
-            setCoinState(won ? "win" : "lose");
-            setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
-          }, 2500);
+        setLastFlipData({ amount: formatEther(betAmount), opponent, isPvP: true });
 
-          refreshOpenRooms();
-        }
+        setTimeout(() => {
+          pendingResultRef.current = { won, payout: formatEther(payout), amount: formatEther(betAmount) };
+          setCoinState(won ? "win" : "lose");
+          setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
+        }, 2500);
       } catch {}
     };
 
     contract.on("FlipResolved", onFlipResolved);
     return () => { contract.off("FlipResolved", onFlipResolved); };
-  }, [contract, address, showCoinStage, coinState]);
+  }, [contract, address]);
 
 
   // ═══ FLIP VS TREASURY — SINGLE TX ═══
@@ -1910,6 +1926,7 @@ export default function FlipperRooms() {
       );
 
       setMyRoomId(null);
+      myRoomIdRef.current = null;
       setRoomCountdown(0);
       const receipt = await tx.wait();
 
@@ -1936,6 +1953,8 @@ export default function FlipperRooms() {
       await refreshOpenRooms();
     } catch (err) {
       setMyRoomId(null);
+      myRoomIdRef.current = null;
+      setRoomCountdown(0);
       setCoinState("idle"); setBorderState("idle"); setShowCoinStage(false);
       addToast("error", "Auto-match failed: " + decodeError(err));
     }
@@ -2321,10 +2340,11 @@ export default function FlipperRooms() {
                               </div>
                               {showResult && (
                                 <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "center", flexWrap: "wrap", animation: "fadeIn 0.4s ease 0.5s both" }}>
-                                  <button className="action-btn btn-rematch" onClick={async () => {
-                                    const amt = lastFlipData?.amount || tierEth;
-                                    resetFlip();
-                                    if (lastFlipData?.isPvP) {
+                                  {lastFlipData?.isPvP ? (
+                                    /* PvP result buttons */
+                                    <button className="action-btn btn-rematch" onClick={async () => {
+                                      const amt = lastFlipData?.amount || tierEth;
+                                      resetFlip();
                                       setShowCoinStage(false);
                                       try {
                                         const ref = parseInt(localStorage.getItem('flipper_ref')) || 0;
@@ -2341,7 +2361,12 @@ export default function FlipperRooms() {
                                         addToast("success", "Rematch room created!");
                                         await refreshOpenRooms();
                                       } catch (err) { addToast("error", decodeError(err)); }
-                                    } else {
+                                    }}>Rematch {lastFlipData?.amount || tierEth} ETH</button>
+                                  ) : (
+                                    /* Treasury result buttons */
+                                    <button className="action-btn btn-rematch" onClick={async () => {
+                                      const amt = lastFlipData?.amount || tierEth;
+                                      resetFlip();
                                       setShowCoinStage(true);
                                       setCoinState("spinning");
                                       setBorderState("spinning");
@@ -2364,13 +2389,13 @@ export default function FlipperRooms() {
                                         setCoinState("idle"); setBorderState("idle"); setShowCoinStage(false);
                                         addToast("error", decodeError(err));
                                       }
-                                    }
-                                  }}>Rematch {lastFlipData?.amount || tierEth} ETH</button>
+                                    }}>Flip Again {lastFlipData?.amount || tierEth} ETH</button>
+                                  )}
                                   {result === "win" && (
-                                    <button className="action-btn btn-double" onClick={async () => {
-                                      const doubleAmt = (parseFloat(lastFlipData?.amount || tierEth) * 2).toFixed(4);
-                                      resetFlip();
-                                      if (lastFlipData?.isPvP) {
+                                    lastFlipData?.isPvP ? (
+                                      <button className="action-btn btn-double" onClick={async () => {
+                                        const doubleAmt = (parseFloat(lastFlipData?.amount || tierEth) * 2).toFixed(4);
+                                        resetFlip();
                                         setShowCoinStage(false);
                                         try {
                                           const ref = parseInt(localStorage.getItem('flipper_ref')) || 0;
@@ -2387,7 +2412,11 @@ export default function FlipperRooms() {
                                           addToast("success", "Double room: " + doubleAmt + " ETH!");
                                           await refreshOpenRooms();
                                         } catch (err) { addToast("error", decodeError(err)); }
-                                      } else {
+                                      }}>Double ({(parseFloat(lastFlipData?.amount || tierEth) * 2).toFixed(4)})</button>
+                                    ) : (
+                                      <button className="action-btn btn-double" onClick={async () => {
+                                        const doubleAmt = (parseFloat(lastFlipData?.amount || tierEth) * 2).toFixed(4);
+                                        resetFlip();
                                         setShowCoinStage(true);
                                         setCoinState("spinning");
                                         setBorderState("spinning");
@@ -2410,8 +2439,8 @@ export default function FlipperRooms() {
                                           setCoinState("idle"); setBorderState("idle"); setShowCoinStage(false);
                                           addToast("error", decodeError(err));
                                         }
-                                      }
-                                    }}>Double ({(parseFloat(lastFlipData?.amount || tierEth) * 2).toFixed(4)})</button>
+                                      }}>Double ({(parseFloat(lastFlipData?.amount || tierEth) * 2).toFixed(4)})</button>
+                                    )
                                   )}
                                   <button className="action-btn btn-change" onClick={() => {
                                     resetFlip();
