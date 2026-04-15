@@ -859,50 +859,35 @@ function ChatSidebar() {
 // ═══════════════════════════════════════
 //  STATS SIDEBAR
 // ═══════════════════════════════════════
-function StatsSidebar({ sessionBalance, connected, playerStats, protocolStats, treasuryMax, depositAmt, setDepositAmt, handleDeposit, handleWithdraw, isDepositing }) {
-  const [activeQuick, setActiveQuick] = useState(null);
+function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, protocolStats, treasuryMax, contract, address, isAdmin }) {
   const bal = sessionBalance || "0";
-  const quickDeposits = ["0.005", "0.01", "0.05", "0.1", "MAX"];
 
   return (
     <div className="stats-sidebar">
-      <div style={{
-        padding: "20px 16px", borderBottom: "1px solid #151b25",
-        borderLeft: "3px solid #f7b32b30",
-        background: "linear-gradient(135deg, #f7b32b04, transparent)",
-      }}>
-        <div className="stats-label">Session Balance</div>
-        <div style={{
-          fontSize: 32, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
-          color: parseFloat(bal) > 0 ? "#f7b32b" : "var(--text-muted)",
-          textShadow: parseFloat(bal) > 0 ? "0 0 20px #f7b32b30" : "none",
-          letterSpacing: -1, transition: "all 0.3s",
-        }}>{parseFloat(bal).toFixed(4)}</div>
+      {/* WALLET */}
+      <div style={{ padding: "20px 16px", borderBottom: "1px solid #151b25", borderLeft: "3px solid #f7b32b30", background: "linear-gradient(135deg, #f7b32b04, transparent)" }}>
+        <div className="stats-label">Wallet</div>
+        <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "#f7b32b", letterSpacing: -1 }}>
+          {walletBalance || "0.0000"}
+        </div>
         <div className="balance-unit">ETH</div>
-      </div>
 
-      <div className="stats-section">
-        <div className="stats-label">Quick Deposit</div>
-        <div className="quick-btns" style={{ marginBottom: 12 }}>
-          {quickDeposits.map((amount) => (
-            <button key={amount} className={`quick-btn ${activeQuick === amount ? "active" : ""}`}
-              onClick={() => { setActiveQuick(amount); setDepositAmt(amount === "MAX" ? bal : amount); }}>
-              {amount}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="stats-section">
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-          <input className="stats-input" type="number" step="0.001" value={depositAmt}
-            onChange={(e) => setDepositAmt(e.target.value)} placeholder="0.00" style={{ marginBottom: 0 }} />
-          <span style={{ fontSize: 12, color: "var(--text-muted)", whiteSpace: "nowrap" }}>ETH</span>
-        </div>
-        <div className="action-btns">
-          <button className="btn-deposit" onClick={handleDeposit} disabled={isDepositing}>{isDepositing ? "..." : "\u2193 Deposit"}</button>
-          <button className="btn-withdraw" onClick={handleWithdraw} disabled={isDepositing}>{isDepositing ? "..." : "\u2191 Withdraw"}</button>
-        </div>
+        {parseFloat(bal) > 0 && (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>
+              Session balance: {parseFloat(bal).toFixed(4)} ETH
+            </div>
+            <button onClick={async () => {
+              try {
+                const raw = await contract.sessionBalance(address);
+                if (raw > 0n) { const tx = await contract.withdraw(raw); await tx.wait(); addToast("success", "Withdrawn to wallet"); }
+              } catch(e) { addToast("error", decodeError(e)); }
+            }} style={{
+              width: "100%", padding: 8, borderRadius: 6, background: "#f7b32b15", border: "1px solid #f7b32b30",
+              color: "#f7b32b", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+            }}>Withdraw All to Wallet</button>
+          </div>
+        )}
       </div>
 
       <div className="stats-section">
@@ -937,11 +922,7 @@ function StatsSidebar({ sessionBalance, connected, playerStats, protocolStats, t
             </div>
           </div>
           {playerStats.streak > 0 && (
-            <div style={{
-              marginTop: 12, padding: "12px 14px", borderRadius: 10,
-              background: "linear-gradient(135deg, #f7b32b08, transparent)",
-              borderLeft: "3px solid #f7b32b",
-            }}>
+            <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 10, background: "linear-gradient(135deg, #f7b32b08, transparent)", borderLeft: "3px solid #f7b32b" }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "#f7b32b" }}>{playerStats.streak} Win Streak</div>
               <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Best: {playerStats.bestStreak}</div>
             </div>
@@ -1382,6 +1363,100 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
 // ═══════════════════════════════════════
 //  MAIN APP
 // ═══════════════════════════════════════
+function AdminPanel({ contract, address }) {
+  const [loading, setLoading] = useState("");
+  const exec = async (label, fn) => {
+    setLoading(label);
+    try { const tx = await fn(); await tx.wait(); addToast("success", label + " done"); }
+    catch (e) { addToast("error", decodeError(e)); }
+    setLoading("");
+  };
+  const btnStyle = (color) => ({
+    padding: "12px", borderRadius: 8, cursor: "pointer", width: "100%",
+    background: color + "10", border: "1px solid " + color + "30",
+    color, fontSize: 11, fontWeight: 700, fontFamily: "inherit",
+    opacity: loading ? 0.5 : 1, marginBottom: 6,
+  });
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <button disabled={loading !== ""} onClick={() => exec("Withdraw Protocol", () => contract.withdrawProtocol())} style={btnStyle("#22c55e")}>
+        Withdraw Protocol
+      </button>
+      <button disabled={loading !== ""} onClick={() => exec("Withdraw Buyback", () => contract.withdrawBuyback(address))} style={btnStyle("#3b82f6")}>
+        Withdraw Buyback
+      </button>
+      <button disabled={loading !== ""} onClick={() => exec("Distribute Rewards", () => contract.distributeRewards())} style={btnStyle("#f7b32b")}>
+        Distribute Rewards
+      </button>
+      <button disabled={loading !== ""} onClick={() => exec("Fund Treasury +0.01", () => contract.fundTreasury({ value: parseEther("0.01") }))} style={btnStyle("#94a3b8")}>
+        Fund Treasury +0.01 ETH
+      </button>
+    </div>
+  );
+}
+
+function HowItWorksModal({ onClose }) {
+  return (
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)",
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ background: "#131820", border: "1px solid #1c2430", borderRadius: 16, maxWidth: 520, width: "100%",
+        maxHeight: "85vh", overflowY: "auto", padding: 28 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 18, fontWeight: 800, color: "#f7b32b" }}>How it works</div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#475569", fontSize: 20, cursor: "pointer" }}>x</button>
+        </div>
+
+        {[
+          { n: "1", title: "Flip coins, win ETH", color: "#f7b32b",
+            text: "Create a room with any amount (0.0005 - 1 ETH) or join an existing one. 50/50 coinflip \u2014 winner takes 95% of the pot. No deposit needed, play directly from your wallet." },
+          { n: "2", title: "Own a seat, earn yield", color: "#22c55e",
+            text: "256 revenue seats on the board. Buy one and earn ETH from every coinflip. More volume = more yield. Harberger tax keeps prices fair \u2014 anyone can buy out your seat." },
+          { n: "3", title: "Refer and earn more", color: "#3b82f6",
+            text: "Each seat has a referral link. Share it \u2014 when someone plays through your link, your seat earns extra yield weighted by the volume you bring." },
+        ].map(s => (
+          <div key={s.n} style={{ marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <div style={{ width: 28, height: 28, borderRadius: "50%", background: s.color + "15", border: "1px solid " + s.color + "40",
+                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: s.color,
+                fontFamily: "'Orbitron', sans-serif" }}>{s.n}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0" }}>{s.title}</div>
+            </div>
+            <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.6, paddingLeft: 38 }}>{s.text}</div>
+          </div>
+        ))}
+
+        <div style={{ padding: 14, background: "#0b0e11", borderRadius: 10, border: "1px solid #1c2430", marginBottom: 20 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: 1.5, marginBottom: 8 }}>FEE BREAKDOWN (5% of pot)</div>
+          {[
+            { label: "Seat holders", pct: "2.5%", color: "#f7b32b" },
+            { label: "Protocol", pct: "0.75%", color: "#94a3b8" },
+            { label: "Referral", pct: "1.0%", color: "#3b82f6" },
+            { label: "Token buyback", pct: "0.5%", color: "#22c55e" },
+            { label: "Jackpot pool", pct: "0.25%", color: "#ef4444" },
+          ].map((item, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11 }}>
+              <span style={{ color: "#94a3b8" }}>{item.label}</span>
+              <span style={{ color: item.color, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{item.pct}</span>
+            </div>
+          ))}
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0 0", borderTop: "1px solid #1c2430", marginTop: 4, fontSize: 11 }}>
+            <span style={{ color: "#e2e8f0", fontWeight: 700 }}>Winner receives</span>
+            <span style={{ color: "#22c55e", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>95%</span>
+          </div>
+        </div>
+
+        <button onClick={onClose} style={{
+          width: "100%", padding: 12, borderRadius: 10,
+          background: "linear-gradient(135deg, #b8860b, #f7b32b)", color: "#0b0e11",
+          fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer",
+          fontFamily: "'Chakra Petch', sans-serif",
+        }}>Got it</button>
+      </div>
+    </div>
+  );
+}
+
 export default function FlipperRooms() {
   const wallet = useWallet();
   const { connected, address, contract, connect, disconnect, sessionBalance, refreshBalance, ready, isEmbedded } = wallet;
@@ -1398,6 +1473,13 @@ export default function FlipperRooms() {
   const [flipModal, setFlipModal] = useState(null);
   const [treasuryMax, setTreasuryMax] = useState(null);
   const referral = useRef(getReferralFromUrl()).current;
+
+  // V7 state
+  const [customBet, setCustomBet] = useState("0.01");
+  const [openRooms, setOpenRooms] = useState([]);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [walletBalance, setWalletBalance] = useState("0.0000");
+  const OWNER = "0xE5678F8659d229a303ABecdD0D0113Cf1F4F83aE";
 
   // Coin state
   const [coinState, setCoinState] = useState("idle");
@@ -1482,6 +1564,46 @@ export default function FlipperRooms() {
     }
   }, [referral]);
 
+  // V7: Poll open rooms
+  useEffect(() => {
+    if (!contract) return;
+    const poll = async () => {
+      try {
+        const data = await contract.getAllOpenChallenges();
+        const rooms = [];
+        for (let i = 0; i < data.ids.length; i++) {
+          rooms.push({
+            id: Number(data.ids[i]),
+            creator: data.creators[i],
+            amount: formatEther(data.amounts[i]),
+            amountWei: data.amounts[i],
+            createdAt: Number(data.createdAts[i]),
+          });
+        }
+        setOpenRooms(rooms.reverse());
+      } catch {}
+    };
+    poll();
+    const iv = setInterval(poll, 5000);
+    return () => clearInterval(iv);
+  }, [contract]);
+
+  // V7: Wallet native balance
+  useEffect(() => {
+    if (!contract?.runner?.provider || !address) return;
+    const fetch = async () => {
+      try {
+        const bal = await contract.runner.provider.getBalance(address);
+        setWalletBalance(parseFloat(formatEther(bal)).toFixed(4));
+      } catch {}
+    };
+    fetch();
+    const iv = setInterval(fetch, 10000);
+    return () => clearInterval(iv);
+  }, [contract, address]);
+
+  const isAdmin = address?.toLowerCase() === OWNER.toLowerCase();
+
   // Auto-trigger flip after reset from Rematch/Double
   useEffect(() => {
     if (forceFlipRef.current && coinState === "idle" && !showResult) {
@@ -1499,11 +1621,6 @@ export default function FlipperRooms() {
     const tierEthVal = TIERS[tier].label;
     const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
 
-    if (parseFloat(sessionBalance) < parseFloat(tierEthVal)) {
-      addToast("error", "Insufficient balance. Deposit more ETH.");
-      return;
-    }
-
     if (isEmbedded) {
       setCoinState("spinning");
       setBorderState("spinning");
@@ -1514,7 +1631,7 @@ export default function FlipperRooms() {
     }
 
     try {
-      const tx = await contract.flipVsTreasury(tierWei, ref);
+      const tx = await contract.flipDirect(ref, { value: tierWei });
 
       if (!isEmbedded) {
         setWaitingConfirm(false);
@@ -1535,7 +1652,7 @@ export default function FlipperRooms() {
           if (parsed?.name === "FlipResolved") {
             won = parsed.args.winner?.toLowerCase() === address?.toLowerCase();
             payoutStr = formatEther(parsed.args.payout);
-            amountStr = formatEther(parsed.args.amount);
+            amountStr = formatEther(parsed.args.betAmount);
             break;
           }
         } catch {}
@@ -1565,29 +1682,27 @@ export default function FlipperRooms() {
     }
   };
 
-  // ═══ CREATE PVP CHALLENGE — SINGLE TX ═══
-  const handleCreatePvp = async () => {
-    if (!contract || !connected || coinState !== "idle") return;
+  // ═══ CREATE PVP ROOM — DIRECT ETH ═══
+  const handleCreateRoom = async () => {
+    if (!contract || !connected) return;
     playClickSound();
-
-    const tierWei = TIERS[tier].wei;
-    const tierEthVal = TIERS[tier].label;
     const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
-
-    if (parseFloat(sessionBalance) < parseFloat(tierEthVal)) {
-      addToast("error", "Insufficient balance. Deposit more ETH.");
-      return;
-    }
-
     try {
-      const tx = await contract.createChallengeDirect(ref, { value: tierWei });
+      const tx = await contract.createChallengeDirect(ref, { value: parseEther(customBet) });
       await tx.wait();
-      addToast("success", "PVP challenge created! Waiting for opponent...");
+      addToast("success", "Room created! Waiting for opponent...");
       flipHook.refreshChallenges();
-      refreshBalance();
-    } catch (err) {
-      addToast("error", decodeError(err));
-    }
+    } catch (err) { addToast("error", decodeError(err)); }
+  };
+
+  const handleCancelRoom = async (id) => {
+    playClickSound();
+    try {
+      const tx = await contract.cancelChallengeDirect(id);
+      await tx.wait();
+      addToast("success", "Room cancelled, ETH refunded");
+      flipHook.refreshChallenges();
+    } catch (err) { addToast("error", decodeError(err)); }
   };
 
   // ═══ ACCEPT CHALLENGE — SINGLE TX ═══
@@ -1710,7 +1825,38 @@ export default function FlipperRooms() {
                   {v === "flip" ? "Coinflip" : v === "board" ? "Board" : "Fair"}
                 </button>
               ))}
+              {isAdmin && (
+                <button className={`nav-btn ${view === "admin" ? "active" : ""}`} onClick={() => { setView("admin"); playClickSound(); }}
+                  style={view === "admin" ? { color: "#ef4444", background: "#ef444410" } : {}}>
+                  Admin
+                </button>
+              )}
             </div>
+
+            {/* Live counters */}
+            <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace" }}>
+                  {stats?.totalFlips || 0}
+                </div>
+                <div style={{ fontSize: 7, color: "#475569", letterSpacing: 1, fontWeight: 700 }}>FLIPS</div>
+              </div>
+              <div style={{ width: 1, height: 18, background: "#1c2430" }}/>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", fontFamily: "'JetBrains Mono', monospace" }}>
+                  {stats ? parseFloat(stats.totalVolume).toFixed(2) : "0.00"}
+                </div>
+                <div style={{ fontSize: 7, color: "#475569", letterSpacing: 1, fontWeight: 700 }}>VOL</div>
+              </div>
+              <div style={{ width: 1, height: 18, background: "#1c2430" }}/>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#22c55e", fontFamily: "'JetBrains Mono', monospace" }}>
+                  {openRooms.length}
+                </div>
+                <div style={{ fontSize: 7, color: "#475569", letterSpacing: 1, fontWeight: 700 }}>ROOMS</div>
+              </div>
+            </div>
+
             <div className="header-right">
               {connected ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1780,8 +1926,15 @@ export default function FlipperRooms() {
               <>
                 <div className="hero-section">
                   <div className="hero-inner">
-                    <div className="hero-title-text">COINFLIP</div>
-                    <div className="hero-sub">50/50 chance {"\u2022"} Instant results {"\u2022"} Provably fair</div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+                      <div className="hero-title-text">COINFLIP</div>
+                      <button onClick={() => setShowHowItWorks(true)} style={{
+                        padding: "5px 10px", borderRadius: 6, background: "transparent",
+                        border: "1px solid #1c2430", color: "#475569", fontSize: 11,
+                        fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: 8,
+                      }}>How it works</button>
+                    </div>
+                    <div className="hero-sub">PvP rooms {"\u2022"} Custom amounts {"\u2022"} Direct payout</div>
 
                     <div className="tier-bar" ref={tierBarRef}>
                       {TIERS.map((t, i) => (
@@ -1925,44 +2078,15 @@ export default function FlipperRooms() {
                           style={{ maxWidth: 500 }}>
                           <div style={{ position: "relative", zIndex: 1 }}>
                             FLIP NOW
-                            <div className="flip-sub">{tierEth} ETH {"\u00B7"} 2x Payout</div>
+                            <div className="flip-sub">{tierEth} ETH vs Treasury {"\u00B7"} 2x Payout</div>
                           </div>
                         </button>
-                        <button
-                          disabled={coinState !== "idle"}
-                          onClick={handleCreatePvp}
-                          style={{
-                            width: "100%", padding: "12px 0", borderRadius: 10,
-                            background: "transparent", border: "1px solid var(--border)",
-                            color: "var(--text-dim)", fontSize: 13, fontWeight: 600,
-                            cursor: coinState !== "idle" ? "not-allowed" : "pointer",
-                            fontFamily: "inherit", transition: "all 0.2s",
-                            opacity: coinState !== "idle" ? 0.4 : 1,
-                          }}
-                        >
-                          Create PVP Challenge
-                        </button>
-                        {!isEmbedded && (
-                          <div style={{ fontSize: 10, color: "var(--text-muted)", textAlign: "center", marginTop: 2 }}>
-                            Using external wallet {"\u2014"} each flip requires approval.
-                            <span onClick={() => { disconnect(); setTimeout(connect, 500); }}
-                              style={{ color: "var(--gold)", cursor: "pointer", marginLeft: 4 }}>
-                              Switch to Instant Play {"\u2192"}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {connected && parseFloat(sessionBalance || "0") === 0 && !showResult && (
-                      <div style={{ marginTop: 16, fontSize: 12, color: "var(--text-dim)" }}>
-                        Deposit ETH using the panel on the right to start flipping
                       </div>
                     )}
 
                     {treasuryMax && parseFloat(tierEth) > parseFloat(treasuryMax) && (
                       <div style={{ marginTop: 8, fontSize: 11, color: "var(--gold)" }}>
-                        Treasury max bet is {parseFloat(treasuryMax).toFixed(4)} ETH
+                        Treasury max bet: {parseFloat(treasuryMax).toFixed(4)} ETH
                       </div>
                     )}
                   </div>
@@ -1970,48 +2094,104 @@ export default function FlipperRooms() {
 
                 <div style={{ height: 1, background: "linear-gradient(90deg, transparent, #f7b32b25, transparent)", margin: "0 24px" }} />
 
-                {/* All Games */}
+                {/* ═══ CREATE ROOM ═══ */}
                 <div className="games-section" style={{ paddingTop: 20 }}>
-                  <div className="games-header">
-                    <h2>ALL GAMES</h2>
-                    <span className="games-count">{flipHook.challenges.length} active</span>
+                  <div style={{
+                    padding: "16px 20px", background: "#131820", borderRadius: 12,
+                    border: "1px solid #1c2430", marginBottom: 16,
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: 1.5, marginBottom: 12 }}>
+                      CREATE PVP ROOM
+                    </div>
+                    <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+                      {[0.001, 0.005, 0.01, 0.05, 0.1].map(amt => (
+                        <button key={amt} onClick={() => setCustomBet(amt.toString())}
+                          style={{
+                            padding: "7px 14px", borderRadius: 8, cursor: "pointer",
+                            background: customBet === amt.toString() ? "#f7b32b15" : "#0b0e11",
+                            border: "1px solid " + (customBet === amt.toString() ? "#f7b32b" : "#1c2430"),
+                            color: customBet === amt.toString() ? "#f7b32b" : "#94a3b8",
+                            fontSize: 12, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+                          }}
+                        >{amt} ETH</button>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input
+                        type="number" step="0.001" min="0.0005" max="1"
+                        value={customBet} onChange={e => setCustomBet(e.target.value)}
+                        placeholder="Custom amount"
+                        style={{
+                          flex: 1, padding: "10px 12px", borderRadius: 8,
+                          background: "#0b0e11", border: "1px solid #1c2430",
+                          color: "#e2e8f0", fontSize: 13, fontFamily: "'JetBrains Mono', monospace",
+                          outline: "none",
+                        }}
+                      />
+                      <button onClick={handleCreateRoom} disabled={!connected} style={{
+                        padding: "10px 24px", borderRadius: 8,
+                        background: connected ? "linear-gradient(135deg, #b8860b, #f7b32b)" : "#1c2430",
+                        color: "#0b0e11", fontSize: 13, fontWeight: 800,
+                        border: "none", cursor: connected ? "pointer" : "not-allowed",
+                        fontFamily: "'Chakra Petch', sans-serif", whiteSpace: "nowrap",
+                      }}>
+                        Create Room
+                      </button>
+                    </div>
                   </div>
 
-                  {flipHook.challenges.length === 0 && (
-                    <div className="empty-state">
-                      <div style={{ fontSize: 32, marginBottom: 8 }}>{"\u26A1"}</div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>No open games</div>
-                      <div style={{ fontSize: 12, color: "var(--text-dim)" }}>Be the first {"\u2014"} hit FLIP NOW to start</div>
-                    </div>
-                  )}
-
-                  {flipHook.challenges.map(c => {
-                    const isMine = c.creator?.toLowerCase() === address?.toLowerCase();
-                    return (
-                      <div className="game-row" key={c.id}>
-                        <div className="game-players">
-                          <GameAvatar address={c.creator} />
-                          <span className="game-vs">VS</span>
-                          <div className="game-avatar-empty">?</div>
-                        </div>
-                        <div className="game-amount">
-                          <div className="game-amount-val">{c.amount} ETH</div>
-                          <div className="game-amount-prize">Prize: {(parseFloat(c.amount) * 2).toFixed(3)} ETH</div>
-                        </div>
-                        <div className="game-actions">
-                          {isMine ? (
-                            <span className="game-status status-searching">WAITING</span>
-                          ) : (
-                            <span className="game-status status-open">JOINABLE</span>
-                          )}
-                          {isMine
-                            ? <button className="cancel-btn" onClick={() => { playClickSound(); flipHook.cancelCh(c.id); }}>Cancel</button>
-                            : <button className="join-btn" onClick={() => handleAccept(c.id, c.creator)}>Join</button>
-                          }
-                        </div>
+                  {/* ═══ OPEN ROOMS ═══ */}
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: 1.5 }}>
+                        OPEN ROOMS
                       </div>
-                    );
-                  })}
+                      <span style={{ fontSize: 10, color: "#475569" }}>{openRooms.length} active</span>
+                    </div>
+                    {openRooms.length === 0 && (
+                      <div style={{
+                        padding: 24, textAlign: "center", color: "#475569", fontSize: 12,
+                        background: "#131820", borderRadius: 10, border: "1px solid #1c2430",
+                      }}>
+                        No open rooms — create one!
+                      </div>
+                    )}
+                    {openRooms.map(room => {
+                      const isMine = room.creator?.toLowerCase() === address?.toLowerCase();
+                      const timeAgo = Math.floor((Date.now()/1000 - room.createdAt) / 60);
+                      return (
+                        <div key={room.id} style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          padding: "12px 14px", marginBottom: 4, borderRadius: 10,
+                          background: "#131820", border: "1px solid " + (isMine ? "#f7b32b20" : "#1c2430"),
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div style={{
+                              width: 32, height: 32, borderRadius: "50%",
+                              background: `linear-gradient(135deg, ${addrColor(room.creator)}, ${addrColor(room.creator)}88)`,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              fontSize: 9, fontWeight: 800, color: "#fff",
+                            }}>{room.creator.slice(2,4).toUpperCase()}</div>
+                            <div>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: "#e2e8f0" }}>
+                                {isMine ? "You" : shortAddr(room.creator)}
+                              </div>
+                              <div style={{ fontSize: 9, color: "#475569" }}>{timeAgo}m ago</div>
+                            </div>
+                          </div>
+                          <div style={{
+                            fontSize: 14, fontWeight: 700, color: "#f7b32b",
+                            fontFamily: "'JetBrains Mono', monospace",
+                          }}>{parseFloat(room.amount).toFixed(4)} ETH</div>
+                          {isMine ? (
+                            <button onClick={() => handleCancelRoom(room.id)} className="cancel-btn">Cancel</button>
+                          ) : (
+                            <button onClick={() => handleAccept(room.id, room.creator)} className="join-btn">Join</button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
 
                   {/* Recent Flips */}
                   <div className="section-label" style={{ marginTop: 24 }}>RECENT FLIPS</div>
@@ -2069,38 +2249,81 @@ export default function FlipperRooms() {
 
             {/* ═══ FAIR VIEW ═══ */}
             {view === "fair" && (
-              <div className="fair-section">
-                <div className="section-label" style={{ color: "var(--gold)", fontSize: 12, letterSpacing: 4 }}>PROVABLY FAIR</div>
-                <div className="hero-title-text" style={{ fontSize: 36, marginBottom: 16 }}>FAIRNESS</div>
-                <p>
-                  Every flip uses on-chain randomness via <code style={{ background: "var(--bg-card)", padding: "2px 6px", borderRadius: 4, fontSize: 12 }}>block.prevrandao</code> combined with player addresses, timestamps, and counters.
-                </p>
-                <div className="fair-code">
-                  <span style={{ color: "var(--green)" }}>// on-chain resolution</span><br />
-                  rand = keccak256(abi.encodePacked(<br />
-                  &nbsp;&nbsp;block.prevrandao, playerA, playerB,<br />
-                  &nbsp;&nbsp;block.timestamp, challengeId, totalFlips<br />
-                  ));<br />
-                  winner = (rand % 2 == 0) ? playerA : playerB;
+              <div style={{ maxWidth: 560, margin: "0 auto", padding: "40px 20px" }}>
+                <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 28, fontWeight: 900, color: "#f7b32b", marginBottom: 8, textAlign: "center" }}>
+                  Provably Fair
                 </div>
-                <div className="section-label" style={{ marginTop: 24 }}>Fee Breakdown (5% total)</div>
-                <div className="fee-grid">
+                <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", marginBottom: 32 }}>
+                  How we ensure every flip is fair
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0", marginBottom: 8 }}>Randomness source</div>
+                  <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.6 }}>
+                    Each flip uses <code style={{ background: "#131820", padding: "2px 6px", borderRadius: 4 }}>block.prevrandao</code> combined with player addresses, timestamps,
+                    and challenge IDs. The outcome is determined on-chain in the same transaction — no server, no oracle, no delay.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0", marginBottom: 8 }}>Verify any flip</div>
+                  <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.6 }}>
+                    Every flip emits a FlipResolved event on Base. You can verify any result by checking the transaction hash on BaseScan.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0", marginBottom: 8 }}>Open source</div>
+                  <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.6 }}>
+                    The smart contract is verified and open source.
+                  </div>
+                  <a href={`${EXPLORER}/address/${CONTRACT_ADDRESS}#code`} target="_blank" rel="noreferrer"
+                    style={{ fontSize: 11, color: "#f7b32b", marginTop: 8, display: "inline-block" }}>
+                    View contract on BaseScan {"->"}
+                  </a>
+                </div>
+
+                <div style={{ padding: 16, background: "#131820", borderRadius: 12, border: "1px solid #1c2430", marginBottom: 20 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: 1.5, marginBottom: 8 }}>FLIP FORMULA</div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "#94a3b8", lineHeight: 1.8 }}>
+                    result = keccak256(<br/>
+                    {"  "}prevrandao, timestamp,<br/>
+                    {"  "}player1, player2,<br/>
+                    {"  "}challengeId, totalFlips<br/>
+                    )<br/>
+                    winner = (result % 2 == 0) ? player1 : player2
+                  </div>
+                </div>
+
+                <div style={{ padding: 14, background: "#131820", borderRadius: 10, border: "1px solid #1c2430" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: 1.5, marginBottom: 8 }}>FEE BREAKDOWN (5% of pot)</div>
                   {[
-                    { l: "Seat Pool", v: "2.5%", c: "var(--green)" },
-                    { l: "Referral", v: "1.0%", c: "var(--gold)" },
-                    { l: "Protocol", v: "0.75%", c: "var(--gold)" },
-                    { l: "Buyback", v: "0.5%", c: "#f97316" },
-                    { l: "Jackpot", v: "0.25%", c: "var(--red)" },
-                  ].map((f, i) => (
-                    <div className="fee-item" key={i}>
-                      <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{f.l}</span>
-                      <span style={{ color: f.c, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>{f.v}</span>
+                    { label: "Seat holders", pct: "2.5%", color: "#f7b32b" },
+                    { label: "Referral", pct: "1.0%", color: "#3b82f6" },
+                    { label: "Protocol", pct: "0.75%", color: "#94a3b8" },
+                    { label: "Token buyback", pct: "0.5%", color: "#22c55e" },
+                    { label: "Jackpot pool", pct: "0.25%", color: "#ef4444" },
+                  ].map((item, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11 }}>
+                      <span style={{ color: "#94a3b8" }}>{item.label}</span>
+                      <span style={{ color: item.color, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{item.pct}</span>
                     </div>
                   ))}
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0 0", borderTop: "1px solid #1c2430", marginTop: 4, fontSize: 11 }}>
+                    <span style={{ color: "#e2e8f0", fontWeight: 700 }}>Winner receives</span>
+                    <span style={{ color: "#22c55e", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>95%</span>
+                  </div>
                 </div>
-                <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 16 }}>
-                  Verify on <a href={`${EXPLORER}/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noreferrer" style={{ color: "var(--gold)" }}>BaseScan</a>
-                </p>
+              </div>
+            )}
+
+            {/* ═══ ADMIN VIEW ═══ */}
+            {view === "admin" && isAdmin && (
+              <div style={{ maxWidth: 700, margin: "0 auto", padding: "24px 20px" }}>
+                <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 22, fontWeight: 900, color: "#ef4444", marginBottom: 4 }}>Admin Panel</div>
+                <div style={{ fontSize: 11, color: "#475569", marginBottom: 24 }}>Only visible to contract owner</div>
+
+                <AdminPanel contract={contract} address={address} />
               </div>
             )}
           </div>
@@ -2109,15 +2332,14 @@ export default function FlipperRooms() {
         {/* ═══ RIGHT — STATS ═══ */}
         <StatsSidebar
           sessionBalance={sessionBalance}
+          walletBalance={walletBalance}
           connected={connected}
           playerStats={playerStats}
           protocolStats={stats}
           treasuryMax={treasuryMax}
-          depositAmt={depositAmt}
-          setDepositAmt={setDepositAmt}
-          handleDeposit={handleDeposit}
-          handleWithdraw={handleWithdraw}
-          isDepositing={isDepositing}
+          contract={contract}
+          address={address}
+          isAdmin={isAdmin}
         />
       </div>
 
@@ -2196,6 +2418,9 @@ export default function FlipperRooms() {
           </div>
         </div>
       )}
+
+      {/* HOW IT WORKS MODAL */}
+      {showHowItWorks && <HowItWorksModal onClose={() => setShowHowItWorks(false)} />}
 
       {/* TOASTS */}
       <div className="toast-container">
