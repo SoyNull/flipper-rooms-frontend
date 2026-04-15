@@ -317,20 +317,45 @@ export function useFlip(contract, address, refreshBalance) {
 export function useSeats(contract, address, refreshBalance) {
   const [seats, setSeats] = useState([]);
   const [mySeats, setMySeats] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const ZERO = "0x0000000000000000000000000000000000000000";
 
   const refreshSeats = useCallback(async () => {
     if (!contract) return;
-    setLoading(true);
     try {
-      const all = await getAllSeatsFn(contract);
-      setSeats(all);
-      if (address) {
-        const mine = all.filter(s => s.owner.toLowerCase() === address.toLowerCase() && s.active);
-        setMySeats(mine.map(s => s.id));
+      // V7: 1 call for all 256 seats instead of 256 individual calls
+      const data = await contract.getAllSeatsBasic();
+      const parsed = [];
+      const mine = [];
+      for (let i = 0; i < 256; i++) {
+        const owner = data.owners[i];
+        const isOwned = owner !== ZERO;
+        const isMine = isOwned && address && owner.toLowerCase() === address.toLowerCase();
+        const seat = {
+          id: i + 1,
+          owner: isOwned ? owner : ZERO,
+          price: formatEther(data.prices[i]),
+          priceWei: data.prices[i],
+          deposit: formatEther(data.deposits[i]),
+          name: data.names[i] || "",
+          active: isOwned,
+          mine: isMine,
+        };
+        parsed.push(seat);
+        if (isMine) mine.push(i + 1);
       }
+      setSeats(parsed);
+      setMySeats(mine);
     } catch (err) {
       console.warn("Seats fetch failed:", err.message);
+      // Fallback to individual calls
+      try {
+        const all = await getAllSeatsFn(contract);
+        setSeats(all);
+        if (address) {
+          setMySeats(all.filter(s => s.owner?.toLowerCase() === address.toLowerCase() && s.active).map(s => s.id));
+        }
+      } catch {}
     }
     setLoading(false);
   }, [contract, address]);
@@ -437,6 +462,123 @@ export function useProtocol(contract) {
   }, [contract]);
 
   return { stats, refreshStats };
+}
+
+// ═══════════════════════════════════════
+//       GLOBAL FLIP FEED (on-chain)
+// ═══════════════════════════════════════
+
+export function useGlobalFeed(contract) {
+  const [recentFlips, setRecentFlips] = useState([]);
+  const [liveFlip, setLiveFlip] = useState(null);
+
+  useEffect(() => {
+    if (!contract || !contract.runner?.provider) return;
+
+    const loadHistory = async () => {
+      try {
+        const block = await contract.runner.provider.getBlockNumber();
+        const from = Math.max(0, block - 5000);
+        const events = await contract.queryFilter("FlipResolved", from, block);
+        const flips = events.slice(-30).reverse().map(e => ({
+          id: Number(e.args[0]),
+          winner: e.args[1],
+          loser: e.args[2],
+          payout: formatEther(e.args[3]),
+          amount: formatEther(e.args[4]),
+          txHash: e.transactionHash,
+          block: e.blockNumber,
+        }));
+        setRecentFlips(flips);
+      } catch (e) { console.warn("Global feed load failed:", e); }
+    };
+
+    loadHistory();
+
+    const onFlip = (...args) => {
+      try {
+        const event = args[args.length - 1];
+        const flip = {
+          id: Number(args[0]),
+          winner: args[1],
+          loser: args[2],
+          payout: formatEther(args[3]),
+          amount: formatEther(args[4]),
+          txHash: event?.log?.transactionHash || "",
+          block: event?.log?.blockNumber || 0,
+          isNew: true,
+        };
+        setLiveFlip(flip);
+        setRecentFlips(prev => [flip, ...prev].slice(0, 30));
+        setTimeout(() => setLiveFlip(null), 4000);
+      } catch {}
+    };
+
+    contract.on("FlipResolved", onFlip);
+    return () => { contract.off("FlipResolved", onFlip); };
+  }, [contract]);
+
+  return { recentFlips, liveFlip };
+}
+
+// ═══════════════════════════════════════
+//            LIVE CHAT
+// ═══════════════════════════════════════
+
+const CHAT_URL = "http://89.167.8.19:3007";
+
+export function useChat(address) {
+  const [messages, setMessages] = useState([]);
+  const [onlineCount, setOnlineCount] = useState(0);
+  const lastIdRef = useRef(0);
+
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const res = await fetch(`${CHAT_URL}/messages?since=${lastIdRef.current}`);
+        if (!res.ok) return;
+        const msgs = await res.json();
+        if (msgs.length > 0) {
+          lastIdRef.current = msgs[msgs.length - 1].id;
+          setMessages(prev => {
+            const existing = new Set(prev.map(m => m.id));
+            const newMsgs = msgs.filter(m => !existing.has(m.id));
+            return [...prev, ...newMsgs].slice(-100);
+          });
+        }
+      } catch {}
+    };
+    poll();
+    const iv = setInterval(poll, 3000);
+    return () => clearInterval(iv);
+  }, []);
+
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const res = await fetch(`${CHAT_URL}/online`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setOnlineCount(data.online);
+      } catch {}
+    };
+    poll();
+    const iv = setInterval(poll, 30000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const sendMessage = useCallback(async (text) => {
+    if (!address || !text.trim()) return;
+    try {
+      await fetch(`${CHAT_URL}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, message: text.trim() }),
+      });
+    } catch {}
+  }, [address]);
+
+  return { messages, onlineCount, sendMessage };
 }
 
 export { addToast, EXPLORER };

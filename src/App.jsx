@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import * as THREE from "three";
-import { useWallet, useFlip, useSeats, useProtocol, useToasts, addToast, EXPLORER } from "./hooks.js";
+import { useWallet, useFlip, useSeats, useProtocol, useToasts, addToast, EXPLORER, useGlobalFeed, useChat } from "./hooks.js";
 import { getPlayerInfo, getTreasuryMaxBet, getSeatInfo, decodeError } from "./contract.js";
 import { CONTRACT_ADDRESS, TIERS } from "./config.js";
 import { parseEther, formatEther } from "ethers";
@@ -798,58 +798,63 @@ function GameAvatar({ address, size = 40 }) {
 // ═══════════════════════════════════════
 //  CHAT SIDEBAR
 // ═══════════════════════════════════════
-function ChatSidebar() {
-  const [message, setMessage] = useState("");
-  const timestamps = ["2m", "5m", "8m", "12m", "15m", "20m", "25m", "30m", "32m", "35m"];
+function ChatSidebar({ messages, onlineCount, sendMessage, chatInput, setChatInput, chatEndRef, connected, address }) {
   return (
     <div className="chat-sidebar">
       <div style={{ height: 2, background: "linear-gradient(90deg, transparent, #f7b32b30, transparent)" }} />
       <div style={{
-        padding: "16px 18px", borderBottom: "1px solid #151b25",
-        background: "#0c1019",
+        padding: "14px 18px", borderBottom: "1px solid #151b25", background: "#0c1019",
+        display: "flex", justifyContent: "space-between", alignItems: "center",
       }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", letterSpacing: 0.5 }}>General Chat</span>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 8px #22c55e60" }} />
-            <span style={{ fontSize: 11, color: "#22c55e", fontWeight: 600 }}>24</span>
-          </div>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>Chat</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e60" }} />
+          <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 600 }}>{onlineCount}</span>
         </div>
       </div>
       <div className="chat-messages">
-        {MOCK_CHAT.map((m, i) => (
-          <div className="chat-msg" key={i}>
-            <div className="chat-avatar" style={{ background: `${m.color}30`, color: m.color }}>{m.name.charAt(0)}</div>
-            <div className="chat-msg-content">
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <span className="chat-name" style={{ color: m.color }}>{m.name}</span>
-                <span className="chat-level">LVL {m.level}</span>
-                <span style={{ fontSize: 9, color: "var(--text-muted)", marginLeft: "auto", whiteSpace: "nowrap" }}>{timestamps[i] || "30m+"}</span>
+        {messages.map(msg => {
+          const timeAgo = Math.floor((Date.now()/1000 - msg.timestamp) / 60);
+          const isMe = msg.address?.toLowerCase() === address?.toLowerCase();
+          return (
+            <div key={msg.id} style={{ padding: "8px 18px", borderBottom: "1px solid #0e1219" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                <div style={{
+                  width: 20, height: 20, borderRadius: "50%", background: addrColor(msg.address),
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 6, fontWeight: 800, color: "#fff",
+                }}>{msg.address?.slice(2,4).toUpperCase()}</div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: isMe ? "#f7b32b" : "#c8d0da" }}>
+                  {isMe ? "You" : shortAddr(msg.address)}
+                </span>
+                <span style={{ fontSize: 8, color: "#374151", marginLeft: "auto" }}>
+                  {timeAgo < 1 ? "now" : timeAgo + "m"}
+                </span>
               </div>
-              <div className="chat-text">{m.msg}</div>
+              <div style={{ fontSize: 11, color: "#94a3b8", paddingLeft: 28, lineHeight: 1.4 }}>{msg.message}</div>
             </div>
-          </div>
-        ))}
+          );
+        })}
+        <div ref={chatEndRef} />
       </div>
-      <div style={{
-        padding: "12px 16px", borderTop: "1px solid #151b25",
-        background: "#0c1019",
-      }}>
+      <div style={{ padding: "10px 14px", borderTop: "1px solid #151b25", background: "#0c1019" }}>
         <div style={{
           display: "flex", alignItems: "center", gap: 8,
-          background: "var(--bg-card)", borderRadius: 10,
-          border: "1px solid var(--border)", padding: "8px 12px",
+          background: "#131820", borderRadius: 8, border: "1px solid #1c2430", padding: "6px 10px",
         }}>
-          <input type="text" value={message} onChange={(e) => setMessage(e.target.value)}
-            placeholder="Type a message..."
-            style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--text)", fontSize: 12, fontFamily: "inherit" }} />
-          <button style={{
-            width: 32, height: 32, borderRadius: 8,
-            background: "linear-gradient(135deg, #b8860b, #f7b32b)",
-            border: "none", cursor: "pointer", display: "flex",
-            alignItems: "center", justifyContent: "center",
-            fontSize: 14, color: "#0b0e11",
-          }}>{"\u25B6"}</button>
+          <input value={chatInput} onChange={e => setChatInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && chatInput.trim()) { sendMessage(chatInput); setChatInput(""); } }}
+            placeholder={connected ? "Type a message..." : "Connect to chat"} disabled={!connected} maxLength={200}
+            style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "#e2e8f0", fontSize: 11, fontFamily: "inherit" }} />
+          <button disabled={!connected || !chatInput.trim()}
+            onClick={() => { sendMessage(chatInput); setChatInput(""); }}
+            style={{
+              width: 28, height: 28, borderRadius: 6,
+              background: chatInput.trim() ? "linear-gradient(135deg, #b8860b, #f7b32b)" : "#1c2430",
+              border: "none", cursor: chatInput.trim() ? "pointer" : "default",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#0b0e11", fontSize: 12, fontWeight: 800,
+            }}>{">"}</button>
         </div>
       </div>
     </div>
@@ -864,6 +869,31 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
 
   return (
     <div className="stats-sidebar">
+      {/* PROFILE CARD */}
+      {connected && (
+        <div style={{ padding: "16px", borderBottom: "1px solid #151b25", display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: "50%", background: addrColor(address),
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 14, fontWeight: 800, color: "#fff", border: "2px solid #1c2430",
+          }}>{address?.slice(2,4).toUpperCase()}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {shortAddr(address)}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+              <span style={{ fontSize: 9, color: "#22c55e" }}>{playerStats?.wins || 0}W</span>
+              <span style={{ fontSize: 9, color: "#ef4444" }}>{playerStats?.losses || 0}L</span>
+              <span style={{ fontSize: 9, color: "#f7b32b" }}>
+                {playerStats?.wins && (playerStats.wins + playerStats.losses) > 0
+                  ? ((playerStats.wins / (playerStats.wins + playerStats.losses)) * 100).toFixed(0) + "%"
+                  : "0%"}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* WALLET */}
       <div style={{ padding: "20px 16px", borderBottom: "1px solid #151b25", borderLeft: "3px solid #f7b32b30", background: "linear-gradient(135deg, #f7b32b04, transparent)" }}>
         <div className="stats-label">Wallet</div>
@@ -1479,7 +1509,15 @@ export default function FlipperRooms() {
   const [openRooms, setOpenRooms] = useState([]);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [walletBalance, setWalletBalance] = useState("0.0000");
+  const [showCoinStage, setShowCoinStage] = useState(false);
   const OWNER = "0xE5678F8659d229a303ABecdD0D0113Cf1F4F83aE";
+
+  // Global feeds
+  const { recentFlips, liveFlip } = useGlobalFeed(contract);
+  const chatHook = useChat(address);
+  const [chatInput, setChatInput] = useState("");
+  const chatEndRef = useRef(null);
+  const playerCache = useRef({});
 
   // Coin state
   const [coinState, setCoinState] = useState("idle");
@@ -1621,6 +1659,7 @@ export default function FlipperRooms() {
     const tierEthVal = TIERS[tier].label;
     const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
 
+    setShowCoinStage(true);
     if (isEmbedded) {
       setCoinState("spinning");
       setBorderState("spinning");
@@ -1715,6 +1754,7 @@ export default function FlipperRooms() {
 
     try {
       const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
+      setShowCoinStage(true);
 
       if (isEmbedded) {
         setCoinState("spinning");
@@ -1807,7 +1847,9 @@ export default function FlipperRooms() {
       <div className="app-root">
 
         {/* ═══ LEFT — CHAT ═══ */}
-        <ChatSidebar />
+        <ChatSidebar messages={chatHook.messages} onlineCount={chatHook.onlineCount}
+          sendMessage={chatHook.sendMessage} chatInput={chatInput} setChatInput={setChatInput}
+          chatEndRef={chatEndRef} connected={connected} address={address} />
 
         {/* ═══ CENTER — GAME ═══ */}
         <div className="game-center">
@@ -1879,7 +1921,7 @@ export default function FlipperRooms() {
           </div>
 
           {/* ═══ SCROLLING RESULTS TICKER ═══ */}
-          {flipHook.history && flipHook.history.length > 0 && (
+          {recentFlips && recentFlips.length > 0 && (
             <div style={{
               height: 40, display: "flex", alignItems: "center",
               borderBottom: "1px solid var(--border)",
@@ -1890,10 +1932,10 @@ export default function FlipperRooms() {
               <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 40, background: "linear-gradient(-90deg, var(--bg-main), transparent)", zIndex: 2 }} />
               <div style={{
                 display: "flex", gap: 8,
-                animation: flipHook.history.length > 5 ? "scrollTicker 30s linear infinite" : "none",
+                animation: recentFlips.length > 5 ? "scrollTicker 30s linear infinite" : "none",
                 paddingLeft: 50,
               }}>
-                {[...(flipHook.history || []), ...(flipHook.history || [])].slice(0, 40).map((h, i) => {
+                {[...recentFlips, ...recentFlips].slice(0, 40).map((h, i) => {
                   const isWin = address && h.winner?.toLowerCase() === address.toLowerCase();
                   return (
                     <div key={i} style={{
@@ -1936,17 +1978,14 @@ export default function FlipperRooms() {
                     </div>
                     <div className="hero-sub">PvP rooms {"\u2022"} Custom amounts {"\u2022"} Direct payout</div>
 
-                    <div className="tier-bar" ref={tierBarRef}>
-                      {TIERS.map((t, i) => (
-                        <button key={i} className={`tier-btn ${tier === i ? "active" : ""}`}
-                          onClick={() => { setTier(i); playClickSound(); }}>
-                          {t.label} ETH
-                        </button>
-                      ))}
-                    </div>
+                    {!connected && (
+                      <button className="connect-btn" onClick={connect} style={{ padding: "14px 40px", fontSize: 16, borderRadius: 12, margin: "0 auto" }}>
+                        Connect Wallet to Play
+                      </button>
+                    )}
 
-                    {/* ═══ DUEL COIN STAGE ═══ */}
-                    {(() => {
+                    {/* ═══ COIN STAGE — only visible during active flip ═══ */}
+                    {showCoinStage && (() => {
                       const wrapperClass = borderState === "spinning" ? "spinning" : borderState === "win" ? "result-win" : borderState === "lose" ? "result-lose" : "";
                       const p1Class = showResult ? (result === "win" ? "winner" : "loser") : "";
                       const p2Class = showResult ? (result === "win" ? "loser" : "winner") : "";
@@ -2065,28 +2104,11 @@ export default function FlipperRooms() {
                       );
                     })()}
 
-                    {/* FLIP BUTTON / CONNECT */}
-                    {!connected ? (
-                      <button className="connect-btn" onClick={connect} style={{ padding: "18px 48px", fontSize: 18, borderRadius: 14 }}>
-                        Connect Wallet
-                      </button>
-                    ) : !showResult && (
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: "100%", maxWidth: 500, margin: "0 auto" }}>
-                        <button className="flip-btn-main"
-                          disabled={coinState !== "idle"}
-                          onClick={handleFlip}
-                          style={{ maxWidth: 500 }}>
-                          <div style={{ position: "relative", zIndex: 1 }}>
-                            FLIP NOW
-                            <div className="flip-sub">{tierEth} ETH vs Treasury {"\u00B7"} 2x Payout</div>
-                          </div>
+                    {showResult && (
+                      <div style={{ textAlign: "center", marginTop: 12 }}>
+                        <button onClick={() => { resetFlip(); setShowCoinStage(false); }} className="action-btn btn-change">
+                          Back to lobby
                         </button>
-                      </div>
-                    )}
-
-                    {treasuryMax && parseFloat(tierEth) > parseFloat(treasuryMax) && (
-                      <div style={{ marginTop: 8, fontSize: 11, color: "var(--gold)" }}>
-                        Treasury max bet: {parseFloat(treasuryMax).toFixed(4)} ETH
                       </div>
                     )}
                   </div>
@@ -2193,44 +2215,87 @@ export default function FlipperRooms() {
                     })}
                   </div>
 
-                  {/* Recent Flips */}
+                  {/* Global Recent Flips */}
                   <div className="section-label" style={{ marginTop: 24 }}>RECENT FLIPS</div>
-                  {flipHook.history.length === 0 && <div className="empty-state">No recent flips yet</div>}
-                  {flipHook.history.slice(0, 8).map((h, i) => {
-                    const won = address ? h.winner.toLowerCase() === address.toLowerCase() : null;
-                    const isTreasuryW = h.winner?.toLowerCase() === CONTRACT_ADDRESS.toLowerCase();
-                    const isTreasuryL = h.loser?.toLowerCase() === CONTRACT_ADDRESS.toLowerCase();
+                  {recentFlips.length === 0 && <div className="empty-state">No flips yet — be the first!</div>}
+                  {recentFlips.slice(0, 10).map((flip, i) => {
+                    const isMyWin = flip.winner?.toLowerCase() === address?.toLowerCase();
+                    const isMyLoss = flip.loser?.toLowerCase() === address?.toLowerCase();
+                    const isTrW = flip.winner?.toLowerCase() === CONTRACT_ADDRESS.toLowerCase();
+                    const isTrL = flip.loser?.toLowerCase() === CONTRACT_ADDRESS.toLowerCase();
                     return (
-                      <div className="game-row" key={i}>
-                        <div className="game-players">
-                          {isTreasuryW ? (
-                            <div className="game-avatar" style={{ width: 32, height: 32, background: "linear-gradient(135deg, var(--gold), var(--gold-dark))", fontSize: 14 }}>TR</div>
-                          ) : (
-                            <GameAvatar address={h.winner} size={32} />
-                          )}
-                          <span className="game-vs">VS</span>
-                          {isTreasuryL ? (
-                            <div className="game-avatar" style={{ width: 32, height: 32, background: "linear-gradient(135deg, var(--gold), var(--gold-dark))", fontSize: 14 }}>TR</div>
-                          ) : (
-                            <GameAvatar address={h.loser} size={32} />
-                          )}
+                      <div key={flip.id + "-" + i} style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "10px 14px", marginBottom: 2, borderRadius: 8,
+                        background: flip.isNew ? "#f7b32b08" : "#131820",
+                        border: "1px solid " + (flip.isNew ? "#f7b32b15" : "#0e1219"),
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{
+                            width: 24, height: 24, borderRadius: "50%",
+                            background: isTrW ? "linear-gradient(135deg, #b8860b, #f7b32b)" : addrColor(flip.winner),
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 7, fontWeight: 800, color: "#fff",
+                          }}>{isTrW ? "T" : flip.winner?.slice(2,4).toUpperCase()}</div>
+                          <div>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: "#e2e8f0" }}>
+                              {isMyWin ? "You" : isTrW ? "Treasury" : shortAddr(flip.winner)}
+                              <span style={{ color: "#475569", fontWeight: 400 }}> vs </span>
+                              {isMyLoss ? "You" : isTrL ? "Treasury" : shortAddr(flip.loser)}
+                            </div>
+                          </div>
                         </div>
-                        <div className="game-amount">
-                          <div className="game-amount-val" style={{ fontSize: 14 }}>{h.amount} ETH</div>
-                          {h.winnerStreak > 1 && <div style={{ fontSize: 10, color: "var(--gold)", fontFamily: "'JetBrains Mono', monospace" }}>{h.winnerStreak}x streak</div>}
+                        <div style={{ fontSize: 12, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "#f7b32b" }}>
+                          {parseFloat(flip.amount).toFixed(4)} ETH
                         </div>
-                        <div className="game-actions">
-                          {won === null ? (
-                            <span className="game-status" style={{ background: "#f7b32b18", color: "var(--gold)", border: "1px solid #f7b32b30" }}>FLIP</span>
-                          ) : won ? (
-                            <span className="game-status" style={{ background: "#22c55e18", color: "var(--green)", border: "1px solid #22c55e30" }}>WON</span>
-                          ) : (
-                            <span className="game-status" style={{ background: "#ef444418", color: "var(--red)", border: "1px solid #ef444430" }}>LOST</span>
-                          )}
+                        <div style={{
+                          padding: "3px 10px", borderRadius: 4, fontSize: 9, fontWeight: 800,
+                          background: isMyWin ? "#22c55e15" : isMyLoss ? "#ef444415" : "#1c243040",
+                          color: isMyWin ? "#22c55e" : isMyLoss ? "#ef4444" : "#94a3b8",
+                          border: "1px solid " + (isMyWin ? "#22c55e30" : isMyLoss ? "#ef444430" : "#1c2430"),
+                        }}>
+                          {isMyWin ? "WON" : isMyLoss ? "LOST" : "FLIP"}
                         </div>
                       </div>
                     );
                   })}
+
+                  {/* ═══ FLIP VS TREASURY — secondary ═══ */}
+                  <div style={{
+                    padding: "12px 16px", background: "#0d1118", borderRadius: 10,
+                    border: "1px solid #151b25", marginTop: 16,
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8" }}>No opponents online?</div>
+                        <div style={{ fontSize: 10, color: "#475569" }}>Flip against the house treasury</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <select value={tier} onChange={e => setTier(Number(e.target.value))} style={{
+                          padding: "6px 10px", borderRadius: 6, background: "#131820",
+                          border: "1px solid #1c2430", color: "#f7b32b", fontSize: 11,
+                          fontFamily: "'JetBrains Mono', monospace", outline: "none",
+                        }}>
+                          {TIERS.map((t, i) => (
+                            <option key={i} value={i}>{t.label} ETH</option>
+                          ))}
+                        </select>
+                        <button onClick={handleFlip} disabled={coinState !== "idle" || !connected}
+                          style={{
+                            padding: "8px 18px", borderRadius: 8,
+                            background: "#f7b32b15", border: "1px solid #f7b32b30",
+                            color: "#f7b32b", fontSize: 11, fontWeight: 700,
+                            cursor: connected && coinState === "idle" ? "pointer" : "not-allowed",
+                            fontFamily: "inherit", opacity: !connected || coinState !== "idle" ? 0.4 : 1,
+                          }}>Flip</button>
+                      </div>
+                    </div>
+                    {treasuryMax && (
+                      <div style={{ fontSize: 9, color: "#475569", marginTop: 6 }}>
+                        Treasury: {stats ? parseFloat(stats.treasury).toFixed(4) : "0"} ETH | Max bet: {parseFloat(treasuryMax).toFixed(4)} ETH
+                      </div>
+                    )}
+                  </div>
                 </div>
               </>
             )}
@@ -2415,6 +2480,28 @@ export default function FlipperRooms() {
                 </a>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* LIVE FLIP NOTIFICATION */}
+      {liveFlip && liveFlip.winner?.toLowerCase() !== address?.toLowerCase() && (
+        <div style={{
+          position: "fixed", top: 60, left: "50%", transform: "translateX(-50%)",
+          zIndex: 999, padding: "10px 20px", borderRadius: 10,
+          background: "#131820", border: "1px solid #1c2430",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+          animation: "fadeIn 0.3s ease",
+          display: "flex", alignItems: "center", gap: 12,
+        }}>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 8px #22c55e" }} />
+          <div>
+            <div style={{ fontSize: 11, color: "#e2e8f0" }}>
+              <span style={{ fontWeight: 700 }}>{shortAddr(liveFlip.winner)}</span>
+              <span style={{ color: "#475569" }}> won </span>
+              <span style={{ color: "#22c55e", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>{liveFlip.payout} ETH</span>
+            </div>
+            <div style={{ fontSize: 9, color: "#475569" }}>Just now</div>
           </div>
         </div>
       )}
