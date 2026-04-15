@@ -964,12 +964,26 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
   const [recentActivity, setRecentActivity] = useState([]);
   const [selectedDuration, setSelectedDuration] = useState(168); // hours: 7d default
   const [selectedMult, setSelectedMult] = useState(0); // 0=current, 1=1.2x, 2=2x, 3=5x
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
 
   // Fetch detailed seat info when modal opens
   useEffect(() => {
     if (!selectedSeat || !contract) { setSeatDetail(null); return; }
     getSeatInfo(contract, selectedSeat.id).then(setSeatDetail).catch(() => setSeatDetail(null));
   }, [selectedSeat, contract]);
+
+  // Cooldown countdown timer (1h = 3600s after lastPriceChangeTime)
+  useEffect(() => {
+    if (!seatDetail?.lastPriceChangeTime) { setCooldownRemaining(0); return; }
+    const calc = () => {
+      const end = seatDetail.lastPriceChangeTime + 3600;
+      const left = end - Math.floor(Date.now() / 1000);
+      setCooldownRemaining(left > 0 ? left : 0);
+    };
+    calc();
+    const iv = setInterval(calc, 1000);
+    return () => clearInterval(iv);
+  }, [seatDetail?.lastPriceChangeTime]);
 
   // Fetch recent seat activity (SeatBought events)
   useEffect(() => {
@@ -1260,6 +1274,16 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
             ) : selectedSeat.owner?.toLowerCase() === address?.toLowerCase() ? (
               /* YOUR seat — manage */
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {cooldownRemaining > 0 && (
+                  <div style={{
+                    padding: "8px 12px", borderRadius: 8, fontSize: 11, fontFamily: "'JetBrains Mono', monospace",
+                    background: "#f59e0b10", border: "1px solid #f59e0b30", color: "#f59e0b",
+                    display: "flex", alignItems: "center", gap: 8,
+                  }}>
+                    <span style={{ fontSize: 14 }}>&#9202;</span>
+                    <span>Cooldown: {Math.floor(cooldownRemaining / 60)}m {cooldownRemaining % 60}s remaining</span>
+                  </div>
+                )}
                 <button className="modal-action-btn" style={{ background: "#22c55e15", border: "1px solid #22c55e40", color: "#22c55e" }}
                   onClick={async () => {
                     try {
@@ -1276,7 +1300,11 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
                     navigator.clipboard.writeText(`${window.location.origin}?ref=${selectedSeat.id}`);
                     addToast("success", "Referral link copied!");
                   }}>Copy Referral Link</button>
-                <button className="modal-action-btn" style={{ background: "transparent", border: "1px solid #ef444450", color: "#ef4444" }}
+                <button className="modal-action-btn" disabled={cooldownRemaining > 0}
+                  style={{
+                    background: "transparent", border: "1px solid #ef444450", color: "#ef4444",
+                    opacity: cooldownRemaining > 0 ? 0.4 : 1, cursor: cooldownRemaining > 0 ? "not-allowed" : "pointer",
+                  }}
                   onClick={async () => {
                     try {
                       const tx = await contract.abandonSeat(selectedSeat.id);

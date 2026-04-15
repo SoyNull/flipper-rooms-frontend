@@ -86,7 +86,10 @@ export async function getProtocolStats(contract) {
 }
 
 export async function getSeatInfo(contract, seatId) {
-  const r = await contract.getSeatInfo(seatId);
+  const [r, raw] = await Promise.all([
+    contract.getSeatInfo(seatId),
+    contract.seats(seatId),
+  ]);
   return {
     owner: r.owner_,
     price: formatEther(r.listedPrice_),
@@ -99,6 +102,7 @@ export async function getSeatInfo(contract, seatId) {
     runway: Number(r.depositRunway_),
     forfeitable: r.isForfeitable_,
     name: r.name_,
+    lastPriceChangeTime: Number(raw.lastPriceChangeTime),
   };
 }
 
