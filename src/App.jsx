@@ -87,6 +87,8 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 @keyframes flashBright { 0%, 100% { opacity: 0.1; } 50% { opacity: 0.6; } }
 @keyframes scrollTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.2); } }
+@keyframes scaleIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ═══ COIN STAGE — DUEL LAYOUT ═══ */
 .coin-wrapper {
@@ -1630,11 +1632,11 @@ export default function FlipperRooms() {
   const spinStartRef = useRef(0);
   const [currentOpponent, setCurrentOpponent] = useState(null);
   const [currentBet, setCurrentBet] = useState("0");
-  const [lastFlipData, setLastFlipData] = useState(null);
   const [myRoomId, setMyRoomId] = useState(null);
   const myRoomIdRef = useRef(null);
   const [roomCountdown, setRoomCountdown] = useState(0);
   const [showWalletMenu, setShowWalletMenu] = useState(false);
+  const [matchFoundAnim, setMatchFoundAnim] = useState(false);
 
   // Keep ref in sync so timers/closures always see current roomId
   useEffect(() => { myRoomIdRef.current = myRoomId; }, [myRoomId]);
@@ -1671,7 +1673,6 @@ export default function FlipperRooms() {
     if (pending.flipModalUpdate) {
       setFlipModal(prev => prev ? { ...prev, ...pending.flipModalUpdate } : null);
     }
-    // Result stays visible until user clicks Rematch/Double/Change
   }, [address, refreshBalance, contract]);
 
   // Load data
@@ -1793,6 +1794,11 @@ export default function FlipperRooms() {
 
         if (!isMyFlip) return;
 
+        // If we already showing result, we sent the TX ourselves — skip
+        if (showResultRef.current) return;
+
+        const wasWaitingForRoom = !!myRoomIdRef.current;
+
         // Clear auto-match timer if our room was accepted by someone
         if (myRoomIdRef.current) {
           setMyRoomId(null);
@@ -1800,27 +1806,34 @@ export default function FlipperRooms() {
           setRoomCountdown(0);
         }
 
-        // If we already showing result, we sent the TX ourselves — skip
-        if (showResultRef.current) return;
-
         const won = winner.toLowerCase() === myAddr;
         const opponent = won ? loser : winner;
 
-        setCurrentOpponent(opponent);
-        setCurrentBet(formatEther(betAmount));
-        setShowCoinStage(true);
-        setCoinState("spinning");
-        setBorderState("spinning");
-        spinStartRef.current = Date.now();
-        playFlipSound();
+        const showFlipAnim = () => {
+          setCurrentOpponent(opponent);
+          setCurrentBet(formatEther(betAmount));
+          setShowCoinStage(true);
+          setCoinState("spinning");
+          setBorderState("spinning");
+          spinStartRef.current = Date.now();
+          playFlipSound();
 
-        setLastFlipData({ amount: formatEther(betAmount), opponent, isPvP: true });
+          setTimeout(() => {
+            pendingResultRef.current = { won, payout: formatEther(payout), amount: formatEther(betAmount) };
+            setCoinState(won ? "win" : "lose");
+            setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
+          }, 2500);
+        };
 
-        setTimeout(() => {
-          pendingResultRef.current = { won, payout: formatEther(payout), amount: formatEther(betAmount) };
-          setCoinState(won ? "win" : "lose");
-          setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
-        }, 2500);
+        if (wasWaitingForRoom) {
+          setMatchFoundAnim(true);
+          setTimeout(() => {
+            setMatchFoundAnim(false);
+            showFlipAnim();
+          }, 1500);
+        } else {
+          showFlipAnim();
+        }
       } catch {}
     };
 
@@ -1870,14 +1883,12 @@ export default function FlipperRooms() {
       const receipt = await tx.wait();
       const { won, payout, amount } = parseFlipResult(receipt);
 
-      setLastFlipData({ amount: betAmount, opponent, isPvP });
-
       const elapsed = Date.now() - spinStartRef.current;
       setTimeout(() => {
         pendingResultRef.current = { won, payout, amount };
         setCoinState(won ? "win" : "lose");
         setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
-      }, Math.max(0, 2500 - elapsed));
+      }, Math.max(0, 1500 - elapsed));
 
       refreshOpenRooms();
       return { won, payout };
@@ -1899,18 +1910,6 @@ export default function FlipperRooms() {
     await executeFlip(
       contract.flipDirect(ref, { value: TIERS[tier].wei, gasLimit: 1000000n }),
       null, TIERS[tier].label, false
-    );
-  };
-
-  // ═══ Treasury flip by amount (for Flip Again / Double) ═══
-  const handleFlipTreasury = async (amount) => {
-    if (!contract || !connected) return;
-    const amt = amount.replace(",", ".");
-    const ref = parseInt(localStorage.getItem('flipper_ref')) || 0;
-    resetFlip();
-    await executeFlip(
-      contract.flipDirect(ref, { value: parseEther(amt), gasLimit: 1000000n }),
-      null, amt, false
     );
   };
 
@@ -1968,12 +1967,9 @@ export default function FlipperRooms() {
     if (!myRoomId || !contract || !address) return;
     const checkRoom = async () => {
       try {
-        console.log("ROOM POLL: checking room", myRoomId);
-        // Use getAllOpenChallenges instead of getChallengeInfo — more reliable with RPC caching
         const data = await contract.getAllOpenChallenges();
         const stillOpen = data.ids.some(id => Number(id) === myRoomId);
-        console.log("ROOM POLL: stillOpen =", stillOpen);
-        if (stillOpen) return; // still open
+        if (stillOpen) return;
 
         // Room no longer open — was accepted or cancelled, find result
         const roomId = myRoomId;
@@ -1986,7 +1982,6 @@ export default function FlipperRooms() {
         const events = await contract.queryFilter("FlipResolved", Math.max(0, block - 100), block);
         for (const ev of events) {
           if (Number(ev.args[0]) !== roomId) continue;
-          console.log("ROOM POLL: found FlipResolved event for room", roomId);
           const winner = ev.args[1];
           const loser = ev.args[2];
           const payout = ev.args[3];
@@ -1994,25 +1989,27 @@ export default function FlipperRooms() {
           const won = winner.toLowerCase() === address.toLowerCase();
           const opponent = won ? loser : winner;
 
-          setCurrentOpponent(opponent);
-          setCurrentBet(formatEther(betAmount));
-          setShowCoinStage(true);
-          setCoinState("spinning");
-          setBorderState("spinning");
-          playFlipSound();
-          setLastFlipData({ amount: formatEther(betAmount), opponent, isPvP: true });
-
+          // Show MATCH FOUND overlay, then coin stage
+          setMatchFoundAnim(true);
           setTimeout(() => {
-            pendingResultRef.current = { won, payout: formatEther(payout), amount: formatEther(betAmount) };
-            setCoinState(won ? "win" : "lose");
-            setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
+            setMatchFoundAnim(false);
+            setCurrentOpponent(opponent);
+            setCurrentBet(formatEther(betAmount));
+            setShowCoinStage(true);
+            setCoinState("spinning");
+            setBorderState("spinning");
+            playFlipSound();
+
+            setTimeout(() => {
+              pendingResultRef.current = { won, payout: formatEther(payout), amount: formatEther(betAmount) };
+              setCoinState(won ? "win" : "lose");
+              setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
+            }, 1500);
           }, 1500);
           return;
         }
         addToast("info", "Opponent found! Waiting for result...");
-      } catch (err) {
-        console.error("ROOM POLL error:", err);
-      }
+      } catch {}
     };
     const iv = setInterval(checkRoom, 2000);
     return () => clearInterval(iv);
@@ -2073,39 +2070,6 @@ export default function FlipperRooms() {
       contract.acceptChallengeDirect(challengeId, ref, { value: amtWei, gasLimit: 1000000n }),
       creatorAddr, amt, true
     );
-  };
-
-  // ═══ Rematch (PvP: new room, Treasury: flip again) ═══
-  const handleRematch = async () => {
-    if (!lastFlipData) return;
-    resetFlip();
-    if (lastFlipData.isPvP) {
-      setShowCoinStage(false);
-      await handleCreateRoom(lastFlipData.amount);
-    } else {
-      await handleFlipTreasury(lastFlipData.amount);
-    }
-  };
-
-  // ═══ Double or nothing ═══
-  const handleDouble = async () => {
-    if (!lastFlipData) return;
-    const doubleAmt = (parseFloat(lastFlipData.amount) * 2).toFixed(4);
-    resetFlip();
-    if (lastFlipData.isPvP) {
-      setShowCoinStage(false);
-      await handleCreateRoom(doubleAmt);
-    } else {
-      // Verify treasury can cover the double amount
-      try {
-        const maxBet = await contract.getTreasuryMaxBet();
-        if (parseEther(doubleAmt) > maxBet) {
-          addToast("error", "Double amount (" + doubleAmt + " ETH) exceeds treasury max bet (" + formatEther(maxBet) + " ETH)");
-          return;
-        }
-      } catch {}
-      await handleFlipTreasury(doubleAmt);
-    }
   };
 
   const stats = protocol.stats;
@@ -2309,7 +2273,7 @@ export default function FlipperRooms() {
                       const jackpotPercent = Math.min(100, (parseFloat(jackpotAmount) / jackpotTarget) * 100);
 
                       return (
-                        <div className={`coin-wrapper ${wrapperClass}`}>
+                        <div className={`coin-wrapper ${wrapperClass}`} style={{ animation: "scaleIn 0.3s ease" }}>
                           <div className="border-spin" />
                           <div className="border-flash" />
                           <div className="coin-stage-inner">
@@ -2339,6 +2303,14 @@ export default function FlipperRooms() {
                                   <div className="prize-label">PRIZE POOL</div>
                                   <div className={`prize-value ${prizeClass}`}>{prizeText}</div>
                                 </div>
+                                {coinState === "spinning" && (
+                                  <div style={{
+                                    fontSize: 10, color: "#475569", marginTop: 8,
+                                    animation: "pulse 1.5s ease infinite",
+                                  }}>
+                                    Processing on Base chain...
+                                  </div>
+                                )}
                               </div>
 
                               {/* Opponent — dynamic */}
@@ -2366,26 +2338,41 @@ export default function FlipperRooms() {
                                   <span style={{ fontSize: 12, fontWeight: 600, color: "var(--gold)" }}>Confirm in wallet...</span>
                                 </div>
                               )}
-                              <div className={`result-text-new ${showResult ? "visible" : ""} ${result === "win" ? "win-text" : result === "lose" ? "lose-text" : ""}`}>
-                                {result === "win" ? "YOU WON" : result === "lose" ? "YOU LOST" : ""}
-                              </div>
-                              <div className={`result-amount ${showResult ? "visible" : ""} ${result === "win" ? "win-amount" : result === "lose" ? "lose-amount" : ""}`}>
-                                {result === "win" ? `+${lastPayout} ETH` : result === "lose" ? `-${displayBet} ETH` : ""}
-                              </div>
                               {showResult && (
-                                <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "center", flexWrap: "wrap", animation: "fadeIn 0.4s ease 0.5s both" }}>
-                                  <button className="action-btn btn-rematch" onClick={handleRematch}>
-                                    {lastFlipData?.isPvP ? "Rematch" : "Flip Again"} {lastFlipData?.amount || tierEth} ETH
-                                  </button>
-                                  {result === "win" && (
-                                    <button className="action-btn btn-double" onClick={handleDouble}>
-                                      Double ({(parseFloat(lastFlipData?.amount || tierEth) * 2).toFixed(4)})
-                                    </button>
-                                  )}
-                                  <button className="action-btn btn-change" onClick={() => {
-                                    resetFlip();
+                                <div style={{
+                                  display: "flex", flexDirection: "column", alignItems: "center",
+                                  gap: 10, animation: "scaleIn 0.3s ease",
+                                }}>
+                                  <div style={{
+                                    fontSize: 28, fontWeight: 900, letterSpacing: 4,
+                                    fontFamily: "'Orbitron', sans-serif",
+                                    color: result === "win" ? "#22c55e" : "#ef4444",
+                                    textShadow: result === "win" ? "0 0 20px #22c55e40" : "0 0 20px #ef444440",
+                                  }}>
+                                    {result === "win" ? "YOU WIN" : "YOU LOSE"}
+                                  </div>
+                                  <div style={{
+                                    fontSize: 18, fontWeight: 700,
+                                    fontFamily: "'JetBrains Mono', monospace",
+                                    color: result === "win" ? "#22c55e" : "#ef4444",
+                                  }}>
+                                    {result === "win" ? "+" : "-"}{displayBet} ETH
+                                  </div>
+                                  <button onClick={() => {
                                     setShowCoinStage(false);
-                                  }}>Back to lobby</button>
+                                    setCoinState("idle");
+                                    setBorderState("idle");
+                                    setShowResult(false);
+                                    setResult(null);
+                                  }} style={{
+                                    padding: "12px 40px", borderRadius: 10, marginTop: 8,
+                                    background: "linear-gradient(135deg, #b8860b, #f7b32b)",
+                                    color: "#0b0e11", fontSize: 14, fontWeight: 800,
+                                    border: "none", cursor: "pointer",
+                                    fontFamily: "'Chakra Petch', sans-serif",
+                                  }}>
+                                    Play Again
+                                  </button>
                                 </div>
                               )}
                             </div>
@@ -2419,13 +2406,65 @@ export default function FlipperRooms() {
                       );
                     })()}
 
+                    {/* ═══ SEARCHING STATE — waiting for opponent ═══ */}
+                    {myRoomId && !showCoinStage && (
+                      <div style={{
+                        textAlign: "center", padding: "40px 20px",
+                        animation: "fadeIn 0.3s ease",
+                      }}>
+                        <div style={{
+                          width: 80, height: 80, borderRadius: "50%",
+                          border: "3px solid #1c2430", borderTopColor: "#f7b32b",
+                          animation: "spin 1s linear infinite",
+                          margin: "0 auto 20px",
+                        }}/>
+                        <div style={{
+                          fontSize: 18, fontWeight: 700, color: "#f7b32b",
+                          fontFamily: "'Orbitron', sans-serif",
+                          letterSpacing: 3,
+                        }}>
+                          SEARCHING
+                        </div>
+                        <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 8 }}>
+                          Waiting for opponent &middot; {roomCountdown}s
+                        </div>
+                        <div style={{
+                          fontSize: 22, fontWeight: 700, color: "#f7b32b",
+                          fontFamily: "'JetBrains Mono', monospace",
+                          marginTop: 12,
+                        }}>
+                          {countdownBetRef.current} ETH
+                        </div>
+                        <div style={{
+                          width: 200, height: 4, background: "#1c2430",
+                          borderRadius: 2, margin: "16px auto 0", overflow: "hidden",
+                        }}>
+                          <div style={{
+                            height: "100%", background: "#f7b32b",
+                            borderRadius: 2, transition: "width 1s linear",
+                            width: ((60 - roomCountdown) / 60 * 100) + "%",
+                          }}/>
+                        </div>
+                        <div style={{ fontSize: 9, color: "#475569", marginTop: 8 }}>
+                          Auto-flip vs treasury when timer ends
+                        </div>
+                        <button onClick={() => handleCancelRoom(myRoomId)} style={{
+                          marginTop: 16, padding: "8px 20px", borderRadius: 6,
+                          background: "transparent", border: "1px solid #ef444430",
+                          color: "#ef444480", fontSize: 10, fontWeight: 600,
+                          cursor: "pointer", fontFamily: "inherit",
+                        }}>Cancel Room</button>
+                      </div>
+                    )}
+
                   </div>
                 </div>
 
+                {!showCoinStage && !myRoomId && (<>
                 <div style={{ height: 1, background: "linear-gradient(90deg, transparent, #f7b32b25, transparent)", margin: "0 24px" }} />
 
                 {/* ═══ CREATE ROOM ═══ */}
-                <div className="games-section" style={{ paddingTop: 20 }}>
+                <div className="games-section" style={{ paddingTop: 20, animation: "slideUp 0.3s ease" }}>
                   <div style={{
                     padding: "16px 20px", background: "linear-gradient(135deg, #f7b32b06, #131820)",
                     borderRadius: 12, border: "1px solid #f7b32b20", marginBottom: 16,
@@ -2471,37 +2510,7 @@ export default function FlipperRooms() {
                   </div>
 
                   {/* ═══ OPEN ROOMS ═══ */}
-                  <div style={{ marginBottom: 16 }}>
-                    {/* Your room is open banner with countdown */}
-                    {myRoomId && (
-                      <div style={{
-                        padding: "12px 14px", marginBottom: 10, borderRadius: 8,
-                        background: "#f7b32b08", border: "1px solid #f7b32b20",
-                        display: "flex", alignItems: "center", justifyContent: "space-between",
-                      }}>
-                        <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "#f7b32b" }}>
-                            Your room is open — {customBet} ETH
-                          </div>
-                          <div style={{ fontSize: 9, color: "#475569" }}>
-                            {roomCountdown > 0
-                              ? "Auto-flip vs treasury in " + roomCountdown + "s"
-                              : "Matching vs treasury..."}
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ fontSize: 16, fontWeight: 700, color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace" }}>
-                            0:{roomCountdown.toString().padStart(2, '0')}
-                          </div>
-                          <button onClick={() => handleCancelRoom(myRoomId)} style={{
-                            padding: "6px 14px", borderRadius: 6,
-                            background: "transparent", border: "1px solid #ef444450",
-                            color: "#ef4444", fontSize: 10, fontWeight: 700,
-                            cursor: "pointer", fontFamily: "inherit",
-                          }}>Cancel</button>
-                        </div>
-                      </div>
-                    )}
+                  <div style={{ marginBottom: 16, animation: "slideUp 0.3s ease 0.1s both" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: 1.5 }}>
@@ -2656,6 +2665,7 @@ export default function FlipperRooms() {
                     )}
                   </div>
                 </div>
+                </>)}
               </>
             )}
 
@@ -2869,6 +2879,56 @@ export default function FlipperRooms() {
 
       {/* HOW IT WORKS MODAL */}
       {showHowItWorks && <HowItWorksModal onClose={() => setShowHowItWorks(false)} />}
+
+      {/* MATCH FOUND OVERLAY */}
+      {matchFoundAnim && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 1000,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: "rgba(0,0,0,0.85)",
+          animation: "fadeIn 0.2s ease",
+        }}>
+          <div style={{
+            textAlign: "center",
+            animation: "scaleIn 0.3s ease",
+          }}>
+            <div style={{
+              fontSize: 36, fontWeight: 900, color: "#f7b32b",
+              fontFamily: "'Orbitron', sans-serif",
+              letterSpacing: 6,
+              textShadow: "0 0 40px #f7b32b30",
+            }}>
+              MATCH FOUND
+            </div>
+            <div style={{
+              fontSize: 14, color: "#94a3b8", marginTop: 8,
+            }}>
+              Flipping coin...
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WALLET CONFIRM BAR */}
+      {waitingConfirm && (
+        <div style={{
+          position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)",
+          zIndex: 100, padding: "10px 24px", borderRadius: 10,
+          background: "#131820", border: "1px solid #f7b32b30",
+          display: "flex", alignItems: "center", gap: 10,
+          animation: "fadeIn 0.2s ease",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+        }}>
+          <div style={{
+            width: 16, height: 16, borderRadius: "50%",
+            border: "2px solid #1c2430", borderTopColor: "#f7b32b",
+            animation: "spin 0.8s linear infinite",
+          }}/>
+          <span style={{ fontSize: 12, color: "#f7b32b", fontWeight: 600 }}>
+            Confirm in wallet...
+          </span>
+        </div>
+      )}
 
       {/* TOASTS */}
       <div className="toast-container">
