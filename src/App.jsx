@@ -2005,13 +2005,13 @@ export default function FlipperRooms() {
             pendingResultRef.current = { won, payout: formatEther(payout), amount: formatEther(betAmount) };
             setCoinState(won ? "win" : "lose");
             setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
-          }, 2000);
+          }, 1500);
           return;
         }
         addToast("info", "Opponent found! Waiting for result...");
       } catch {}
     };
-    const iv = setInterval(checkRoom, 3000);
+    const iv = setInterval(checkRoom, 2000);
     return () => clearInterval(iv);
   }, [myRoomId, contract, address]);
 
@@ -2093,6 +2093,14 @@ export default function FlipperRooms() {
       setShowCoinStage(false);
       await handleCreateRoom(doubleAmt);
     } else {
+      // Verify treasury can cover the double amount
+      try {
+        const maxBet = await contract.getTreasuryMaxBet();
+        if (parseEther(doubleAmt) > maxBet) {
+          addToast("error", "Double amount (" + doubleAmt + " ETH) exceeds treasury max bet (" + formatEther(maxBet) + " ETH)");
+          return;
+        }
+      } catch {}
       await handleFlipTreasury(doubleAmt);
     }
   };
