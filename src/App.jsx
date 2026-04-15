@@ -1937,13 +1937,78 @@ export default function FlipperRooms() {
     const timer = setTimeout(() => {
       if (roomCountdown <= 1) {
         setRoomCountdown(0);
-        autoMatchRef.current(countdownBetRef.current);
+        // Check if room is still open before auto-matching
+        const roomId = myRoomIdRef.current;
+        if (!roomId || !contract) return;
+        contract.getChallengeInfo(roomId).then(info => {
+          const status = Number(info.status_ ?? info[4] ?? 0);
+          if (status !== 0) {
+            // Room already accepted/cancelled — wait for FlipResolved event
+            setMyRoomId(null);
+            myRoomIdRef.current = null;
+            addToast("info", "Opponent found! Loading result...");
+          } else {
+            autoMatchRef.current(countdownBetRef.current);
+          }
+        }).catch(() => {
+          // If check fails, try auto-match anyway
+          autoMatchRef.current(countdownBetRef.current);
+        });
       } else {
         setRoomCountdown(prev => prev - 1);
       }
     }, 1000);
     return () => clearTimeout(timer);
-  }, [roomCountdown, myRoomId]);
+  }, [roomCountdown, myRoomId, contract]);
+
+  // ═══ Poll room status while waiting for opponent ═══
+  useEffect(() => {
+    if (!myRoomId || !contract || !address) return;
+    const checkRoom = async () => {
+      try {
+        const info = await contract.getChallengeInfo(myRoomId);
+        const status = Number(info.status_ ?? info[4] ?? 0);
+        if (status === 0) return; // still open
+
+        // Room was accepted — clear state, find result
+        const roomId = myRoomId;
+        setMyRoomId(null);
+        myRoomIdRef.current = null;
+        setRoomCountdown(0);
+
+        // Search recent blocks for the FlipResolved event
+        const block = await contract.runner.provider.getBlockNumber();
+        const events = await contract.queryFilter("FlipResolved", Math.max(0, block - 100), block);
+        for (const ev of events) {
+          if (Number(ev.args[0]) !== roomId) continue;
+          const winner = ev.args[1];
+          const loser = ev.args[2];
+          const payout = ev.args[3];
+          const betAmount = ev.args[4];
+          const won = winner.toLowerCase() === address.toLowerCase();
+          const opponent = won ? loser : winner;
+
+          setCurrentOpponent(opponent);
+          setCurrentBet(formatEther(betAmount));
+          setShowCoinStage(true);
+          setCoinState("spinning");
+          setBorderState("spinning");
+          playFlipSound();
+          setLastFlipData({ amount: formatEther(betAmount), opponent, isPvP: true });
+
+          setTimeout(() => {
+            pendingResultRef.current = { won, payout: formatEther(payout), amount: formatEther(betAmount) };
+            setCoinState(won ? "win" : "lose");
+            setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
+          }, 2000);
+          return;
+        }
+        addToast("info", "Opponent found! Waiting for result...");
+      } catch {}
+    };
+    const iv = setInterval(checkRoom, 3000);
+    return () => clearInterval(iv);
+  }, [myRoomId, contract, address]);
 
   // ═══ Create PvP room ═══
   const handleCreateRoom = async (amount) => {
@@ -1969,7 +2034,7 @@ export default function FlipperRooms() {
       setMyRoomId(challengeId);
       myRoomIdRef.current = challengeId;
       countdownBetRef.current = betAmt;
-      setRoomCountdown(45);
+      setRoomCountdown(60);
       await refreshOpenRooms();
     } catch (err) { addToast("error", decodeError(err)); }
   };
@@ -2219,9 +2284,10 @@ export default function FlipperRooms() {
                       const b1Class = showResult ? (result === "win" ? "bet-win" : "bet-lose") : "";
                       const b2Class = showResult ? (result === "win" ? "bet-lose" : "bet-win") : "";
                       const prizeClass = showResult ? (result === "win" ? "prize-win" : "prize-lose") : "";
+                      const displayBet = currentBet || tierEth;
                       const prizeText = showResult
-                        ? (result === "win" ? `+${lastPayout} ETH` : `-${tierEth} ETH`)
-                        : `${(parseFloat(tierEth) * 2).toFixed(4)} ETH`;
+                        ? (result === "win" ? `+${lastPayout} ETH` : `-${displayBet} ETH`)
+                        : `${(parseFloat(displayBet) * 2).toFixed(4)} ETH`;
                       const jackpotAmount = stats ? Number(stats.jackpot).toFixed(4) : "0.0000";
                       const jackpotTarget = 0.05;
                       const jackpotPercent = Math.min(100, (parseFloat(jackpotAmount) / jackpotTarget) * 100);
@@ -2242,7 +2308,7 @@ export default function FlipperRooms() {
                                   {address?.slice(2,4).toUpperCase() || "??"}
                                 </div>
                                 <div className={`arena-name ${n1Class}`}>You</div>
-                                <div className={`arena-bet ${b1Class}`}>{tierEth} ETH</div>
+                                <div className={`arena-bet ${b1Class}`}>{displayBet} ETH</div>
                               </div>
 
                               {/* VS + Coin */}
@@ -2272,7 +2338,7 @@ export default function FlipperRooms() {
                                 <div className={`arena-name ${n2Class}`}>
                                   {currentOpponent ? shortAddr(currentOpponent) : "Treasury"}
                                 </div>
-                                <div className={`arena-bet ${b2Class}`}>{currentBet || tierEth} ETH</div>
+                                <div className={`arena-bet ${b2Class}`}>{displayBet} ETH</div>
                               </div>
                             </div>
 
