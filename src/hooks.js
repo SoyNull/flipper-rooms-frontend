@@ -4,7 +4,7 @@ import {
   getContract,
   getProtocolStats as getProtocolStatsFn,
   getAllSeats as getAllSeatsFn,
-  getOpenChallenges,
+  getAllOpenChallenges,
   getChallengeInfo,
   createChallenge as createChallengeFn,
   acceptChallenge as acceptChallengeFn,
@@ -176,17 +176,8 @@ export function useFlip(contract, address, refreshBalance) {
   const refreshChallenges = useCallback(async () => {
     if (!contract) return;
     try {
-      const allChallenges = [];
-      for (const t of TIERS) {
-        const ids = await getOpenChallenges(contract, t.wei);
-        for (const id of ids) {
-          const info = await getChallengeInfo(contract, id);
-          if (info.status === 0) {
-            allChallenges.push({ id: Number(id), ...info, tierLabel: t.label });
-          }
-        }
-      }
-      setChallenges(allChallenges);
+      const openChallenges = await getAllOpenChallenges(contract);
+      setChallenges(openChallenges);
     } catch (err) {
       console.warn("Challenges fetch failed:", err.message);
     }
@@ -203,10 +194,8 @@ export function useFlip(contract, address, refreshBalance) {
         challengeId: Number(e.args.challengeId),
         winner: e.args.winner,
         loser: e.args.loser,
-        amount: formatEther(e.args.amount),
+        amount: formatEther(e.args.betAmount),
         payout: formatEther(e.args.payout),
-        vsTreasury: e.args.vsTreasury,
-        winnerStreak: Number(e.args.winnerStreak),
         block: e.blockNumber,
       }));
       setHistory(items);
@@ -266,14 +255,14 @@ export function useFlip(contract, address, refreshBalance) {
     }
   }, [contract, address, refreshBalance, refreshHistory]);
 
-  const acceptCh = useCallback(async (challengeId, referral = 0) => {
+  const acceptCh = useCallback(async (challengeId, betAmountWei, referral = 0) => {
     if (!contract) return null;
     setIsFlipping(true);
     setLastResult(null);
     setLastFlipDetails(null);
     const pendingId = addToast("pending", "Accepting challenge...");
     try {
-      const receipt = await acceptChallengeFn(contract, challengeId, referral);
+      const receipt = await acceptChallengeFn(contract, challengeId, betAmountWei, referral);
       removeToast(pendingId);
       const result = parseFlipResolved(receipt, contract);
       if (result) {

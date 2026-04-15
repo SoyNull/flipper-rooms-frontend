@@ -1580,7 +1580,7 @@ export default function FlipperRooms() {
     }
 
     try {
-      const tx = await contract.createChallenge(tierWei, ref);
+      const tx = await contract.createChallengeDirect(ref, { value: tierWei });
       await tx.wait();
       addToast("success", "PVP challenge created! Waiting for opponent...");
       flipHook.refreshChallenges();
@@ -1611,7 +1611,7 @@ export default function FlipperRooms() {
         setWaitingConfirm(true);
       }
 
-      const tx = await contract.acceptChallenge(challengeId, ref);
+      const tx = await contract.acceptChallengeDirect(challengeId, ref, { value: c?.amountWei || 0 });
 
       if (!isEmbedded) {
         setWaitingConfirm(false);

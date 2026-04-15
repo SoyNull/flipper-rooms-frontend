@@ -135,18 +135,32 @@ export async function getAllSeats(contract) {
   return results;
 }
 
-export async function getOpenChallenges(contract, tierAmountWei) {
-  return contract.getOpenChallenges(tierAmountWei);
+export async function getAllOpenChallenges(contract) {
+  const r = await contract.getAllOpenChallenges();
+  const results = [];
+  for (let i = 0; i < r.ids.length; i++) {
+    results.push({
+      id: Number(r.ids[i]),
+      creator: r.creators[i],
+      amount: formatEther(r.amounts[i]),
+      amountWei: r.amounts[i],
+      createdAt: Number(r.createdAts[i]),
+      status: 0,
+    });
+  }
+  return results;
 }
 
 export async function getChallengeInfo(contract, id) {
   const r = await contract.getChallengeInfo(id);
   return {
     creator: r.creator_,
+    opponent: r.opponent_,
     amount: formatEther(r.amount_),
     amountWei: r.amount_,
-    tier: Number(r.tier_),
+    createdAt: Number(r.createdAt_),
     status: Number(r.status_),
+    isDirect: r.isDirect_,
   };
 }
 
@@ -181,16 +195,16 @@ export async function withdraw(contract, amountEth) {
   return sendTx(contract.withdraw(parseEther(amountEth)));
 }
 
-export async function createChallenge(contract, tierAmountWei, referralSeatId = 0) {
-  return sendTx(contract.createChallenge(tierAmountWei, referralSeatId));
+export async function createChallenge(contract, betAmountWei, referralSeatId = 0) {
+  return sendTx(contract.createChallengeDirect(referralSeatId, { value: betAmountWei }));
 }
 
-export async function acceptChallenge(contract, challengeId, referralSeatId = 0) {
-  return sendTx(contract.acceptChallenge(challengeId, referralSeatId));
+export async function acceptChallenge(contract, challengeId, betAmountWei, referralSeatId = 0) {
+  return sendTx(contract.acceptChallengeDirect(challengeId, referralSeatId, { value: betAmountWei }));
 }
 
 export async function cancelChallenge(contract, challengeId) {
-  return sendTx(contract.cancelChallenge(challengeId));
+  return sendTx(contract.cancelChallengeDirect(challengeId));
 }
 
 export async function flipVsTreasury(contract, tierAmountWei, referralSeatId = 0) {
@@ -241,10 +255,8 @@ export function parseFlipResolved(receipt, contract) {
           challengeId: Number(parsed.args.challengeId),
           winner: parsed.args.winner,
           loser: parsed.args.loser,
-          amount: formatEther(parsed.args.amount),
           payout: formatEther(parsed.args.payout),
-          vsTreasury: parsed.args.vsTreasury,
-          winnerStreak: Number(parsed.args.winnerStreak),
+          amount: formatEther(parsed.args.betAmount),
         };
       }
       if (parsed?.name === "JackpotWon") {
