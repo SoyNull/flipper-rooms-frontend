@@ -6,6 +6,19 @@
   },
   {
     "type": "function",
+    "name": "AUTO_DISTRIBUTE_THRESHOLD",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "BPS",
     "inputs": [],
     "outputs": [
@@ -58,7 +71,7 @@
   },
   {
     "type": "function",
-    "name": "FEE_BUYBACK_BPS",
+    "name": "CHALLENGE_EXPIRY",
     "inputs": [],
     "outputs": [
       {
@@ -71,46 +84,7 @@
   },
   {
     "type": "function",
-    "name": "FEE_JACKPOT_BPS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "FEE_PROTOCOL_BPS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "FEE_REFERRAL_BPS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "FEE_SEAT_POOL_BPS",
+    "name": "EMERGENCY_TIMELOCK",
     "inputs": [],
     "outputs": [
       {
@@ -149,7 +123,46 @@
   },
   {
     "type": "function",
+    "name": "JACKPOT_WITHDRAW_DELAY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "MAX_NAME_LEN",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MAX_PVP_BET",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MIN_PVP_BET",
     "inputs": [],
     "outputs": [
       {
@@ -240,32 +253,6 @@
   },
   {
     "type": "function",
-    "name": "TAX_RATE_BPS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "TOTAL_FEE_BPS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "TOTAL_SEATS",
     "inputs": [],
     "outputs": [
@@ -305,19 +292,6 @@
   },
   {
     "type": "function",
-    "name": "YIELD_REFERRAL_BPS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "abandonSeat",
     "inputs": [
       {
@@ -331,7 +305,7 @@
   },
   {
     "type": "function",
-    "name": "acceptChallenge",
+    "name": "acceptChallengeDirect",
     "inputs": [
       {
         "name": "_challengeId",
@@ -345,7 +319,20 @@
       }
     ],
     "outputs": [],
-    "stateMutability": "nonpayable"
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "activeSeatCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -422,6 +409,19 @@
   },
   {
     "type": "function",
+    "name": "buybackFeeBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "buybackTreasury",
     "inputs": [],
     "outputs": [
@@ -435,7 +435,7 @@
   },
   {
     "type": "function",
-    "name": "cancelChallenge",
+    "name": "cancelChallengeDirect",
     "inputs": [
       {
         "name": "_challengeId",
@@ -445,6 +445,26 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "cancelEmergency",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "challengeCounter",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -463,22 +483,45 @@
         "internalType": "address"
       },
       {
-        "name": "amount",
+        "name": "opponent",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "betAmount",
         "type": "uint128",
         "internalType": "uint128"
       },
       {
-        "name": "tier",
-        "type": "uint8",
-        "internalType": "uint8"
+        "name": "createdAt",
+        "type": "uint48",
+        "internalType": "uint48"
       },
       {
         "name": "status",
         "type": "uint8",
-        "internalType": "enum FlipperRoomsV6.ChallengeStatus"
+        "internalType": "uint8"
+      },
+      {
+        "name": "isDirect",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "claimMultipleSeats",
+    "inputs": [
+      {
+        "name": "_seatIds",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -495,13 +538,21 @@
   },
   {
     "type": "function",
-    "name": "createChallenge",
+    "name": "claimSeatRewardsDirect",
     "inputs": [
       {
-        "name": "_amount",
+        "name": "_seatId",
         "type": "uint256",
         "internalType": "uint256"
-      },
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "createChallengeDirect",
+    "inputs": [
       {
         "name": "_referralSeat",
         "type": "uint256",
@@ -509,7 +560,7 @@
       }
     ],
     "outputs": [],
-    "stateMutability": "nonpayable"
+    "stateMutability": "payable"
   },
   {
     "type": "function",
@@ -526,6 +577,13 @@
   },
   {
     "type": "function",
+    "name": "declareEmergency",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "deposit",
     "inputs": [],
     "outputs": [],
@@ -537,6 +595,52 @@
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "emergencyDeclaredAt",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "emergencyWithdraw",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "expireChallenge",
+    "inputs": [
+      {
+        "name": "_challengeId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "flipDirect",
+    "inputs": [
+      {
+        "name": "_referralSeat",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
   },
   {
     "type": "function",
@@ -558,23 +662,66 @@
   },
   {
     "type": "function",
-    "name": "forceTaxCollection",
-    "inputs": [
-      {
-        "name": "_seatId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "fundTreasury",
     "inputs": [],
     "outputs": [],
     "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "getAllOpenChallenges",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "ids",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "creators",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "amounts",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "createdAts",
+        "type": "uint48[]",
+        "internalType": "uint48[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getAllSeatsBasic",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "owners",
+        "type": "address[256]",
+        "internalType": "address[256]"
+      },
+      {
+        "name": "prices",
+        "type": "uint128[256]",
+        "internalType": "uint128[256]"
+      },
+      {
+        "name": "deposits",
+        "type": "uint128[256]",
+        "internalType": "uint128[256]"
+      },
+      {
+        "name": "names",
+        "type": "string[256]",
+        "internalType": "string[256]"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -606,38 +753,29 @@
         "internalType": "address"
       },
       {
+        "name": "opponent_",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "amount_",
         "type": "uint128",
         "internalType": "uint128"
       },
       {
-        "name": "tier_",
-        "type": "uint8",
-        "internalType": "uint8"
+        "name": "createdAt_",
+        "type": "uint48",
+        "internalType": "uint48"
       },
       {
         "name": "status_",
         "type": "uint8",
-        "internalType": "enum FlipperRoomsV6.ChallengeStatus"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getOpenChallenges",
-    "inputs": [
+        "internalType": "uint8"
+      },
       {
-        "name": "_tier",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
+        "name": "isDirect_",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -868,7 +1006,33 @@
   },
   {
     "type": "function",
+    "name": "jackpotFeeBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "jackpotPool",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "lastFlipTimestamp",
     "inputs": [],
     "outputs": [
       {
@@ -901,43 +1065,6 @@
         "name": "",
         "type": "address",
         "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "nextChallengeId",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "openChallengesByTier",
-    "inputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -1053,7 +1180,33 @@
   },
   {
     "type": "function",
+    "name": "pokeTax",
+    "inputs": [
+      {
+        "name": "_seatId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "protocolBalance",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "protocolFeeBps",
     "inputs": [],
     "outputs": [
       {
@@ -1070,6 +1223,19 @@
     "inputs": [],
     "outputs": [],
     "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "referralFeeBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -1094,6 +1260,19 @@
   {
     "type": "function",
     "name": "seatBasePrice",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "seatFeeBps",
     "inputs": [],
     "outputs": [
       {
@@ -1237,6 +1416,78 @@
   },
   {
     "type": "function",
+    "name": "setFeeRates",
+    "inputs": [
+      {
+        "name": "_protocol",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_seats",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_buyback",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_jackpot",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_referral",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setTaxRate",
+    "inputs": [
+      {
+        "name": "_newRate",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setTreasuryMinBalance",
+    "inputs": [
+      {
+        "name": "_min",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "taxRateBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "tierIndex",
     "inputs": [
       {
@@ -1321,6 +1572,19 @@
   },
   {
     "type": "function",
+    "name": "treasuryMinBalance",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "unpause",
     "inputs": [],
     "outputs": [],
@@ -1391,6 +1655,13 @@
   },
   {
     "type": "function",
+    "name": "withdrawJackpot",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "withdrawProtocol",
     "inputs": [],
     "outputs": [],
@@ -1407,8 +1678,8 @@
       },
       {
         "name": "_amount",
-        "type": "uint128",
-        "internalType": "uint128"
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -1433,6 +1704,31 @@
     "inputs": [
       {
         "name": "newPrice",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "BatchRewardsClaimed",
+    "inputs": [
+      {
+        "name": "claimant",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "totalAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "seatCount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1474,12 +1770,6 @@
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
-      },
-      {
-        "name": "tier",
-        "type": "uint8",
-        "indexed": false,
-        "internalType": "uint8"
       }
     ],
     "anonymous": false
@@ -1496,6 +1786,75 @@
       },
       {
         "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "EmergencyCancelled",
+    "inputs": [],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "EmergencyDeclared",
+    "inputs": [
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "EmergencyExecuted",
+    "inputs": [
+      {
+        "name": "totalDrained",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FeeRatesUpdated",
+    "inputs": [
+      {
+        "name": "protocol",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "seats_",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "buyback",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "jackpot",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "referral",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1539,28 +1898,29 @@
         "internalType": "address"
       },
       {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
         "name": "payout",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
       },
       {
-        "name": "vsTreasury",
-        "type": "bool",
+        "name": "betAmount",
+        "type": "uint256",
         "indexed": false,
-        "internalType": "bool"
-      },
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "JackpotWithdrawn",
+    "inputs": [
       {
-        "name": "winnerStreak",
-        "type": "uint32",
+        "name": "amount",
+        "type": "uint256",
         "indexed": false,
-        "internalType": "uint32"
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -1689,7 +2049,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "deposit",
+        "name": "depositAmt",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1700,6 +2060,25 @@
   {
     "type": "event",
     "name": "SeatDepositAdded",
+    "inputs": [
+      {
+        "name": "seatId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SeatDepositWithdrawn",
     "inputs": [
       {
         "name": "seatId",
@@ -1765,7 +2144,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "owner",
+        "name": "claimant",
         "type": "address",
         "indexed": true,
         "internalType": "address"
@@ -1789,6 +2168,45 @@
         "indexed": true,
         "internalType": "uint256"
       },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TaxRateUpdated",
+    "inputs": [
+      {
+        "name": "newRate",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TreasuryAutoFunded",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TreasuryWithdrawn",
+    "inputs": [
       {
         "name": "amount",
         "type": "uint256",
@@ -1837,7 +2255,27 @@
   },
   {
     "type": "error",
+    "name": "BetMismatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BetTooLarge",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BetTooSmall",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "CannotPlaySelf",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ChallengeNotExpired",
     "inputs": []
   },
   {
@@ -1857,12 +2295,32 @@
   },
   {
     "type": "error",
+    "name": "EmergencyAlreadyDeclared",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "EmergencyNotDeclared",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "EmergencyTimelockActive",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "EnforcedPause",
     "inputs": []
   },
   {
     "type": "error",
     "name": "ExpectedPause",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "GameStillActive",
     "inputs": []
   },
   {
@@ -1939,6 +2397,11 @@
   },
   {
     "type": "error",
+    "name": "RateExceedsMax",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ReentrancyGuardReentrantCall",
     "inputs": []
   },
@@ -1954,12 +2417,12 @@
   },
   {
     "type": "error",
-    "name": "SeatNotForfeited",
+    "name": "TreasuryBetTooHigh",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "TreasuryBetTooHigh",
+    "name": "WouldKillOperations",
     "inputs": []
   },
   {
