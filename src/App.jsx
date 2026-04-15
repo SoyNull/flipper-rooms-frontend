@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import * as THREE from "three";
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from "react";
 import { useWallet, useFlip, useSeats, useProtocol, useToasts, addToast, EXPLORER, useGlobalFeed } from "./hooks.js";
+
+const Coin3D = lazy(() => import("./Coin3D.jsx"));
 import { getPlayerInfo, getTreasuryMaxBet, getSeatInfo, decodeError } from "./contract.js";
 import { CONTRACT_ADDRESS, TIERS } from "./config.js";
 import { parseEther, formatEther } from "ethers";
@@ -695,91 +696,6 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 `;
 
 
-// ═══════════════════════════════════════
-//  3D COIN — GOLD CASINO
-// ═══════════════════════════════════════
-function Coin3D({ state, onComplete }) {
-  const mountRef = useRef(null);
-  const sceneRef = useRef({});
-  const stateRef = useRef(state);
-  stateRef.current = state;
-
-  useEffect(() => {
-    const el = mountRef.current;
-    if (!el) return;
-    const w = el.clientWidth, h = el.clientHeight;
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
-    camera.position.set(0, 0, 4);
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    renderer.setSize(w, h);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.4;
-    el.appendChild(renderer.domElement);
-
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-    const dir = new THREE.DirectionalLight(0xffffff, 1.2); dir.position.set(3, 5, 4); scene.add(dir);
-    const rim = new THREE.DirectionalLight(0xf7b32b, 0.5); rim.position.set(-3, -2, 3); scene.add(rim);
-    const accent = new THREE.PointLight(0xffd700, 0.6, 8); accent.position.set(0, 0, 3); scene.add(accent);
-
-    const coinGroup = new THREE.Group(); scene.add(coinGroup);
-    const r = 1.1, th = 0.1, seg = 64;
-    const mat = new THREE.MeshStandardMaterial({ color: 0xf7b32b, metalness: 0.92, roughness: 0.1, emissive: 0x8b6914, emissiveIntensity: 0.2 });
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, th, seg), mat);
-    body.rotation.x = Math.PI / 2; coinGroup.add(body);
-    const edgeMat = new THREE.MeshStandardMaterial({ color: 0xdaa520, metalness: 0.95, roughness: 0.08 });
-    coinGroup.add(new THREE.Mesh(new THREE.TorusGeometry(r, th / 2, 16, seg), edgeMat));
-
-    const makeLabel = (text, z, flip) => {
-      const c = document.createElement("canvas"); c.width = 256; c.height = 256;
-      const ctx = c.getContext("2d");
-      ctx.fillStyle = "#daa52050"; ctx.fillRect(0,0,256,256);
-      ctx.fillStyle = "#8b6914"; ctx.font = "bold 120px 'Arial'";
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(text, 128, 128);
-      const fMat = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(c), transparent: true, metalness: 0.6, roughness: 0.3, color: 0xdaa520 });
-      const face = new THREE.Mesh(new THREE.CircleGeometry(r * 0.8, seg), fMat);
-      face.position.z = z; if (flip) face.rotation.y = Math.PI; coinGroup.add(face);
-    };
-    makeLabel("W", th / 2 + 0.001, false);
-    makeLabel("L", -(th / 2 + 0.001), true);
-    coinGroup.rotation.x = 0.25;
-    sceneRef.current = { scene, camera, renderer, coinGroup, phase: "idle" };
-
-    let raf;
-    const animate = () => {
-      raf = requestAnimationFrame(animate);
-      const s = sceneRef.current, t = performance.now() / 1000;
-      if (s.phase === "idle") { s.coinGroup.rotation.y = Math.sin(t * 0.6) * 0.12; s.coinGroup.position.y = Math.sin(t * 1.0) * 0.04; }
-      else if (s.phase === "spinning") {
-        const el2 = t - s.startTime, spd = Math.max(0, 28 - el2 * 5);
-        s.coinGroup.rotation.x += spd * 0.016;
-        s.coinGroup.position.y = Math.sin(el2 * 3) * 0.12 * Math.max(0, 1 - el2 / 4);
-        if (spd <= 0.3) { s.phase = "landing"; s.startTime = t; const tx = stateRef.current === "win" ? 0 : Math.PI; s.targetRotation = tx + Math.round(s.coinGroup.rotation.x / (Math.PI * 2)) * Math.PI * 2; }
-      } else if (s.phase === "landing") {
-        s.coinGroup.rotation.x += (s.targetRotation - s.coinGroup.rotation.x) * 0.1;
-        if ((t - s.startTime) >= 0.5 && s.phase !== "done") { s.phase = "done"; onComplete?.(); }
-      } else if (s.phase === "done") { s.coinGroup.position.y = Math.sin(t * 2) * 0.015; }
-      renderer.render(scene, camera);
-    };
-    animate();
-    const resizeObs = new ResizeObserver(() => {
-      const nw = el.clientWidth, nh = el.clientHeight;
-      if (nw && nh) { camera.aspect = nw / nh; camera.updateProjectionMatrix(); renderer.setSize(nw, nh); }
-    });
-    resizeObs.observe(el);
-    return () => { resizeObs.disconnect(); cancelAnimationFrame(raf); renderer.dispose(); if (el.contains(renderer.domElement)) el.removeChild(renderer.domElement); };
-  }, []);
-
-  useEffect(() => {
-    if (state === "spinning") { sceneRef.current.phase = "spinning"; sceneRef.current.startTime = performance.now() / 1000; }
-    else if (state === "idle") sceneRef.current.phase = "idle";
-  }, [state]);
-
-  return <div ref={mountRef} style={{ width: "100%", height: "100%", position: "relative", zIndex: 1 }} />;
-}
-
 function GameAvatar({ address, size = 40 }) {
   const color = addrColor(address);
   return (
@@ -893,20 +809,33 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
 
       <div className="stats-section">
         <div className="stats-label">Protocol Stats</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {[
-            { l: "Total Bets", v: protocolStats ? protocolStats.totalFlips.toLocaleString() : "0" },
-            { l: "Treasury", v: protocolStats ? `${Number(protocolStats.treasury).toFixed(4)} \u039E` : "0.0000 \u039E" },
-            { l: "Max Bet", v: treasuryMax ? `${parseFloat(treasuryMax).toFixed(4)} \u039E` : "0.0000 \u039E" },
-            { l: "Jackpot", v: protocolStats ? `${Number(protocolStats.jackpot).toFixed(4)} \u039E` : "0.0000 \u039E" },
-            { l: "Volume", v: protocolStats ? `${Number(protocolStats.totalVolume).toFixed(3)} \u039E` : "0.000 \u039E" },
-          ].map((r, i) => (
-            <div className="protocol-row" key={i}>
-              <span className="protocol-row-label">{r.l}</span>
-              <span className="protocol-row-val">{r.v}</span>
-            </div>
-          ))}
-        </div>
+        {!protocolStats ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {[1,2,3,4,5].map(i => (
+              <div key={i} style={{
+                height: 16, borderRadius: 4,
+                background: "#151a22",
+                animation: "pulse 1.5s ease infinite",
+                animationDelay: i * 0.1 + "s",
+              }}/>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {[
+              { l: "Total Bets", v: protocolStats.totalFlips.toLocaleString() },
+              { l: "Treasury", v: `${Number(protocolStats.treasury).toFixed(4)} \u039E` },
+              { l: "Max Bet", v: treasuryMax ? `${parseFloat(treasuryMax).toFixed(4)} \u039E` : "0.0000 \u039E" },
+              { l: "Jackpot", v: `${Number(protocolStats.jackpot).toFixed(4)} \u039E` },
+              { l: "Volume", v: `${Number(protocolStats.totalVolume).toFixed(3)} \u039E` },
+            ].map((r, i) => (
+              <div className="protocol-row" key={i}>
+                <span className="protocol-row-label">{r.l}</span>
+                <span className="protocol-row-val">{r.v}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {connected && playerStats && (
@@ -1678,7 +1607,7 @@ export default function FlipperRooms() {
 
   // V7 state
   const [customBet, setCustomBet] = useState("0.01");
-  const [openRooms, setOpenRooms] = useState([]);
+  const [openRooms, setOpenRooms] = useState(null);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [walletBalance, setWalletBalance] = useState("0.0000");
   const [showCoinStage, setShowCoinStage] = useState(false);
@@ -2068,7 +1997,7 @@ export default function FlipperRooms() {
     if (coinState !== "idle" || !connected) return;
     playClickSound();
 
-    const c = openRooms.find(ch => ch.id === challengeId) || flipHook.challenges.find(ch => ch.id === challengeId);
+    const c = (openRooms || []).find(ch => ch.id === challengeId) || flipHook.challenges.find(ch => ch.id === challengeId);
     const amt = c ? c.amount : "?";
     const amtWei = c?.amountWei || 0;
 
@@ -2179,7 +2108,7 @@ export default function FlipperRooms() {
               <div style={{ width: 1, height: 18, background: "#1c2430" }}/>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "#22c55e", fontFamily: "'JetBrains Mono', monospace" }}>
-                  {openRooms.length}
+                  {openRooms ? openRooms.length : "..."}
                 </div>
                 <div style={{ fontSize: 7, color: "#475569", letterSpacing: 1, fontWeight: 700 }}>ROOMS</div>
               </div>
@@ -2348,7 +2277,9 @@ export default function FlipperRooms() {
                               <div className="vs-area">
                                 <div className="vs-text">VS</div>
                                 <div className="coin-3d-container">
-                                  <Coin3D state={coinState} onComplete={onFlipDone} />
+                                  <Suspense fallback={<div style={{ width: "100%", height: "100%" }} />}>
+                                    <Coin3D state={coinState} onComplete={onFlipDone} />
+                                  </Suspense>
                                 </div>
                                 <div className="prize-pool">
                                   <div className="prize-label">PRIZE POOL</div>
@@ -2547,13 +2478,24 @@ export default function FlipperRooms() {
                         <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: 1.5 }}>
                           OPEN ROOMS
                         </div>
-                        {openRooms.length > 0 && (
+                        {openRooms && openRooms.length > 0 && (
                           <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e", animation: "blink 1.5s ease infinite" }} />
                         )}
                       </div>
-                      <span style={{ fontSize: 10, color: "#475569" }}>{openRooms.length} active</span>
+                      <span style={{ fontSize: 10, color: "#475569" }}>{openRooms ? openRooms.length : "..."} active</span>
                     </div>
-                    {openRooms.length === 0 && (
+                    {openRooms === null && (
+                      <div style={{ padding: 20, textAlign: "center" }}>
+                        <div style={{
+                          width: 24, height: 24, border: "2px solid #1c2430",
+                          borderTopColor: "#f7b32b", borderRadius: "50%",
+                          animation: "spin 0.8s linear infinite",
+                          margin: "0 auto 8px",
+                        }}/>
+                        <div style={{ fontSize: 10, color: "#475569" }}>Loading rooms...</div>
+                      </div>
+                    )}
+                    {openRooms && openRooms.length === 0 && (
                       <div style={{
                         padding: 24, textAlign: "center", color: "#475569", fontSize: 12,
                         background: "#131820", borderRadius: 10, border: "1px solid #1c2430",
@@ -2561,7 +2503,7 @@ export default function FlipperRooms() {
                         No open rooms — create one!
                       </div>
                     )}
-                    {openRooms.map(room => {
+                    {openRooms && openRooms.map(room => {
                       const isMine = room.creator?.toLowerCase() === address?.toLowerCase();
                       const timeAgo = Math.floor((Date.now()/1000 - room.createdAt) / 60);
                       return (
@@ -2820,7 +2762,9 @@ export default function FlipperRooms() {
 
               {/* Center Coin */}
               <div style={{ width: 180, height: 180, position: "relative" }}>
-                <Coin3D state={flipModal.state === "spinning" ? "spinning" : flipModal.state} onComplete={() => { setTimeout(() => setFlipModal(null), 3000); }} />
+                <Suspense fallback={<div style={{ width: "100%", height: "100%" }} />}>
+                  <Coin3D state={flipModal.state === "spinning" ? "spinning" : flipModal.state} onComplete={() => { setTimeout(() => setFlipModal(null), 3000); }} />
+                </Suspense>
               </div>
 
               {/* Player B */}
