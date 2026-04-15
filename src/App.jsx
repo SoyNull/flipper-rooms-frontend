@@ -973,9 +973,10 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
   const [seatBuyDeposit, setSeatBuyDeposit] = useState("0.002");
   const [seatBuyPrice, setSeatBuyPrice] = useState("0.001");
   const [recentActivity, setRecentActivity] = useState([]);
-  const [selectedDuration, setSelectedDuration] = useState(168); // hours: 7d default
-  const [selectedMult, setSelectedMult] = useState(0); // 0=current, 1=1.2x, 2=2x, 3=5x
+  const [selectedDuration, setSelectedDuration] = useState(168);
+  const [selectedMult, setSelectedMult] = useState(0);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const [boardFilter, setBoardFilter] = useState("all");
 
   // Fetch detailed seat info when modal opens
   useEffect(() => {
@@ -1053,6 +1054,18 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
     return (seatPoolEth / activeSeatCount).toFixed(6);
   }, [seatHook.seats, protocolStats]);
 
+  const filteredSeats = useMemo(() => {
+    const s = seatHook.seats;
+    if (!s || s.length === 0) return [];
+    if (boardFilter === "all") return s;
+    return s.map(seat => {
+      if (boardFilter === "owned" && !seat.active) return { ...seat, hidden: true };
+      if (boardFilter === "mine" && !seat.mine) return { ...seat, hidden: true };
+      if (boardFilter === "empty" && seat.active) return { ...seat, hidden: true };
+      return seat;
+    });
+  }, [seatHook.seats, boardFilter]);
+
   // Calculate buyout cost breakdown
   const buyoutCalc = useMemo(() => {
     if (!selectedSeat || !selectedSeat.active || !selectedSeat.priceWei) return null;
@@ -1071,6 +1084,13 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
     <div className="board-container">
       {/* LEFT PANEL */}
       <div className="board-left">
+        {/* Yield estimate - prominent */}
+        <div style={{ padding: "14px 12px", background: "#22c55e08", borderRadius: 8, border: "1px solid #22c55e15", marginBottom: 12 }}>
+          <div style={{ fontSize: 9, color: "#22c55e80", fontWeight: 700, letterSpacing: 1 }}>EST. YIELD PER SEAT</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#22c55e", fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>{estYieldPerSeat} ETH</div>
+          <div style={{ fontSize: 9, color: "#475569" }}>per week based on current volume</div>
+        </div>
+
         <div className="board-label">BOARD STATS</div>
         <div className="board-stats-grid">
           <div className="board-stat-card">
@@ -1089,13 +1109,25 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
           { l: "Weekly Tax", v: "5%", c: "#e2e8f0" },
           { l: "Your Seats", v: `${seatHook.mySeats.length}`, c: "#f7b32b" },
           { l: "Yield Pool", v: `${protocolStats ? Number(protocolStats.seatPool).toFixed(4) : "0"} \u039E`, c: "#22c55e" },
-          { l: "Est. Yield", v: `${estYieldPerSeat} \u039E/wk`, c: "#94a3b8" },
         ].map((r, i) => (
           <div className="board-info-row" key={i}>
             <span className="board-info-label">{r.l}</span>
             <span className="board-info-value" style={{ color: r.c }}>{r.v}</span>
           </div>
         ))}
+
+        {/* Buy CTA */}
+        {connected && (
+          <button onClick={() => {
+            const firstEmpty = seatHook.seats.find(s => !s.active);
+            if (firstEmpty) { setSelectedSeat(firstEmpty); setSelectedMult(0); setSelectedDuration(168); }
+          }} style={{
+            width: "100%", padding: 10, borderRadius: 8, marginTop: 12,
+            background: "linear-gradient(135deg, #b8860b, #f7b32b)", color: "#0b0e11",
+            fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer",
+            fontFamily: "'Chakra Petch', sans-serif",
+          }}>Buy a Seat</button>
+        )}
 
         <div className="board-label" style={{ marginTop: 16 }}>TOP HOLDERS</div>
         {topHolders.length === 0 && <div style={{ fontSize: 10, color: "#475569" }}>No seats owned yet</div>}
@@ -1111,33 +1143,93 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
 
       {/* CENTER GRID */}
       <div className="board-grid-area">
-        {seatHook.seats.length === 0 ? (
-          <div style={{ textAlign: "center", padding: 40 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>256 Revenue Seats</div>
-            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 20 }}>Harberger-taxed seats. Earn from every flip.</div>
-            <button className="modal-buy-btn" style={{ width: "auto", padding: "10px 24px" }}
-              onClick={() => seatHook.refreshSeats()}>
-              {seatHook.loading ? "Loading..." : "Load Board"}
-            </button>
+        {/* Title + Filters */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, padding: "0 2px" }}>
+          <div>
+            <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 13, fontWeight: 700, color: "#e2e8f0", letterSpacing: 1, marginBottom: 4 }}>
+              256 REVENUE SEATS
+            </div>
+            <div style={{ fontSize: 10, color: "#475569", lineHeight: 1.5, maxWidth: 400 }}>
+              Buy a seat to earn ETH from every coinflip. Harberger tax keeps prices fair.
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 4 }}>
+            {["All", "Owned", "Mine", "Empty"].map(f => (
+              <button key={f} onClick={() => setBoardFilter(f.toLowerCase())} style={{
+                padding: "4px 10px", borderRadius: 5, fontSize: 9, fontWeight: 600,
+                border: "1px solid " + (boardFilter === f.toLowerCase() ? "#f7b32b" : "#1c2430"),
+                background: boardFilter === f.toLowerCase() ? "#f7b32b08" : "#131820",
+                color: boardFilter === f.toLowerCase() ? "#f7b32b" : "#475569",
+                cursor: "pointer", fontFamily: "inherit",
+              }}>{f}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Grid */}
+        {seatHook.loading ? (
+          <div className="seat-grid">
+            {Array(256).fill(0).map((_, i) => (
+              <div key={i} style={{
+                aspectRatio: "1", borderRadius: 4,
+                background: "#0d1118", border: "1px solid #151b25",
+                animation: "blink 1.5s ease infinite",
+                animationDelay: (i % 16) * 0.02 + "s",
+              }} />
+            ))}
           </div>
         ) : (
           <div className="seat-grid">
-            {seatHook.seats.map(seat => {
-              const isOwned = seat.active && seat.owner !== ZERO_ADDRESS;
-              const isMine = isOwned && address && seat.owner.toLowerCase() === address.toLowerCase();
-              const tileClass = isMine ? "tile-mine" : isOwned ? "tile-owned" : "tile-empty";
+            {filteredSeats.map(seat => {
+              const isMine = seat.mine;
               return (
-                <div key={seat.id} className={`seat-tile ${tileClass}`}
+                <div key={seat.id}
                   onClick={() => { setSelectedSeat(seat); setSelectedMult(0); setSelectedDuration(168); playClickSound(); }}
-                  style={isOwned ? { background: `linear-gradient(135deg, ${addrColor(seat.owner)}12, #0d1118)` } : undefined}
+                  style={{
+                    aspectRatio: "1", borderRadius: 4, cursor: "pointer", position: "relative",
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                    overflow: "hidden", transition: "all 0.15s",
+                    opacity: seat.hidden ? 0.1 : 1,
+                    border: isMine ? "2px solid #f7b32b"
+                      : seat.active ? "2px solid " + addrColor(seat.owner) + "40"
+                      : "1px solid #151b25",
+                    background: seat.active
+                      ? "linear-gradient(135deg, " + addrColor(seat.owner) + "15, #0d1118)"
+                      : "#0a0d12",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.2)"; e.currentTarget.style.zIndex = "10"; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.zIndex = "1"; }}
                 >
-                  {isOwned && (
-                    <div className="tile-avatar" style={{ background: `linear-gradient(135deg, ${addrColor(seat.owner)}, ${addrColor(seat.owner)}88)` }}>
-                      {seat.owner.slice(2, 4).toUpperCase()}
-                    </div>
+                  {seat.active ? (
+                    <>
+                      <div style={{
+                        width: 18, height: 18, borderRadius: "50%",
+                        background: addrColor(seat.owner),
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 6, fontWeight: 800, color: "#fff", marginBottom: 1,
+                      }}>{seat.owner?.slice(2, 4).toUpperCase()}</div>
+                      <div style={{
+                        position: "absolute", bottom: 0, left: 0, right: 0, textAlign: "center",
+                        fontSize: 6, fontWeight: 700, color: "#f7b32b", background: "#0b0e11cc",
+                        padding: "1px 0", fontFamily: "'JetBrains Mono', monospace",
+                      }}>{parseFloat(seat.price).toFixed(3)}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 7, color: "#1c2430", fontWeight: 600 }}>{seat.id}</div>
+                      <div style={{
+                        position: "absolute", bottom: 0, left: 0, right: 0, textAlign: "center",
+                        fontSize: 5, fontWeight: 600, color: "#1c2430", padding: "1px 0",
+                        fontFamily: "'JetBrains Mono', monospace",
+                      }}>0.001</div>
+                    </>
                   )}
-                  <div className="tile-id">#{seat.id}</div>
-                  {isOwned && <div className="tile-price">{parseFloat(seat.price).toFixed(4)}</div>}
+                  {isMine && (
+                    <div style={{
+                      position: "absolute", top: 1, right: 1, width: 5, height: 5,
+                      borderRadius: "50%", background: "#f7b32b", boxShadow: "0 0 4px #f7b32b",
+                    }} />
+                  )}
                 </div>
               );
             })}
@@ -1148,7 +1240,14 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
       {/* RIGHT PANEL */}
       <div className="board-right">
         <div className="board-label">RECENT ACTIVITY</div>
-        {recentActivity.length === 0 && <div style={{ fontSize: 10, color: "#475569", textAlign: "center", padding: "20px 0" }}>No recent activity</div>}
+        {recentActivity.length === 0 && (
+          <div style={{ padding: "12px 0", textAlign: "center" }}>
+            <div style={{ fontSize: 10, color: "#475569", marginBottom: 8 }}>No seat activity yet</div>
+            <div style={{ fontSize: 9, color: "#374151", lineHeight: 1.5 }}>
+              Activity appears here when seats are bought, sold, or taken over.
+            </div>
+          </div>
+        )}
         {recentActivity.map((a, i) => (
           <div className="activity-item" key={i}>
             <div className="activity-head">

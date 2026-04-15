@@ -360,6 +360,16 @@ export function useSeats(contract, address, refreshBalance) {
     setLoading(false);
   }, [contract, address]);
 
+  // Auto-load on mount
+  useEffect(() => { refreshSeats(); }, [refreshSeats]);
+
+  // Refresh every 30s
+  useEffect(() => {
+    if (!contract) return;
+    const iv = setInterval(refreshSeats, 30000);
+    return () => clearInterval(iv);
+  }, [contract, refreshSeats]);
+
   const buySeatAction = useCallback(async (seatId, newPriceEth, name, currentPriceWei, depositEth) => {
     if (!contract) return;
     const pendingId = addToast("pending", `Buying seat #${seatId}...`);
