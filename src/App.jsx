@@ -1935,17 +1935,6 @@ export default function FlipperRooms() {
         } catch {}
       }
 
-      // Auto-withdraw from sessionBalance (flipDirect stores payout there)
-      if (won) {
-        try {
-          const bal = await contract.sessionBalance(address);
-          if (bal > 0n) {
-            const wTx = await contract.withdraw(bal);
-            await wTx.wait();
-          }
-        } catch {}
-      }
-
       setCurrentOpponent(null); // treasury
       setCurrentBet(tierEthVal);
       setLastFlipData({ amount: tierEthVal, opponent: null, isPvP: false });
@@ -1978,16 +1967,6 @@ export default function FlipperRooms() {
     try {
       addToast("info", "No opponent found. Flipping vs treasury...");
 
-      // Step 1: Cancel room to recover ETH
-      const cancelTx = await contract.cancelChallengeDirect(myRoomId);
-      await cancelTx.wait();
-      setMyRoomId(null);
-      setRoomCountdown(0);
-
-      // Step 2: Wait for nonce to settle
-      await new Promise(r => setTimeout(r, 2000));
-
-      // Step 3: Flip vs treasury
       setCurrentOpponent(null);
       setCurrentBet(betAmt);
       setShowCoinStage(true);
@@ -1996,11 +1975,15 @@ export default function FlipperRooms() {
       spinStartRef.current = Date.now();
       playFlipSound();
 
-      const flipTx = await contract.flipDirect(
-        parseInt(localStorage.getItem('flipper_ref')) || 0,
-        { value: parseEther(betAmt) }
+      // ONE TX: cancel room + flip vs treasury + auto-withdraw
+      const tx = await contract.cancelAndFlipTreasury(
+        myRoomId,
+        parseInt(localStorage.getItem('flipper_ref')) || 0
       );
-      const receipt = await flipTx.wait();
+
+      setMyRoomId(null);
+      setRoomCountdown(0);
+      const receipt = await tx.wait();
 
       let won = false; let payout = "0";
       for (const log of receipt.logs) {
@@ -2010,17 +1993,6 @@ export default function FlipperRooms() {
             won = parsed.args.winner?.toLowerCase() === address?.toLowerCase();
             payout = formatEther(parsed.args.payout);
             break;
-          }
-        } catch {}
-      }
-
-      // Auto-withdraw from sessionBalance (flipDirect stores payout there)
-      if (won) {
-        try {
-          const bal = await contract.sessionBalance(address);
-          if (bal > 0n) {
-            const wTx = await contract.withdraw(bal);
-            await wTx.wait();
           }
         } catch {}
       }
@@ -2035,13 +2007,6 @@ export default function FlipperRooms() {
       setLastFlipData({ amount: betAmt, opponent: null, isPvP: false });
       await refreshOpenRooms();
     } catch (err) {
-      // If flip failed, try to cancel room anyway
-      try {
-        if (myRoomId) {
-          const cancelTx = await contract.cancelChallengeDirect(myRoomId);
-          await cancelTx.wait();
-        }
-      } catch {}
       setMyRoomId(null);
       setCoinState("idle"); setBorderState("idle"); setShowCoinStage(false);
       addToast("error", "Auto-match failed: " + decodeError(err));

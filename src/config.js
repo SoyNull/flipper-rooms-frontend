@@ -1,7 +1,7 @@
 // FlipperRooms V7 — Base Sepolia Config
 // Update CONTRACT_ADDRESS after deploy
 
-export const CONTRACT_ADDRESS = "0x06cEEb9C98AD63484105C34206e3CA6715C84f76";
+export const CONTRACT_ADDRESS = "0x841331a2dc140Ea1380F245Ad3657Bba05c41b9d";
 
 export const CHAIN_ID = 84532;
 export const CHAIN_ID_HEX = "0x14a34";

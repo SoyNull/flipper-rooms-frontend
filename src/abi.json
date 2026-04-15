@@ -435,6 +435,24 @@
   },
   {
     "type": "function",
+    "name": "cancelAndFlipTreasury",
+    "inputs": [
+      {
+        "name": "_challengeId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_referralSeat",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "cancelChallengeDirect",
     "inputs": [
       {
