@@ -256,10 +256,17 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
 }
 
+/* ═══ SIDEBAR TEXTURE ═══ */
+.sidebar-texture { position: relative; }
+.sidebar-texture::after {
+  content: ''; position: absolute; inset: 0; opacity: 0.02; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
 /* ═══ CHAT SIDEBAR (LEFT) ═══ */
 .chat-sidebar {
   display: flex; flex-direction: column; height: 100%;
-  background: linear-gradient(180deg, #0c1019 0%, #090c12 50%, #0c1019 100%);
+  background: linear-gradient(180deg, #0c1019 0%, #080b10 50%, #0c1019 100%);
   border-right: 1px solid #151b25;
   position: relative; z-index: 1;
 }
@@ -482,7 +489,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 /* ═══ STATS SIDEBAR (RIGHT) ═══ */
 .stats-sidebar {
   display: flex; flex-direction: column; height: 100%;
-  background: linear-gradient(180deg, #0c1019 0%, #090c12 50%, #0c1019 100%);
+  background: linear-gradient(180deg, #0c1019 0%, #080b10 50%, #0c1019 100%);
   border-left: 1px solid #151b25;
   overflow-y: auto; position: relative; z-index: 1;
 }
@@ -787,8 +794,8 @@ function GameAvatar({ address, size = 40 }) {
 // ═══════════════════════════════════════
 function LiveFeedSidebar({ recentFlips, address }) {
   return (
-    <div className="chat-sidebar">
-      <div style={{ height: 2, background: "linear-gradient(90deg, transparent, #f7b32b30, transparent)" }} />
+    <div className="chat-sidebar sidebar-texture">
+      <div style={{ height: 2, background: "linear-gradient(90deg, transparent, #f7b32b15, transparent)" }} />
       <div style={{
         padding: "14px 18px", borderBottom: "1px solid #151b25", background: "#0c1019",
         display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -848,7 +855,8 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
   const bal = sessionBalance || "0";
 
   return (
-    <div className="stats-sidebar">
+    <div className="stats-sidebar sidebar-texture">
+      <div style={{ height: 2, background: "linear-gradient(90deg, transparent, #f7b32b15, transparent)" }} />
       {/* PROFILE CARD */}
       {connected && (
         <div style={{ padding: "16px", borderBottom: "1px solid #151b25", display: "flex", alignItems: "center", gap: 12 }}>
@@ -940,7 +948,6 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
   const [selectedMult, setSelectedMult] = useState(0);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [boardFilter, setBoardFilter] = useState("all");
-  const [boardPage, setBoardPage] = useState(0);
   const [showBulkBuy, setShowBulkBuy] = useState(false);
   const [bulkCount, setBulkCount] = useState(3);
   const [bulkBuying, setBulkBuying] = useState(false);
@@ -1100,6 +1107,37 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
             color: "#f7b32b80", fontSize: 10, fontWeight: 600,
             cursor: "pointer", fontFamily: "inherit",
           }}>Buy Multiple Seats</button>
+          {seatHook.mySeats.length > 0 && (
+            <button onClick={async () => {
+              try {
+                const tx = await contract.claimMultipleSeats(seatHook.mySeats);
+                const receipt = await tx.wait();
+                let totalClaimed = "0";
+                for (const log of receipt.logs) {
+                  try {
+                    const parsed = contract.interface.parseLog(log);
+                    if (parsed.name === "BatchRewardsClaimed") {
+                      totalClaimed = formatEther(parsed.args[1] || 0n);
+                      break;
+                    }
+                  } catch {}
+                }
+                if (parseFloat(totalClaimed) > 0) {
+                  addToast("success", "Claimed " + totalClaimed + " ETH from " + seatHook.mySeats.length + " seats!");
+                } else {
+                  addToast("info", "No rewards to claim yet");
+                }
+                seatHook.refreshSeats();
+              } catch (err) { addToast("error", decodeError(err)); }
+            }} style={{
+              width: "100%", padding: 10, borderRadius: 8, marginTop: 8,
+              background: "#22c55e10", border: "1px solid #22c55e30",
+              color: "#22c55e", fontSize: 11, fontWeight: 700,
+              cursor: "pointer", fontFamily: "inherit",
+            }}>
+              Claim All Rewards ({seatHook.mySeats.length} seats)
+            </button>
+          )}
         </>)}
 
         <div className="board-label" style={{ marginTop: 16 }}>TOP HOLDERS</div>
@@ -1139,7 +1177,7 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
           </div>
         </div>
 
-        {/* 8x8 Grid with pagination */}
+        {/* 8x8 Scrollable Grid */}
         {seatHook.loading ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4 }}>
             {Array(64).fill(0).map((_, i) => (
@@ -1153,8 +1191,8 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
           </div>
         ) : (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4 }}>
-              {filteredSeats.slice(boardPage * 64, (boardPage + 1) * 64).map(seat => {
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4, maxHeight: "calc(100vh - 200px)", overflowY: "auto", padding: "0 2px 2px" }}>
+              {filteredSeats.map(seat => {
                 const isMine = seat.mine;
                 return (
                   <div key={seat.id}
@@ -1203,18 +1241,6 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
                   </div>
                 );
               })}
-            </div>
-            {/* Pagination */}
-            <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 12 }}>
-              {[0, 1, 2, 3].map(page => (
-                <button key={page} onClick={() => setBoardPage(page)} style={{
-                  padding: "6px 14px", borderRadius: 6, fontSize: 10, fontWeight: 600,
-                  border: "1px solid " + (boardPage === page ? "#f7b32b" : "#1c2430"),
-                  background: boardPage === page ? "#f7b32b10" : "#131820",
-                  color: boardPage === page ? "#f7b32b" : "#475569",
-                  cursor: "pointer", fontFamily: "inherit",
-                }}>{page * 64 + 1}-{(page + 1) * 64}</button>
-              ))}
             </div>
           </>
         )}
@@ -1389,6 +1415,7 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
                   }}>
                   Claim Rewards {seatDetail?.rewards && parseFloat(seatDetail.rewards) > 0 ? `(${parseFloat(seatDetail.rewards).toFixed(4)} ETH)` : ""}
                 </button>
+                <div style={{ fontSize: 9, color: "#475569", marginTop: -2, marginBottom: 4, textAlign: "center" }}>Rewards sent directly to your wallet</div>
                 <button className="modal-action-btn" style={{ background: "#f7b32b10", border: "1px solid #f7b32b30", color: "#f7b32b" }}
                   onClick={() => {
                     navigator.clipboard.writeText(`${window.location.origin}?ref=${selectedSeat.id}`);
@@ -1908,6 +1935,17 @@ export default function FlipperRooms() {
         } catch {}
       }
 
+      // Auto-withdraw from sessionBalance (flipDirect stores payout there)
+      if (won) {
+        try {
+          const bal = await contract.sessionBalance(address);
+          if (bal > 0n) {
+            const wTx = await contract.withdraw(bal);
+            await wTx.wait();
+          }
+        } catch {}
+      }
+
       setCurrentOpponent(null); // treasury
       setCurrentBet(tierEthVal);
       setLastFlipData({ amount: tierEthVal, opponent: null, isPvP: false });
@@ -1934,30 +1972,35 @@ export default function FlipperRooms() {
     }
   };
 
-  // ═══ CREATE PVP ROOM — DIRECT ETH + 60s AUTO-MATCH ═══
+  // ═══ CREATE PVP ROOM — DIRECT ETH + AUTO-MATCH ═══
   const autoMatchTreasury = useCallback(async (betAmt) => {
+    if (!myRoomId) return;
     try {
-      // Cancel the open room first
-      if (myRoomId) {
-        const cancelTx = await contract.cancelChallengeDirect(myRoomId);
-        await cancelTx.wait();
-      }
+      addToast("info", "No opponent found. Flipping vs treasury...");
+
+      // Step 1: Cancel room to recover ETH
+      const cancelTx = await contract.cancelChallengeDirect(myRoomId);
+      await cancelTx.wait();
       setMyRoomId(null);
       setRoomCountdown(0);
 
+      // Step 2: Wait for nonce to settle
+      await new Promise(r => setTimeout(r, 2000));
+
+      // Step 3: Flip vs treasury
+      setCurrentOpponent(null);
+      setCurrentBet(betAmt);
       setShowCoinStage(true);
       setCoinState("spinning");
       setBorderState("spinning");
       spinStartRef.current = Date.now();
       playFlipSound();
-      setCurrentOpponent(null);
-      setCurrentBet(betAmt);
 
-      const tx = await contract.flipDirect(
+      const flipTx = await contract.flipDirect(
         parseInt(localStorage.getItem('flipper_ref')) || 0,
         { value: parseEther(betAmt) }
       );
-      const receipt = await tx.wait();
+      const receipt = await flipTx.wait();
 
       let won = false; let payout = "0";
       for (const log of receipt.logs) {
@@ -1967,6 +2010,17 @@ export default function FlipperRooms() {
             won = parsed.args.winner?.toLowerCase() === address?.toLowerCase();
             payout = formatEther(parsed.args.payout);
             break;
+          }
+        } catch {}
+      }
+
+      // Auto-withdraw from sessionBalance (flipDirect stores payout there)
+      if (won) {
+        try {
+          const bal = await contract.sessionBalance(address);
+          if (bal > 0n) {
+            const wTx = await contract.withdraw(bal);
+            await wTx.wait();
           }
         } catch {}
       }
@@ -1981,8 +2035,16 @@ export default function FlipperRooms() {
       setLastFlipData({ amount: betAmt, opponent: null, isPvP: false });
       await refreshOpenRooms();
     } catch (err) {
-      addToast("error", "Auto-match failed: " + decodeError(err));
+      // If flip failed, try to cancel room anyway
+      try {
+        if (myRoomId) {
+          const cancelTx = await contract.cancelChallengeDirect(myRoomId);
+          await cancelTx.wait();
+        }
+      } catch {}
+      setMyRoomId(null);
       setCoinState("idle"); setBorderState("idle"); setShowCoinStage(false);
+      addToast("error", "Auto-match failed: " + decodeError(err));
     }
   }, [contract, address, myRoomId]);
 
@@ -2003,9 +2065,9 @@ export default function FlipperRooms() {
       }
       addToast("success", "Room #" + (challengeId || "?") + " created!");
       setMyRoomId(challengeId);
-      setRoomCountdown(60);
+      setRoomCountdown(45);
 
-      // Start 60s countdown to auto-match vs treasury
+      // Start 45s countdown to auto-match vs treasury
       if (roomTimerRef.current) clearInterval(roomTimerRef.current);
       const betCapture = betAmt;
       roomTimerRef.current = setInterval(() => {
