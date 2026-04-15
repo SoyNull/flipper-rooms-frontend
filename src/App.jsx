@@ -1837,7 +1837,7 @@ export default function FlipperRooms() {
     }
 
     try {
-      const tx = await contract.flipDirect(ref, { value: tierWei, gasLimit: 500000n });
+      const tx = await contract.flipDirect(ref, { value: tierWei, gasLimit: 1000000n });
 
       if (!isEmbedded) {
         setWaitingConfirm(false);
@@ -1908,7 +1908,7 @@ export default function FlipperRooms() {
       const tx = await contract.cancelAndFlipTreasury(
         myRoomId,
         parseInt(localStorage.getItem('flipper_ref')) || 0,
-        { gasLimit: 500000n }
+        { gasLimit: 1000000n }
       );
 
       setMyRoomId(null);
@@ -2011,7 +2011,7 @@ export default function FlipperRooms() {
 
       if (!isEmbedded) setWaitingConfirm(true);
 
-      const tx = await contract.acceptChallengeDirect(challengeId, ref, { value: amtWei, gasLimit: 500000n });
+      const tx = await contract.acceptChallengeDirect(challengeId, ref, { value: amtWei, gasLimit: 1000000n });
 
       setWaitingConfirm(false);
       setCoinState("spinning");
