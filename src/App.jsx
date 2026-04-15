@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import * as THREE from "three";
-import { useWallet, useFlip, useSeats, useProtocol, useToasts, addToast, EXPLORER, useGlobalFeed, useChat } from "./hooks.js";
+import { useWallet, useFlip, useSeats, useProtocol, useToasts, addToast, EXPLORER, useGlobalFeed } from "./hooks.js";
 import { getPlayerInfo, getTreasuryMaxBet, getSeatInfo, decodeError } from "./contract.js";
 import { CONTRACT_ADDRESS, TIERS } from "./config.js";
 import { parseEther, formatEther } from "ethers";
@@ -798,7 +798,7 @@ function GameAvatar({ address, size = 40 }) {
 // ═══════════════════════════════════════
 //  CHAT SIDEBAR
 // ═══════════════════════════════════════
-function ChatSidebar({ messages, onlineCount, sendMessage, chatInput, setChatInput, chatEndRef, connected, address }) {
+function LiveFeedSidebar({ recentFlips, address }) {
   return (
     <div className="chat-sidebar">
       <div style={{ height: 2, background: "linear-gradient(90deg, transparent, #f7b32b30, transparent)" }} />
@@ -806,56 +806,49 @@ function ChatSidebar({ messages, onlineCount, sendMessage, chatInput, setChatInp
         padding: "14px 18px", borderBottom: "1px solid #151b25", background: "#0c1019",
         display: "flex", justifyContent: "space-between", alignItems: "center",
       }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>Chat</span>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e60" }} />
-          <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 600 }}>{onlineCount}</span>
-        </div>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>Live Feed</span>
+        {recentFlips.length > 0 && (
+          <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e60", animation: "blink 2s infinite" }} />
+        )}
       </div>
       <div className="chat-messages">
-        {messages.map(msg => {
-          const timeAgo = Math.floor((Date.now()/1000 - msg.timestamp) / 60);
-          const isMe = msg.address?.toLowerCase() === address?.toLowerCase();
+        {recentFlips.map((flip, i) => {
+          const isMyWin = flip.winner?.toLowerCase() === address?.toLowerCase();
+          const isMyLoss = flip.loser?.toLowerCase() === address?.toLowerCase();
           return (
-            <div key={msg.id} style={{ padding: "8px 18px", borderBottom: "1px solid #0e1219" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+            <div key={flip.id + "-" + i} style={{
+              padding: "10px 18px", borderBottom: "1px solid #0e1219",
+              animation: flip.isNew ? "fadeIn 0.3s ease" : "none",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{
-                  width: 20, height: 20, borderRadius: "50%", background: addrColor(msg.address),
+                  width: 22, height: 22, borderRadius: "50%", background: addrColor(flip.winner),
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 6, fontWeight: 800, color: "#fff",
-                }}>{msg.address?.slice(2,4).toUpperCase()}</div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: isMe ? "#f7b32b" : "#c8d0da" }}>
-                  {isMe ? "You" : shortAddr(msg.address)}
-                </span>
-                <span style={{ fontSize: 8, color: "#374151", marginLeft: "auto" }}>
-                  {timeAgo < 1 ? "now" : timeAgo + "m"}
-                </span>
+                  fontSize: 7, fontWeight: 800, color: "#fff",
+                }}>{flip.winner?.slice(2,4).toUpperCase()}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: "#e2e8f0" }}>
+                    <span style={{ fontWeight: 700, color: isMyWin ? "#f7b32b" : "#e2e8f0" }}>
+                      {isMyWin ? "You" : shortAddr(flip.winner)}
+                    </span>
+                    <span style={{ color: "#475569" }}> won </span>
+                    <span style={{ color: "#22c55e", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+                      {parseFloat(flip.payout).toFixed(4)}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 9, color: "#374151" }}>
+                    vs {isMyLoss ? "You" : shortAddr(flip.loser)} {"\u00B7"} {parseFloat(flip.amount).toFixed(4)} ETH
+                  </div>
+                </div>
               </div>
-              <div style={{ fontSize: 11, color: "#94a3b8", paddingLeft: 28, lineHeight: 1.4 }}>{msg.message}</div>
             </div>
           );
         })}
-        <div ref={chatEndRef} />
-      </div>
-      <div style={{ padding: "10px 14px", borderTop: "1px solid #151b25", background: "#0c1019" }}>
-        <div style={{
-          display: "flex", alignItems: "center", gap: 8,
-          background: "#131820", borderRadius: 8, border: "1px solid #1c2430", padding: "6px 10px",
-        }}>
-          <input value={chatInput} onChange={e => setChatInput(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter" && chatInput.trim()) { sendMessage(chatInput); setChatInput(""); } }}
-            placeholder={connected ? "Type a message..." : "Connect to chat"} disabled={!connected} maxLength={200}
-            style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "#e2e8f0", fontSize: 11, fontFamily: "inherit" }} />
-          <button disabled={!connected || !chatInput.trim()}
-            onClick={() => { sendMessage(chatInput); setChatInput(""); }}
-            style={{
-              width: 28, height: 28, borderRadius: 6,
-              background: chatInput.trim() ? "linear-gradient(135deg, #b8860b, #f7b32b)" : "#1c2430",
-              border: "none", cursor: chatInput.trim() ? "pointer" : "default",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: "#0b0e11", fontSize: 12, fontWeight: 800,
-            }}>{">"}</button>
-        </div>
+        {recentFlips.length === 0 && (
+          <div style={{ padding: 30, textAlign: "center", fontSize: 11, color: "#475569" }}>
+            No flips yet. Be the first!
+          </div>
+        )}
       </div>
     </div>
   );
@@ -894,30 +887,13 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
         </div>
       )}
 
-      {/* WALLET */}
-      <div style={{ padding: "20px 16px", borderBottom: "1px solid #151b25", borderLeft: "3px solid #f7b32b30", background: "linear-gradient(135deg, #f7b32b04, transparent)" }}>
-        <div className="stats-label">Wallet</div>
+      {/* BALANCE */}
+      <div style={{ padding: "16px", borderBottom: "1px solid #151b25" }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: 1.5, marginBottom: 6 }}>BALANCE</div>
         <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "#f7b32b", letterSpacing: -1 }}>
-          {walletBalance || "0.0000"}
+          {walletBalance || "0.00"}
         </div>
-        <div className="balance-unit">ETH</div>
-
-        {parseFloat(bal) > 0 && (
-          <div style={{ marginTop: 10 }}>
-            <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>
-              Session balance: {parseFloat(bal).toFixed(4)} ETH
-            </div>
-            <button onClick={async () => {
-              try {
-                const raw = await contract.sessionBalance(address);
-                if (raw > 0n) { const tx = await contract.withdraw(raw); await tx.wait(); addToast("success", "Withdrawn to wallet"); }
-              } catch(e) { addToast("error", decodeError(e)); }
-            }} style={{
-              width: "100%", padding: 8, borderRadius: 6, background: "#f7b32b15", border: "1px solid #f7b32b30",
-              color: "#f7b32b", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-            }}>Withdraw All to Wallet</button>
-          </div>
-        )}
+        <div style={{ fontSize: 11, color: "#475569" }}>ETH</div>
       </div>
 
       <div className="stats-section">
@@ -1550,6 +1526,7 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
                   await tx.wait();
                   bought++;
                   addToast("success", "Seat #" + seat.id + " bought! (" + bought + "/" + bulkCount + ")");
+                  if (bought < toBuy.length) await new Promise(r => setTimeout(r, 1000));
                 } catch (err) {
                   addToast("error", "Seat #" + seat.id + ": " + decodeError(err));
                   break;
@@ -1696,9 +1673,6 @@ export default function FlipperRooms() {
 
   // Global feeds
   const { recentFlips, liveFlip } = useGlobalFeed(contract);
-  const chatHook = useChat(address);
-  const [chatInput, setChatInput] = useState("");
-  const chatEndRef = useRef(null);
   const playerCache = useRef({});
 
   // Coin state
@@ -2170,9 +2144,7 @@ export default function FlipperRooms() {
       <div className="app-root">
 
         {/* ═══ LEFT — CHAT ═══ */}
-        <ChatSidebar messages={chatHook.messages} onlineCount={chatHook.onlineCount}
-          sendMessage={chatHook.sendMessage} chatInput={chatInput} setChatInput={setChatInput}
-          chatEndRef={chatEndRef} connected={connected} address={address} />
+        <LiveFeedSidebar recentFlips={recentFlips} address={address} />
 
         {/* ═══ CENTER — GAME ═══ */}
         <div className="game-center">
@@ -2325,12 +2297,15 @@ export default function FlipperRooms() {
                 <div className="hero-section">
                   <div className="hero-inner">
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
-                      <div className="hero-title-text">COINFLIP</div>
+                      <div style={{
+                        fontFamily: "'Orbitron', sans-serif", fontSize: 44, fontWeight: 900,
+                        color: "#f7b32b", letterSpacing: 6, textShadow: "0 0 40px #f7b32b15",
+                      }}>COINFLIP</div>
                       <button onClick={() => setShowHowItWorks(true)} style={{
                         padding: "5px 10px", borderRadius: 6, background: "transparent",
                         border: "1px solid #1c2430", color: "#475569", fontSize: 11,
-                        fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: 8,
-                      }}>How it works</button>
+                        fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: 12,
+                      }}>?</button>
                     </div>
                     <div className="hero-sub">PvP rooms {"\u2022"} Custom amounts {"\u2022"} Direct payout</div>
 
@@ -2501,8 +2476,8 @@ export default function FlipperRooms() {
                 {/* ═══ CREATE ROOM ═══ */}
                 <div className="games-section" style={{ paddingTop: 20 }}>
                   <div style={{
-                    padding: "16px 20px", background: "#131820", borderRadius: 12,
-                    border: "1px solid #1c2430", marginBottom: 16,
+                    padding: "16px 20px", background: "linear-gradient(135deg, #f7b32b04, #131820)",
+                    borderRadius: 12, border: "1px solid #f7b32b15", marginBottom: 16,
                   }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: 1.5, marginBottom: 12 }}>
                       CREATE PVP ROOM
@@ -2577,8 +2552,13 @@ export default function FlipperRooms() {
                       </div>
                     )}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: 1.5 }}>
-                        OPEN ROOMS
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: 1.5 }}>
+                          OPEN ROOMS
+                        </div>
+                        {openRooms.length > 0 && (
+                          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e", animation: "blink 1.5s ease infinite" }} />
+                        )}
                       </div>
                       <span style={{ fontSize: 10, color: "#475569" }}>{openRooms.length} active</span>
                     </div>
