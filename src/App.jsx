@@ -1628,14 +1628,16 @@ export default function FlipperRooms() {
   const tierBarRef = useRef(null);
   const [borderState, setBorderState] = useState("idle");
   const spinStartRef = useRef(0);
-  const forceFlipRef = useRef(false);
   const [currentOpponent, setCurrentOpponent] = useState(null);
   const [currentBet, setCurrentBet] = useState("0");
   const [lastFlipData, setLastFlipData] = useState(null);
   const [myRoomId, setMyRoomId] = useState(null);
+  const myRoomIdRef = useRef(null);
   const [roomCountdown, setRoomCountdown] = useState(0);
-  const roomTimerRef = useRef(null);
   const [showWalletMenu, setShowWalletMenu] = useState(false);
+
+  // Keep ref in sync so timers/closures always see current roomId
+  useEffect(() => { myRoomIdRef.current = myRoomId; }, [myRoomId]);
 
   const resetFlip = useCallback(() => {
     setCoinState("idle");
@@ -1775,7 +1777,6 @@ export default function FlipperRooms() {
 
         // Clear auto-match timer if our room was accepted
         if (isMyFlip && myRoomId) {
-          if (roomTimerRef.current) { clearInterval(roomTimerRef.current); roomTimerRef.current = null; }
           setMyRoomId(null);
           setRoomCountdown(0);
         }
@@ -1809,13 +1810,6 @@ export default function FlipperRooms() {
     return () => { contract.off("FlipResolved", onFlipResolved); };
   }, [contract, address, showCoinStage, coinState]);
 
-  // Auto-trigger flip after reset from Rematch/Double
-  useEffect(() => {
-    if (forceFlipRef.current && coinState === "idle" && !showResult) {
-      forceFlipRef.current = false;
-      handleFlip();
-    }
-  }, [coinState, showResult]);
 
   // ═══ FLIP VS TREASURY — SINGLE TX ═══
   const handleFlip = async () => {
@@ -1892,7 +1886,11 @@ export default function FlipperRooms() {
 
   // ═══ CREATE PVP ROOM — DIRECT ETH + AUTO-MATCH ═══
   const autoMatchTreasury = useCallback(async (betAmt) => {
-    if (!myRoomId) return;
+    const roomId = myRoomIdRef.current;
+    if (!roomId) {
+      addToast("error", "No room to auto-match");
+      return;
+    }
     try {
       addToast("info", "No opponent found. Flipping vs treasury...");
 
@@ -1906,7 +1904,7 @@ export default function FlipperRooms() {
 
       // ONE TX: cancel room + flip vs treasury + auto-withdraw
       const tx = await contract.cancelAndFlipTreasury(
-        myRoomId,
+        roomId,
         parseInt(localStorage.getItem('flipper_ref')) || 0,
         { gasLimit: 1000000n }
       );
@@ -1941,7 +1939,22 @@ export default function FlipperRooms() {
       setCoinState("idle"); setBorderState("idle"); setShowCoinStage(false);
       addToast("error", "Auto-match failed: " + decodeError(err));
     }
-  }, [contract, address, myRoomId]);
+  }, [contract, address]);
+
+  // Countdown timer — uses setTimeout (not setInterval) to avoid stale closure issues
+  const countdownBetRef = useRef(null);
+  useEffect(() => {
+    if (roomCountdown <= 0 || !myRoomId) return;
+    const timer = setTimeout(() => {
+      if (roomCountdown <= 1) {
+        setRoomCountdown(0);
+        autoMatchTreasury(countdownBetRef.current);
+      } else {
+        setRoomCountdown(prev => prev - 1);
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [roomCountdown, myRoomId, autoMatchTreasury]);
 
   const handleCreateRoom = async () => {
     if (!contract || !connected) return;
@@ -1960,21 +1973,9 @@ export default function FlipperRooms() {
       }
       addToast("success", "Room #" + (challengeId || "?") + " created!");
       setMyRoomId(challengeId);
+      myRoomIdRef.current = challengeId;
+      countdownBetRef.current = betAmt;
       setRoomCountdown(45);
-
-      // Start 45s countdown to auto-match vs treasury
-      if (roomTimerRef.current) clearInterval(roomTimerRef.current);
-      const betCapture = betAmt;
-      roomTimerRef.current = setInterval(() => {
-        setRoomCountdown(prev => {
-          if (prev <= 1) {
-            clearInterval(roomTimerRef.current);
-            autoMatchTreasury(betCapture);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
 
       await refreshOpenRooms();
     } catch (err) { addToast("error", decodeError(err)); }
@@ -1982,7 +1983,6 @@ export default function FlipperRooms() {
 
   const handleCancelRoom = async (id) => {
     playClickSound();
-    if (roomTimerRef.current) { clearInterval(roomTimerRef.current); roomTimerRef.current = null; }
     setMyRoomId(null);
     setRoomCountdown(0);
     try {
@@ -2322,36 +2322,95 @@ export default function FlipperRooms() {
                               {showResult && (
                                 <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "center", flexWrap: "wrap", animation: "fadeIn 0.4s ease 0.5s both" }}>
                                   <button className="action-btn btn-rematch" onClick={async () => {
+                                    const amt = lastFlipData?.amount || tierEth;
                                     resetFlip();
-                                    setShowCoinStage(false);
                                     if (lastFlipData?.isPvP) {
+                                      setShowCoinStage(false);
                                       try {
-                                        const tx = await contract.createChallengeDirect(
-                                          parseInt(localStorage.getItem('flipper_ref')) || 0,
-                                          { value: parseEther(lastFlipData.amount) }
-                                        );
-                                        await tx.wait();
+                                        const ref = parseInt(localStorage.getItem('flipper_ref')) || 0;
+                                        const tx = await contract.createChallengeDirect(ref, { value: parseEther(amt) });
+                                        const receipt = await tx.wait();
+                                        let cid = null;
+                                        for (const log of receipt.logs) {
+                                          try { const p = contract.interface.parseLog(log); if (p?.name === "ChallengeCreated") { cid = Number(p.args[0]); break; } } catch {}
+                                        }
+                                        setMyRoomId(cid);
+                                        myRoomIdRef.current = cid;
+                                        countdownBetRef.current = amt;
+                                        setRoomCountdown(45);
                                         addToast("success", "Rematch room created!");
                                         await refreshOpenRooms();
                                       } catch (err) { addToast("error", decodeError(err)); }
                                     } else {
-                                      forceFlipRef.current = true;
+                                      setShowCoinStage(true);
+                                      setCoinState("spinning");
+                                      setBorderState("spinning");
+                                      setCurrentOpponent(null);
+                                      setCurrentBet(amt);
+                                      spinStartRef.current = Date.now();
+                                      playFlipSound();
+                                      try {
+                                        const ref = parseInt(localStorage.getItem('flipper_ref')) || 0;
+                                        const tx = await contract.flipDirect(ref, { value: parseEther(amt), gasLimit: 1000000n });
+                                        const receipt = await tx.wait();
+                                        let won = false, payout = "0";
+                                        for (const log of receipt.logs) {
+                                          try { const p = contract.interface.parseLog(log); if (p?.name === "FlipResolved") { won = p.args.winner?.toLowerCase() === address?.toLowerCase(); payout = formatEther(p.args.payout); break; } } catch {}
+                                        }
+                                        const elapsed = Date.now() - spinStartRef.current;
+                                        setTimeout(() => { pendingResultRef.current = { won, payout, amount: amt }; setCoinState(won ? "win" : "lose"); setTimeout(() => setBorderState(won ? "win" : "lose"), 500); }, Math.max(0, 2500 - elapsed));
+                                        setLastFlipData({ amount: amt, opponent: null, isPvP: false });
+                                      } catch (err) {
+                                        setCoinState("idle"); setBorderState("idle"); setShowCoinStage(false);
+                                        addToast("error", decodeError(err));
+                                      }
                                     }
                                   }}>Rematch {lastFlipData?.amount || tierEth} ETH</button>
                                   {result === "win" && (
                                     <button className="action-btn btn-double" onClick={async () => {
                                       const doubleAmt = (parseFloat(lastFlipData?.amount || tierEth) * 2).toFixed(4);
                                       resetFlip();
-                                      setShowCoinStage(false);
-                                      try {
-                                        const tx = await contract.createChallengeDirect(
-                                          parseInt(localStorage.getItem('flipper_ref')) || 0,
-                                          { value: parseEther(doubleAmt) }
-                                        );
-                                        await tx.wait();
-                                        addToast("success", "Double room: " + doubleAmt + " ETH!");
-                                        await refreshOpenRooms();
-                                      } catch (err) { addToast("error", decodeError(err)); }
+                                      if (lastFlipData?.isPvP) {
+                                        setShowCoinStage(false);
+                                        try {
+                                          const ref = parseInt(localStorage.getItem('flipper_ref')) || 0;
+                                          const tx = await contract.createChallengeDirect(ref, { value: parseEther(doubleAmt) });
+                                          const receipt = await tx.wait();
+                                          let cid = null;
+                                          for (const log of receipt.logs) {
+                                            try { const p = contract.interface.parseLog(log); if (p?.name === "ChallengeCreated") { cid = Number(p.args[0]); break; } } catch {}
+                                          }
+                                          setMyRoomId(cid);
+                                          myRoomIdRef.current = cid;
+                                          countdownBetRef.current = doubleAmt;
+                                          setRoomCountdown(45);
+                                          addToast("success", "Double room: " + doubleAmt + " ETH!");
+                                          await refreshOpenRooms();
+                                        } catch (err) { addToast("error", decodeError(err)); }
+                                      } else {
+                                        setShowCoinStage(true);
+                                        setCoinState("spinning");
+                                        setBorderState("spinning");
+                                        setCurrentOpponent(null);
+                                        setCurrentBet(doubleAmt);
+                                        spinStartRef.current = Date.now();
+                                        playFlipSound();
+                                        try {
+                                          const ref = parseInt(localStorage.getItem('flipper_ref')) || 0;
+                                          const tx = await contract.flipDirect(ref, { value: parseEther(doubleAmt), gasLimit: 1000000n });
+                                          const receipt = await tx.wait();
+                                          let won = false, payout = "0";
+                                          for (const log of receipt.logs) {
+                                            try { const p = contract.interface.parseLog(log); if (p?.name === "FlipResolved") { won = p.args.winner?.toLowerCase() === address?.toLowerCase(); payout = formatEther(p.args.payout); break; } } catch {}
+                                          }
+                                          const elapsed = Date.now() - spinStartRef.current;
+                                          setTimeout(() => { pendingResultRef.current = { won, payout, amount: doubleAmt }; setCoinState(won ? "win" : "lose"); setTimeout(() => setBorderState(won ? "win" : "lose"), 500); }, Math.max(0, 2500 - elapsed));
+                                          setLastFlipData({ amount: doubleAmt, opponent: null, isPvP: false });
+                                        } catch (err) {
+                                          setCoinState("idle"); setBorderState("idle"); setShowCoinStage(false);
+                                          addToast("error", decodeError(err));
+                                        }
+                                      }
                                     }}>Double ({(parseFloat(lastFlipData?.amount || tierEth) * 2).toFixed(4)})</button>
                                   )}
                                   <button className="action-btn btn-change" onClick={() => {
