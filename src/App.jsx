@@ -1903,11 +1903,12 @@ export default function FlipperRooms() {
   // ═══ Treasury flip by amount (for Flip Again / Double) ═══
   const handleFlipTreasury = async (amount) => {
     if (!contract || !connected) return;
+    const amt = amount.replace(",", ".");
     const ref = parseInt(localStorage.getItem('flipper_ref')) || 0;
     resetFlip();
     await executeFlip(
-      contract.flipDirect(ref, { value: parseEther(amount), gasLimit: 1000000n }),
-      null, amount, false
+      contract.flipDirect(ref, { value: parseEther(amt), gasLimit: 1000000n }),
+      null, amt, false
     );
   };
 
@@ -1948,7 +1949,11 @@ export default function FlipperRooms() {
   const handleCreateRoom = async (amount) => {
     if (!contract || !connected) return;
     playClickSound();
-    const betAmt = amount || customBet;
+    const betAmt = (amount || customBet).replace(",", ".");
+    if (isNaN(parseFloat(betAmt)) || parseFloat(betAmt) <= 0) {
+      addToast("error", "Invalid bet amount");
+      return;
+    }
     const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
     try {
       const tx = await contract.createChallengeDirect(ref, { value: parseEther(betAmt) });
@@ -2371,7 +2376,7 @@ export default function FlipperRooms() {
                           outline: "none",
                         }}
                       />
-                      <button onClick={handleCreateRoom} disabled={!connected} style={{
+                      <button onClick={() => handleCreateRoom()} disabled={!connected} style={{
                         padding: "10px 24px", borderRadius: 8,
                         background: connected ? "linear-gradient(135deg, #b8860b, #f7b32b)" : "#1c2430",
                         color: "#0b0e11", fontSize: 13, fontWeight: 800,
