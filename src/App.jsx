@@ -1637,6 +1637,7 @@ export default function FlipperRooms() {
   const [roomCountdown, setRoomCountdown] = useState(0);
   const [showWalletMenu, setShowWalletMenu] = useState(false);
   const [matchFoundAnim, setMatchFoundAnim] = useState(false);
+  const processingFlipRef = useRef(false);
 
   // Keep ref in sync so timers/closures always see current roomId
   useEffect(() => { myRoomIdRef.current = myRoomId; }, [myRoomId]);
@@ -1653,6 +1654,7 @@ export default function FlipperRooms() {
     const pending = pendingResultRef.current;
     if (!pending) return;
     pendingResultRef.current = null;
+    processingFlipRef.current = false;
 
     setShowResult(true);
     setResult(pending.won ? "win" : "lose");
@@ -1772,10 +1774,8 @@ export default function FlipperRooms() {
   // Uses refs to avoid stale closures — listener is stable, not recreated on state changes
   const coinStateRef = useRef(coinState);
   const showCoinStageRef = useRef(showCoinStage);
-  const showResultRef = useRef(false);
   useEffect(() => { coinStateRef.current = coinState; }, [coinState]);
   useEffect(() => { showCoinStageRef.current = showCoinStage; }, [showCoinStage]);
-  useEffect(() => { showResultRef.current = showResult; }, [showResult]);
 
   useEffect(() => {
     if (!contract || !address) return;
@@ -1794,8 +1794,9 @@ export default function FlipperRooms() {
 
         if (!isMyFlip) return;
 
-        // If we already showing result, we sent the TX ourselves — skip
-        if (showResultRef.current) return;
+        // If we're already processing a flip (coin stage visible or executeFlip active),
+        // the receipt handler manages the result — skip to avoid duplicate sounds/alerts
+        if (showCoinStageRef.current || processingFlipRef.current) return;
 
         const wasWaitingForRoom = !!myRoomIdRef.current;
 
@@ -1865,6 +1866,7 @@ export default function FlipperRooms() {
 
   // Core: send a flip TX, show coin animation, display result
   const executeFlip = async (txPromise, opponent, betAmount, isPvP) => {
+    processingFlipRef.current = true;
     setCurrentOpponent(opponent);
     setCurrentBet(betAmount);
     setShowCoinStage(true);
@@ -1897,6 +1899,7 @@ export default function FlipperRooms() {
       setBorderState("idle");
       setShowCoinStage(false);
       setWaitingConfirm(false);
+      processingFlipRef.current = false;
       addToast("error", decodeError(err));
       return null;
     }
@@ -2227,6 +2230,7 @@ export default function FlipperRooms() {
           )}
 
           <div className="game-scroll">
+           <div key={view} style={{ animation: "fadeIn 0.2s ease" }}>
 
             {/* ═══ COINFLIP VIEW ═══ */}
             {view === "flip" && (
@@ -2407,7 +2411,7 @@ export default function FlipperRooms() {
                     })()}
 
                     {/* ═══ SEARCHING STATE — waiting for opponent ═══ */}
-                    {myRoomId && !showCoinStage && (
+                    {myRoomId && !showCoinStage && !matchFoundAnim && (
                       <div style={{
                         textAlign: "center", padding: "40px 20px",
                         animation: "fadeIn 0.3s ease",
@@ -2760,6 +2764,7 @@ export default function FlipperRooms() {
                 <AdminPanel contract={contract} address={address} />
               </div>
             )}
+           </div>
           </div>
         </div>
 
