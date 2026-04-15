@@ -977,6 +977,10 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
   const [selectedMult, setSelectedMult] = useState(0);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [boardFilter, setBoardFilter] = useState("all");
+  const [boardPage, setBoardPage] = useState(0);
+  const [showBulkBuy, setShowBulkBuy] = useState(false);
+  const [bulkCount, setBulkCount] = useState(3);
+  const [bulkBuying, setBulkBuying] = useState(false);
 
   // Fetch detailed seat info when modal opens
   useEffect(() => {
@@ -1117,7 +1121,7 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
         ))}
 
         {/* Buy CTA */}
-        {connected && (
+        {connected && (<>
           <button onClick={() => {
             const firstEmpty = seatHook.seats.find(s => !s.active);
             if (firstEmpty) { setSelectedSeat(firstEmpty); setSelectedMult(0); setSelectedDuration(168); }
@@ -1127,7 +1131,13 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
             fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer",
             fontFamily: "'Chakra Petch', sans-serif",
           }}>Buy a Seat</button>
-        )}
+          <button onClick={() => setShowBulkBuy(true)} style={{
+            width: "100%", padding: 8, borderRadius: 8, marginTop: 6,
+            background: "transparent", border: "1px solid #f7b32b30",
+            color: "#f7b32b80", fontSize: 10, fontWeight: 600,
+            cursor: "pointer", fontFamily: "inherit",
+          }}>Buy Multiple Seats</button>
+        </>)}
 
         <div className="board-label" style={{ marginTop: 16 }}>TOP HOLDERS</div>
         {topHolders.length === 0 && <div style={{ fontSize: 10, color: "#475569" }}>No seats owned yet</div>}
@@ -1166,74 +1176,84 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
           </div>
         </div>
 
-        {/* Grid */}
+        {/* 8x8 Grid with pagination */}
         {seatHook.loading ? (
-          <div className="seat-grid">
-            {Array(256).fill(0).map((_, i) => (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4 }}>
+            {Array(64).fill(0).map((_, i) => (
               <div key={i} style={{
-                aspectRatio: "1", borderRadius: 4,
+                aspectRatio: "1", borderRadius: 6,
                 background: "#0d1118", border: "1px solid #151b25",
                 animation: "blink 1.5s ease infinite",
-                animationDelay: (i % 16) * 0.02 + "s",
+                animationDelay: (i % 8) * 0.03 + "s",
               }} />
             ))}
           </div>
         ) : (
-          <div className="seat-grid">
-            {filteredSeats.map(seat => {
-              const isMine = seat.mine;
-              return (
-                <div key={seat.id}
-                  onClick={() => { setSelectedSeat(seat); setSelectedMult(0); setSelectedDuration(168); playClickSound(); }}
-                  style={{
-                    aspectRatio: "1", borderRadius: 4, cursor: "pointer", position: "relative",
-                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                    overflow: "hidden", transition: "all 0.15s",
-                    opacity: seat.hidden ? 0.1 : 1,
-                    border: isMine ? "2px solid #f7b32b"
-                      : seat.active ? "2px solid " + addrColor(seat.owner) + "40"
-                      : "1px solid #151b25",
-                    background: seat.active
-                      ? "linear-gradient(135deg, " + addrColor(seat.owner) + "15, #0d1118)"
-                      : "#0a0d12",
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.2)"; e.currentTarget.style.zIndex = "10"; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.zIndex = "1"; }}
-                >
-                  {seat.active ? (
-                    <>
-                      <div style={{
-                        width: 18, height: 18, borderRadius: "50%",
-                        background: addrColor(seat.owner),
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 6, fontWeight: 800, color: "#fff", marginBottom: 1,
-                      }}>{seat.owner?.slice(2, 4).toUpperCase()}</div>
-                      <div style={{
-                        position: "absolute", bottom: 0, left: 0, right: 0, textAlign: "center",
-                        fontSize: 6, fontWeight: 700, color: "#f7b32b", background: "#0b0e11cc",
-                        padding: "1px 0", fontFamily: "'JetBrains Mono', monospace",
-                      }}>{parseFloat(seat.price).toFixed(3)}</div>
-                    </>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: 7, color: "#1c2430", fontWeight: 600 }}>{seat.id}</div>
-                      <div style={{
-                        position: "absolute", bottom: 0, left: 0, right: 0, textAlign: "center",
-                        fontSize: 5, fontWeight: 600, color: "#1c2430", padding: "1px 0",
-                        fontFamily: "'JetBrains Mono', monospace",
-                      }}>0.001</div>
-                    </>
-                  )}
-                  {isMine && (
-                    <div style={{
-                      position: "absolute", top: 1, right: 1, width: 5, height: 5,
-                      borderRadius: "50%", background: "#f7b32b", boxShadow: "0 0 4px #f7b32b",
-                    }} />
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4 }}>
+              {filteredSeats.slice(boardPage * 64, (boardPage + 1) * 64).map(seat => {
+                const isMine = seat.mine;
+                return (
+                  <div key={seat.id}
+                    onClick={() => { setSelectedSeat(seat); setSelectedMult(0); setSelectedDuration(168); playClickSound(); }}
+                    style={{
+                      aspectRatio: "1", borderRadius: 6, cursor: "pointer", position: "relative",
+                      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                      padding: 4, transition: "all 0.15s",
+                      opacity: seat.hidden ? 0.1 : 1,
+                      border: isMine ? "2px solid #f7b32b"
+                        : seat.active ? "1px solid " + addrColor(seat.owner) + "50"
+                        : "1px solid #1a1f2e",
+                      background: seat.active
+                        ? "linear-gradient(135deg, " + addrColor(seat.owner) + "12, #0d1118)"
+                        : "#0c0f14",
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.08)"; e.currentTarget.style.zIndex = "5"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.4)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.zIndex = "1"; e.currentTarget.style.boxShadow = "none"; }}
+                  >
+                    {seat.active ? (
+                      <>
+                        <div style={{ fontSize: 8, color: "#475569", position: "absolute", top: 3, left: 4 }}>#{seat.id}</div>
+                        {isMine && <div style={{ position: "absolute", top: 3, right: 4, width: 6, height: 6, borderRadius: "50%", background: "#f7b32b", boxShadow: "0 0 4px #f7b32b" }} />}
+                        <div style={{
+                          width: 28, height: 28, borderRadius: "50%",
+                          background: addrColor(seat.owner),
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 9, fontWeight: 800, color: "#fff", marginBottom: 3,
+                        }}>{seat.owner?.slice(2, 4).toUpperCase()}</div>
+                        <div style={{
+                          fontSize: 8, color: "#94a3b8", fontWeight: 600,
+                          overflow: "hidden", textOverflow: "ellipsis",
+                          whiteSpace: "nowrap", maxWidth: "90%", textAlign: "center",
+                        }}>{seat.name || shortAddr(seat.owner)}</div>
+                        <div style={{
+                          fontSize: 9, fontWeight: 700, color: "#f7b32b",
+                          fontFamily: "'JetBrains Mono', monospace", marginTop: 2,
+                        }}>{parseFloat(seat.price).toFixed(3)} {"\u039E"}</div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 10, color: "#1c2430", fontWeight: 700 }}>#{seat.id}</div>
+                        <div style={{ fontSize: 8, color: "#1c2430", marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>0.001 {"\u039E"}</div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {/* Pagination */}
+            <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 12 }}>
+              {[0, 1, 2, 3].map(page => (
+                <button key={page} onClick={() => setBoardPage(page)} style={{
+                  padding: "6px 14px", borderRadius: 6, fontSize: 10, fontWeight: 600,
+                  border: "1px solid " + (boardPage === page ? "#f7b32b" : "#1c2430"),
+                  background: boardPage === page ? "#f7b32b10" : "#131820",
+                  color: boardPage === page ? "#f7b32b" : "#475569",
+                  cursor: "pointer", fontFamily: "inherit",
+                }}>{page * 64 + 1}-{(page + 1) * 64}</button>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
@@ -1485,6 +1505,69 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
           </div>
         </div>
       )}
+
+      {/* BULK BUY MODAL */}
+      {showBulkBuy && (
+        <div onClick={e => { if (e.target === e.currentTarget) setShowBulkBuy(false); }}
+          style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "#131820", border: "1px solid #1c2430", borderRadius: 14, padding: 24, width: 380 }}>
+            <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 16, fontWeight: 800, color: "#f7b32b", marginBottom: 16 }}>Buy Multiple Seats</div>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>
+              Buy {bulkCount} empty seats at base price (0.001 ETH + 0.002 deposit each)
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <span style={{ fontSize: 11, color: "#475569" }}>Qty:</span>
+              {[1, 3, 5, 10].map(n => (
+                <button key={n} onClick={() => setBulkCount(n)} style={{
+                  padding: "6px 14px", borderRadius: 6,
+                  border: "1px solid " + (bulkCount === n ? "#f7b32b" : "#1c2430"),
+                  background: bulkCount === n ? "#f7b32b10" : "#0b0e11",
+                  color: bulkCount === n ? "#f7b32b" : "#475569",
+                  fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                }}>{n}</button>
+              ))}
+            </div>
+            <div style={{ padding: 12, background: "#0b0e11", borderRadius: 8, marginBottom: 16 }}>
+              {[
+                { l: "Seats", v: bulkCount },
+                { l: "Cost each", v: "0.003 ETH" },
+                { l: "Total", v: (bulkCount * 0.003).toFixed(3) + " ETH", c: "#f7b32b" },
+              ].map((r, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11 }}>
+                  <span style={{ color: "#475569" }}>{r.l}</span>
+                  <span style={{ color: r.c || "#e2e8f0", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{r.v}</span>
+                </div>
+              ))}
+            </div>
+            <button disabled={bulkBuying} onClick={async () => {
+              setBulkBuying(true);
+              const empty = seatHook.seats.filter(s => !s.active);
+              const toBuy = empty.slice(0, bulkCount);
+              let bought = 0;
+              for (const seat of toBuy) {
+                try {
+                  const tx = await contract.buySeat(seat.id, parseEther("0.001"), "", 0n, { value: parseEther("0.003") });
+                  await tx.wait();
+                  bought++;
+                  addToast("success", "Seat #" + seat.id + " bought! (" + bought + "/" + bulkCount + ")");
+                } catch (err) {
+                  addToast("error", "Seat #" + seat.id + ": " + decodeError(err));
+                  break;
+                }
+              }
+              setBulkBuying(false);
+              setShowBulkBuy(false);
+              seatHook.refreshSeats();
+            }} style={{
+              width: "100%", padding: 14, borderRadius: 10,
+              background: bulkBuying ? "#475569" : "linear-gradient(135deg, #b8860b, #f7b32b)",
+              color: "#0b0e11", fontSize: 14, fontWeight: 800, border: "none",
+              cursor: bulkBuying ? "wait" : "pointer", fontFamily: "'Chakra Petch', sans-serif",
+            }}>{bulkBuying ? "Buying..." : "Buy " + bulkCount + " Seats (" + (bulkCount * 0.003).toFixed(3) + " ETH)"}</button>
+            <div style={{ fontSize: 9, color: "#475569", marginTop: 8, textAlign: "center" }}>Each seat = separate transaction</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1633,6 +1716,10 @@ export default function FlipperRooms() {
   const [currentOpponent, setCurrentOpponent] = useState(null);
   const [currentBet, setCurrentBet] = useState("0");
   const [lastFlipData, setLastFlipData] = useState(null);
+  const [myRoomId, setMyRoomId] = useState(null);
+  const [roomCountdown, setRoomCountdown] = useState(0);
+  const roomTimerRef = useRef(null);
+  const [showWalletMenu, setShowWalletMenu] = useState(false);
 
   const resetFlip = useCallback(() => {
     setCoinState("idle");
@@ -1747,6 +1834,14 @@ export default function FlipperRooms() {
 
   const isAdmin = address?.toLowerCase() === OWNER.toLowerCase();
 
+  // Close wallet menu on outside click
+  useEffect(() => {
+    if (!showWalletMenu) return;
+    const close = (e) => { if (!e.target.closest('.wallet-dropdown')) setShowWalletMenu(false); };
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [showWalletMenu]);
+
   // V7: Listen for FlipResolved where we are a participant (BUG 2: creator sees flip)
   useEffect(() => {
     if (!contract || !address) return;
@@ -1760,6 +1855,13 @@ export default function FlipperRooms() {
         const isMyFlip = winner.toLowerCase() === myAddr || loser.toLowerCase() === myAddr;
 
         // Only trigger if we're NOT already showing coin stage (i.e. we're the creator waiting)
+        // Clear auto-match timer if our room was accepted
+        if (isMyFlip && myRoomId) {
+          if (roomTimerRef.current) { clearInterval(roomTimerRef.current); roomTimerRef.current = null; }
+          setMyRoomId(null);
+          setRoomCountdown(0);
+        }
+
         if (isMyFlip && !showCoinStage && coinState === "idle") {
           const won = winner.toLowerCase() === myAddr;
           const opponent = won ? loser : winner;
@@ -1870,13 +1972,65 @@ export default function FlipperRooms() {
     }
   };
 
-  // ═══ CREATE PVP ROOM — DIRECT ETH ═══
+  // ═══ CREATE PVP ROOM — DIRECT ETH + 60s AUTO-MATCH ═══
+  const autoMatchTreasury = useCallback(async (betAmt) => {
+    try {
+      // Cancel the open room first
+      if (myRoomId) {
+        const cancelTx = await contract.cancelChallengeDirect(myRoomId);
+        await cancelTx.wait();
+      }
+      setMyRoomId(null);
+      setRoomCountdown(0);
+
+      setShowCoinStage(true);
+      setCoinState("spinning");
+      setBorderState("spinning");
+      spinStartRef.current = Date.now();
+      playFlipSound();
+      setCurrentOpponent(null);
+      setCurrentBet(betAmt);
+
+      const tx = await contract.flipDirect(
+        parseInt(localStorage.getItem('flipper_ref')) || 0,
+        { value: parseEther(betAmt) }
+      );
+      const receipt = await tx.wait();
+
+      let won = false; let payout = "0";
+      for (const log of receipt.logs) {
+        try {
+          const parsed = contract.interface.parseLog(log);
+          if (parsed?.name === "FlipResolved") {
+            won = parsed.args.winner?.toLowerCase() === address?.toLowerCase();
+            payout = formatEther(parsed.args.payout);
+            break;
+          }
+        } catch {}
+      }
+
+      const elapsed = Date.now() - spinStartRef.current;
+      setTimeout(() => {
+        pendingResultRef.current = { won, payout, amount: betAmt };
+        setCoinState(won ? "win" : "lose");
+        setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
+      }, Math.max(0, 2500 - elapsed));
+
+      setLastFlipData({ amount: betAmt, opponent: null, isPvP: false });
+      await refreshOpenRooms();
+    } catch (err) {
+      addToast("error", "Auto-match failed: " + decodeError(err));
+      setCoinState("idle"); setBorderState("idle"); setShowCoinStage(false);
+    }
+  }, [contract, address, myRoomId]);
+
   const handleCreateRoom = async () => {
     if (!contract || !connected) return;
     playClickSound();
     const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
+    const betAmt = customBet;
     try {
-      const tx = await contract.createChallengeDirect(ref, { value: parseEther(customBet) });
+      const tx = await contract.createChallengeDirect(ref, { value: parseEther(betAmt) });
       const receipt = await tx.wait();
       let challengeId = null;
       for (const log of receipt.logs) {
@@ -1886,12 +2040,32 @@ export default function FlipperRooms() {
         } catch {}
       }
       addToast("success", "Room #" + (challengeId || "?") + " created!");
+      setMyRoomId(challengeId);
+      setRoomCountdown(60);
+
+      // Start 60s countdown to auto-match vs treasury
+      if (roomTimerRef.current) clearInterval(roomTimerRef.current);
+      const betCapture = betAmt;
+      roomTimerRef.current = setInterval(() => {
+        setRoomCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(roomTimerRef.current);
+            autoMatchTreasury(betCapture);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
       await refreshOpenRooms();
     } catch (err) { addToast("error", decodeError(err)); }
   };
 
   const handleCancelRoom = async (id) => {
     playClickSound();
+    if (roomTimerRef.current) { clearInterval(roomTimerRef.current); roomTimerRef.current = null; }
+    setMyRoomId(null);
+    setRoomCountdown(0);
     try {
       const tx = await contract.cancelChallengeDirect(id);
       await tx.wait();
@@ -2050,11 +2224,44 @@ export default function FlipperRooms() {
 
             <div className="header-right">
               {connected ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ position: "relative" }} className="wallet-dropdown">
                   {isEmbedded && (
-                    <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 4, background: "#f7b32b20", color: "var(--gold)", letterSpacing: 0.5 }}>{"\u26A1"} INSTANT</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 4, background: "#f7b32b20", color: "var(--gold)", letterSpacing: 0.5, marginRight: 8 }}>{"\u26A1"} INSTANT</span>
                   )}
-                  <div className="addr-pill" onClick={disconnect}>{shortAddr(address)}</div>
+                  <button onClick={() => setShowWalletMenu(p => !p)} style={{
+                    padding: "6px 14px", borderRadius: 8, background: "#131820",
+                    border: "1px solid #1c2430", color: "#e2e8f0", fontSize: 11,
+                    fontWeight: 600, cursor: "pointer", fontFamily: "'JetBrains Mono', monospace",
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                  }}>
+                    <div style={{
+                      width: 18, height: 18, borderRadius: "50%", background: addrColor(address),
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 6, fontWeight: 800, color: "#fff",
+                    }}>{address?.slice(2,4).toUpperCase()}</div>
+                    {shortAddr(address)}
+                  </button>
+                  {showWalletMenu && (
+                    <div style={{
+                      position: "absolute", top: "100%", right: 0, marginTop: 6,
+                      background: "#131820", border: "1px solid #1c2430", borderRadius: 10,
+                      padding: 12, minWidth: 220, zIndex: 100,
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+                    }}>
+                      <div onClick={() => { navigator.clipboard.writeText(address); addToast("success", "Address copied"); }}
+                        style={{ fontSize: 10, color: "#94a3b8", padding: "6px 0", cursor: "pointer", fontFamily: "'JetBrains Mono', monospace", wordBreak: "break-all" }}>
+                        {address}
+                      </div>
+                      <a href={`${EXPLORER}/address/${address}`} target="_blank" rel="noreferrer"
+                        style={{ display: "block", fontSize: 10, color: "#f7b32b", padding: "8px 0", borderTop: "1px solid #1c2430", textDecoration: "none" }}>
+                        View on BaseScan
+                      </a>
+                      <button onClick={() => { disconnect(); setShowWalletMenu(false); }}
+                        style={{ width: "100%", padding: "8px 0", background: "none", border: "none", borderTop: "1px solid #1c2430", color: "#ef4444", fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+                        Disconnect
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div style={{ display: "flex", gap: 8 }}>
@@ -2339,18 +2546,34 @@ export default function FlipperRooms() {
 
                   {/* ═══ OPEN ROOMS ═══ */}
                   <div style={{ marginBottom: 16 }}>
-                    {/* Your room is open banner */}
-                    {connected && openRooms.some(r => r.creator?.toLowerCase() === address?.toLowerCase()) && (
+                    {/* Your room is open banner with countdown */}
+                    {myRoomId && (
                       <div style={{
-                        padding: "10px 14px", marginBottom: 10, borderRadius: 8,
+                        padding: "12px 14px", marginBottom: 10, borderRadius: 8,
                         background: "#f7b32b08", border: "1px solid #f7b32b20",
                         display: "flex", alignItems: "center", justifyContent: "space-between",
                       }}>
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "#f7b32b" }}>Your room is open</div>
-                          <div style={{ fontSize: 9, color: "#475569" }}>Waiting for opponent to join...</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "#f7b32b" }}>
+                            Your room is open — {customBet} ETH
+                          </div>
+                          <div style={{ fontSize: 9, color: "#475569" }}>
+                            {roomCountdown > 0
+                              ? "Auto-flip vs treasury in " + roomCountdown + "s"
+                              : "Matching vs treasury..."}
+                          </div>
                         </div>
-                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#f7b32b", animation: "blink 1.5s ease infinite" }} />
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div style={{ fontSize: 16, fontWeight: 700, color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace" }}>
+                            0:{roomCountdown.toString().padStart(2, '0')}
+                          </div>
+                          <button onClick={() => handleCancelRoom(myRoomId)} style={{
+                            padding: "6px 14px", borderRadius: 6,
+                            background: "transparent", border: "1px solid #ef444450",
+                            color: "#ef4444", fontSize: 10, fontWeight: 700,
+                            cursor: "pointer", fontFamily: "inherit",
+                          }}>Cancel</button>
+                        </div>
                       </div>
                     )}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
