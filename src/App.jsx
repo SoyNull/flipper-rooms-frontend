@@ -1942,9 +1942,9 @@ export default function FlipperRooms() {
         // Check if room is still open before auto-matching
         const roomId = myRoomIdRef.current;
         if (!roomId || !contract) return;
-        contract.getChallengeInfo(roomId).then(info => {
-          const status = Number(info.status_ ?? info[4] ?? 0);
-          if (status !== 0) {
+        contract.getAllOpenChallenges().then(data => {
+          const stillOpen = data.ids.some(id => Number(id) === roomId);
+          if (!stillOpen) {
             // Room already accepted/cancelled — wait for FlipResolved event
             setMyRoomId(null);
             myRoomIdRef.current = null;
@@ -1969,12 +1969,13 @@ export default function FlipperRooms() {
     const checkRoom = async () => {
       try {
         console.log("ROOM POLL: checking room", myRoomId);
-        const info = await contract.getChallengeInfo(myRoomId);
-        const status = Number(info.status_ ?? info[4] ?? 0);
-        console.log("ROOM POLL: status =", status);
-        if (status === 0) return; // still open
+        // Use getAllOpenChallenges instead of getChallengeInfo — more reliable with RPC caching
+        const data = await contract.getAllOpenChallenges();
+        const stillOpen = data.ids.some(id => Number(id) === myRoomId);
+        console.log("ROOM POLL: stillOpen =", stillOpen);
+        if (stillOpen) return; // still open
 
-        // Room was accepted — clear state, find result
+        // Room no longer open — was accepted or cancelled, find result
         const roomId = myRoomId;
         setMyRoomId(null);
         myRoomIdRef.current = null;
@@ -2009,7 +2010,9 @@ export default function FlipperRooms() {
           return;
         }
         addToast("info", "Opponent found! Waiting for result...");
-      } catch {}
+      } catch (err) {
+        console.error("ROOM POLL error:", err);
+      }
     };
     const iv = setInterval(checkRoom, 2000);
     return () => clearInterval(iv);
