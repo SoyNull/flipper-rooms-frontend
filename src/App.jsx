@@ -1869,26 +1869,18 @@ export default function FlipperRooms() {
   const roomGoneDetectedRef = useRef(false);
   const fallbackTimeoutRef = useRef(null);
   const droneCleanupRef = useRef(null);
-  const tickIntervalRef = useRef(null);
 
   // Keep refs in sync so timers/closures always see current values
   useEffect(() => { myRoomIdRef.current = myRoomId; }, [myRoomId]);
   useEffect(() => { showCoinStageRef.current = showCoinStage; }, [showCoinStage]);
 
   const startSpinAudio = useCallback(() => {
-    // Clean up any prior drone
     if (droneCleanupRef.current) { droneCleanupRef.current(); droneCleanupRef.current = null; }
-    if (tickIntervalRef.current) { clearInterval(tickIntervalRef.current); tickIntervalRef.current = null; }
-    // Start drone
-    droneCleanupRef.current = audio.playSpinDrone(2500);
-    // Tick clicks for countdown feel
-    tickIntervalRef.current = setInterval(() => audio.playTickClick(), 120);
-    setTimeout(() => { if (tickIntervalRef.current) { clearInterval(tickIntervalRef.current); tickIntervalRef.current = null; } }, 2400);
+    droneCleanupRef.current = audio.playSpinDrone();
   }, []);
 
   const stopSpinAudio = useCallback(() => {
     if (droneCleanupRef.current) { droneCleanupRef.current(); droneCleanupRef.current = null; }
-    if (tickIntervalRef.current) { clearInterval(tickIntervalRef.current); tickIntervalRef.current = null; }
   }, []);
 
   const resetFlip = useCallback(() => {
