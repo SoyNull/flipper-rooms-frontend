@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from "react";
 import {
-  useWallet, useFlip, useSeats, useProtocol, useToasts, addToast, EXPLORER,
+  useWallet, useFlip, useSeats, useProtocol, useToasts, addToast, dismissToast, EXPLORER,
   useGlobalFeed, useTokenBalance, useUserProfile,
 } from "./hooks.js";
 
@@ -1798,15 +1798,32 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                       return;
                     }
                   } catch {}
-                  addToast("pending", "Approving FLIPPER...");
+                  const pendingId = addToast("pending", "Approving FLIPPER…");
                   try {
                     const weeklyTax = initialPrice * 500n / 10000n;
                     const deposit = weeklyTax * BigInt(mintDepositWeeks);
+                    // Balance pre-check so we fail fast with a useful message
+                    // instead of a generic revert downstream.
+                    try {
+                      const mp = await seatsContract.calculateMintPrice();
+                      const needed = mp + deposit;
+                      const bal = await tokenContract.balanceOf(address);
+                      if (bal < needed) {
+                        dismissToast(pendingId);
+                        addToast("error", `Need ${Number(formatUnits(needed, 18)).toLocaleString()} FLIPPER, have ${Number(formatUnits(bal, 18)).toLocaleString()}`);
+                        return;
+                      }
+                    } catch {}
                     await mintSeatFn(seatsContract, tokenContract, selectedSeat.id, initialPrice, seatBuyName, 0n, deposit);
+                    dismissToast(pendingId);
                     addToast("success", `Minted Seat #${selectedSeat.id}!`);
                     setSelectedSeat(null); setSeatBuyName("");
                     seatHook.refreshSeats(); refreshTokenBalance?.();
-                  } catch (err) { addToast("error", decodeError(err)); }
+                  } catch (err) {
+                    dismissToast(pendingId);
+                    console.error(`[mintSeat #${selectedSeat.id}]`, err);
+                    addToast("error", decodeError(err));
+                  }
                 }}>Mint Seat</button>
                 <button className="modal-cancel-btn" onClick={() => setSelectedSeat(null)}>Cancel</button>
               </div>
@@ -2204,8 +2221,12 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   } catch {}
 
                   // 3) Single approve. No per-mint approve.
-                  addToast("pending", `Approving ${fmt(withMargin)} FLIPPER once for ${toBuy.length} mints…`);
-                  await approveFlipperFn(tokenContract, withMargin);
+                  const approvePendingId = addToast("pending", `Approving ${fmt(withMargin)} FLIPPER once for ${toBuy.length} mints…`);
+                  try {
+                    await approveFlipperFn(tokenContract, withMargin);
+                  } finally {
+                    dismissToast(approvePendingId);
+                  }
 
                   // 4) Verify the approve landed before firing mints. Spares the
                   //    user N failed transactions if the approve silently errored.
@@ -4303,12 +4324,16 @@ export default function FlipperRooms() {
       {connected && chainId === CHAIN_ID && tokenContract && (
         <button
           onClick={async () => {
+            const pid = addToast("pending", "Claiming test FLIPPER…");
             try {
-              addToast("pending", "Claiming test FLIPPER...");
               await claimMockFlipperFn(tokenContract);
+              dismissToast(pid);
               addToast("success", "Received test FLIPPER");
               tokenHook.refreshBalance?.();
-            } catch (err) { addToast("error", decodeError(err)); }
+            } catch (err) {
+              dismissToast(pid);
+              addToast("error", decodeError(err));
+            }
           }}
           title="Claim 100,000 test FLIPPER (Sepolia faucet)"
           style={{

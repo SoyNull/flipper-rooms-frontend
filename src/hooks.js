@@ -37,18 +37,23 @@ export function addToast(type, message, txHash) {
   if (!toastSetState) return;
   const id = ++toastId;
   toastSetState(prev => [...prev, { id, type, message, txHash }]);
-  if (type !== "pending") {
-    setTimeout(() => {
-      toastSetState(prev => prev.filter(t => t.id !== id));
-    }, 6000);
-  }
+  // Success / error / info fade after 6s.
+  // Pending toasts ALSO fade after 30s as a fail-safe — callers should
+  // explicitly dismissToast(id) as soon as they know the tx resolved,
+  // but this guarantees we never leave a spinner stuck on-screen.
+  const ttl = type === "pending" ? 30000 : 6000;
+  setTimeout(() => {
+    toastSetState(prev => prev.filter(t => t.id !== id));
+  }, ttl);
   return id;
 }
 
-function removeToast(id) {
-  if (!toastSetState) return;
+export function dismissToast(id) {
+  if (!toastSetState || id == null) return;
   toastSetState(prev => prev.filter(t => t.id !== id));
 }
+
+function removeToast(id) { dismissToast(id); }
 
 // ═══════════════════════════════════════
 //          READ-ONLY PROVIDERS
@@ -409,9 +414,11 @@ export function useGlobalFeed(coinflipContract, readCoinflip) {
   useEffect(() => {
     if (!feedContract || !feedContract.runner?.provider) return;
 
-    // Load recent flip history in 10-block windows (Alchemy free-tier
-    // eth_getLogs cap). Walk backwards from head until we've collected
-    // ~30 events or scanned far enough.
+    // Load recent flip history. Alchemy free-tier caps eth_getLogs at a
+    // 10-block range, so we fire 5 chunk queries in parallel per "pass"
+    // (50 blocks / pass) and pause 150ms between passes to stay under
+    // the per-second compute-unit ceiling. Stops early once we have
+    // enough events or run 8 consecutive failing passes.
     const loadHistory = async () => {
       if (historyLoadedRef.current) return;
       historyLoadedRef.current = true;
@@ -419,14 +426,27 @@ export function useGlobalFeed(coinflipContract, readCoinflip) {
       try {
         const head = await feedContract.runner.provider.getBlockNumber();
         const WANT = 30;
-        const MAX_LOOKBACK = 10000; // ~5h on Base Sepolia 2s/block
-        for (let end = head; end > 0 && events.length < WANT && (head - end) < MAX_LOOKBACK; end -= 10) {
-          const from = Math.max(0, end - 9);
-          try {
-            const chunk = await feedContract.queryFilter("FlipResolved", from, end);
-            for (const ev of chunk) events.push(ev);
-          } catch { /* skip windows that 429 or revert */ }
-          if (from === 0) break;
+        const MAX_LOOKBACK = 20000; // ~11h on Base Sepolia 2s/block
+        const PARALLEL = 5;
+        const CHUNK = 10;
+        let consecFail = 0;
+        for (let end = head; end > 0 && events.length < WANT && (head - end) < MAX_LOOKBACK; ) {
+          const batch = [];
+          for (let i = 0; i < PARALLEL && end > 0; i++) {
+            const from = Math.max(0, end - (CHUNK - 1));
+            batch.push(
+              feedContract.queryFilter("FlipResolved", from, end)
+                .then(r => ({ ok: true, r }))
+                .catch(() => ({ ok: false, r: [] }))
+            );
+            end -= CHUNK;
+          }
+          const results = await Promise.all(batch);
+          const passOk = results.some(r => r.ok);
+          consecFail = passOk ? 0 : (consecFail + 1);
+          for (const { r } of results) for (const ev of r) events.push(ev);
+          if (consecFail >= 8) break;
+          if (events.length < WANT) await new Promise(r => setTimeout(r, 150));
         }
       } catch (e) { console.warn("Global feed load failed:", e); }
       const sorted = events
