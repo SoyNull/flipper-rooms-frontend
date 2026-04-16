@@ -69,7 +69,7 @@ const _readToken = getTokenContract(_readProvider);
 // ═══════════════════════════════════════
 
 export function useWallet() {
-  const { login, logout, authenticated, ready } = usePrivy();
+  const { login, logout, authenticated, ready, user, linkTwitter } = usePrivy();
   const { wallets } = useWallets();
   const [provider, setProvider] = useState(null);
   const [signer, setSigner] = useState(null);
@@ -160,6 +160,8 @@ export function useWallet() {
     connect: login,
     disconnect: logout,
     ready,
+    user,         // F2: Privy user object (has .twitter, .linkedAccounts)
+    linkTwitter,  // F2: trigger Privy X/Twitter linking
   };
 }
 
@@ -294,10 +296,8 @@ export function useFlip(coinflipContract, readCoinflip, address) {
         const won = result.winner.toLowerCase() === address?.toLowerCase();
         setLastResult(won ? "win" : "lose");
         setLastFlipDetails({ ...result, txHash: receipt.hash, won });
-        addToast(won ? "success" : "error",
-          won ? `Won ${result.payout} ETH!` : `Lost ${result.amount} ETH`,
-          receipt.hash
-        );
+        // V8 BF3: win/loss toast is emitted by `onFlipDone` after the coin
+        // animation settles. We only parse the result here and hand it back.
       }
       return result;
     } catch (err) {
@@ -342,10 +342,7 @@ export function useFlip(coinflipContract, readCoinflip, address) {
         const won = result.winner.toLowerCase() === address?.toLowerCase();
         setLastResult(won ? "win" : "lose");
         setLastFlipDetails({ ...result, txHash: receipt.hash, won });
-        addToast(won ? "success" : "error",
-          won ? `Won ${result.payout} ETH!` : `Lost ${result.amount} ETH`,
-          receipt.hash
-        );
+        // V8 BF3: single-source win/loss toast in `onFlipDone` (App.jsx).
       }
       refreshChallenges();
       return result;

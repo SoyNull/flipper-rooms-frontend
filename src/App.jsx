@@ -19,6 +19,7 @@ import {
   COINFLIP_ADDRESS, SEATS_ADDRESS, MOCK_FLIPPER_ADDRESS,
   TIERS, CHAIN_ID, CHAIN_ID_HEX, TOTAL_SEATS,
   LEVEL_NAMES, LEVEL_COLORS,
+  PROFILES_API, ADMIN_PASSWORD, FLAUNCH_URL, TWITTER_URL, WEBSITE_URL,
 } from "./config.js";
 import { parseEther, parseUnits, formatEther, formatUnits } from "ethers";
 import { audio, vibrate } from "./audio.js";
@@ -35,6 +36,18 @@ function getReferralFromUrl() {
     const ref = params.get("ref");
     return ref ? parseInt(ref, 10) || 0 : 0;
   } catch { return 0; }
+}
+
+// V8: single source of truth for number formatting. American format:
+// `.` decimal separator, `,` thousands separator. Replaces scattered
+// `.toFixed()` / `toLocaleString()` calls so the whole app is consistent.
+function fmtNum(n, decimals = 4) {
+  const v = typeof n === "bigint" ? Number(n) : Number(n);
+  if (!Number.isFinite(v)) return "0";
+  return v.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: decimals,
+  });
 }
 
 const shortAddr = (a) => a ? `${a.slice(0,6)}...${a.slice(-4)}` : "???";
@@ -852,6 +865,10 @@ function GameAvatar({ address, size = 40 }) {
 //  CHAT SIDEBAR
 // ═══════════════════════════════════════
 function LiveFeedSidebar({ recentFlips, address, drawerOpen }) {
+  // V8 BF6: hide micro-flips (<0.005 ETH testing noise) and format
+  // treasury-involved rows without showing the contract address or a
+  // misleading "+amount" for the treasury side.
+  const visibleFlips = recentFlips.filter(f => parseFloat(f.amount || 0) >= 0.005);
   return (
     <div className={"chat-sidebar sidebar-texture" + (drawerOpen ? " drawer-open" : "")}>
       <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(247,179,43,0.15), transparent)" }} />
@@ -863,46 +880,70 @@ function LiveFeedSidebar({ recentFlips, address, drawerOpen }) {
           <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 8px #22c55e", animation: "liveDot 1.5s ease infinite" }} />
           <span style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>Live activity</span>
         </div>
-        <span style={{ fontSize: 9, color: "var(--text-faint)" }}>{recentFlips.length} recent</span>
+        <span style={{ fontSize: 9, color: "var(--text-faint)" }}>{visibleFlips.length} recent</span>
       </div>
       <div className="chat-messages" style={{ padding: "8px 10px" }}>
-        {recentFlips.map((flip, i) => {
-          const isMyWin = flip.winner?.toLowerCase() === address?.toLowerCase();
-          const isMyLoss = flip.loser?.toLowerCase() === address?.toLowerCase();
-          const isTrW = flip.winner?.toLowerCase() === CONTRACT_ADDRESS.toLowerCase();
-          const isTrL = flip.loser?.toLowerCase() === CONTRACT_ADDRESS.toLowerCase();
+        {visibleFlips.map((flip, i) => {
+          const myAddr = (address || "").toLowerCase();
+          const winner = (flip.winner || "").toLowerCase();
+          const loser  = (flip.loser  || "").toLowerCase();
+          const treasury = CONTRACT_ADDRESS.toLowerCase();
+          const isMyWin  = !!myAddr && winner === myAddr;
+          const isMyLoss = !!myAddr && loser  === myAddr;
+          const isTrW    = winner === treasury;
+          const isTrL    = loser  === treasury;
+
+          const winnerName = isTrW ? "Treasury" : shortAddr(flip.winner);
+          const loserName  = isTrL ? "Treasury" : shortAddr(flip.loser);
+          const payoutNum  = parseFloat(flip.payout || 0);
+          const amountNum  = parseFloat(flip.amount || 0);
+
+          let title, subtitle, tone;
+          if (isMyWin) {
+            title = `You won +${fmtNum(payoutNum)} ETH`;
+            subtitle = `vs ${loserName}`;
+            tone = "win";
+          } else if (isMyLoss) {
+            title = `You lost -${fmtNum(amountNum)} ETH`;
+            subtitle = `vs ${winnerName}`;
+            tone = "lose";
+          } else if (isTrW) {
+            // Treasury-wins: no misleading "+amount" on the house side.
+            title = `Treasury won vs ${loserName}`;
+            subtitle = `${fmtNum(amountNum)} ETH`;
+            tone = "neutral";
+          } else {
+            title = `${winnerName} won +${fmtNum(payoutNum)} ETH`;
+            subtitle = `vs ${loserName}`;
+            tone = "neutral";
+          }
+
+          const borderColor = tone === "win" ? "#f7b32b"
+            : tone === "lose" ? "#ef4444"
+            : "rgba(34,197,94,0.3)";
+          const bg = tone === "win"  ? "linear-gradient(90deg, rgba(247,179,43,0.08), transparent)"
+                   : tone === "lose" ? "linear-gradient(90deg, rgba(239,68,68,0.06), transparent)"
+                   :                    "linear-gradient(90deg, rgba(34,197,94,0.04), transparent)";
+          const titleColor = tone === "win" ? "#f7b32b" : tone === "lose" ? "#ef4444" : "var(--text)";
           return (
             <div key={flip.id + "-" + i} style={{
-              background: isMyWin ? "linear-gradient(90deg, rgba(247,179,43,0.08), transparent)"
-                : isMyLoss ? "linear-gradient(90deg, rgba(239,68,68,0.06), transparent)"
-                : "linear-gradient(90deg, rgba(34,197,94,0.04), transparent)",
-              borderLeft: isMyWin ? "2px solid #f7b32b"
-                : isMyLoss ? "2px solid #ef4444"
-                : "2px solid rgba(34,197,94,0.3)",
+              background: bg,
+              borderLeft: "2px solid " + borderColor,
               padding: "8px 10px 8px 12px", borderRadius: "0 8px 8px 0",
               marginBottom: 4, animation: flip.isNew ? "tickerChipEnter 0.4s ease" : "none",
             }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-                <span style={{ fontSize: 11, color: isMyWin ? "#f7b32b" : isMyLoss ? "#ef4444" : "var(--text)", fontWeight: isMyWin || isMyLoss ? 700 : 600 }}>
-                  {isMyWin ? "You won" : isMyLoss ? "You lost" : (isTrW ? "Treasury" : shortAddr(flip.winner)) + " won"}
-                </span>
-                <span style={{
-                  fontSize: 13, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
-                  color: isMyLoss ? "#ef4444" : "#22c55e",
-                }}>
-                  {isMyLoss ? "-" : "+"}{parseFloat(isMyLoss ? flip.amount : flip.payout).toFixed(4)}
+                <span style={{ fontSize: 11, color: titleColor, fontWeight: tone === "neutral" ? 600 : 700 }}>
+                  {title}
                 </span>
               </div>
               <div style={{ fontSize: 9, color: "var(--text-faint)" }}>
-                {isMyWin ? "vs " + (isTrL ? "Treasury" : shortAddr(flip.loser))
-                  : isMyLoss ? "vs " + (isTrW ? "Treasury" : shortAddr(flip.winner))
-                  : shortAddr(flip.winner) + " vs " + (isTrL ? "Treasury" : shortAddr(flip.loser))}
-                {" \u00B7 "}{parseFloat(flip.amount).toFixed(4)} ETH
+                {subtitle}
               </div>
             </div>
           );
         })}
-        {recentFlips.length === 0 && (
+        {visibleFlips.length === 0 && (
           <div style={{ padding: 30, textAlign: "center", fontSize: 11, color: "var(--text-faint)" }}>
             No flips yet. Be the first!
           </div>
@@ -1036,10 +1077,10 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
               {[
-                { l: "Treasury", v: `${Number(protocolStats.treasuryBalance).toFixed(4)}` },
-                { l: "Max bet", v: treasuryMax ? `${parseFloat(treasuryMax).toFixed(4)}` : "0.0000" },
-                { l: "Total bets", v: protocolStats.totalFlips.toLocaleString() },
-                { l: "Volume", v: `${Number(protocolStats.totalVolume).toFixed(3)}` },
+                { l: "Treasury", v: fmtNum(protocolStats.treasuryBalance, 4) },
+                { l: "Max bet", v: treasuryMax ? fmtNum(treasuryMax, 4) : "0.0000" },
+                { l: "Total bets", v: fmtNum(protocolStats.totalFlips, 0) },
+                { l: "Volume", v: fmtNum(protocolStats.totalVolume, 3) },
               ].map((r, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: i % 2 === 0 ? "rgba(255,255,255,0.015)" : "transparent", borderRadius: 6 }}>
                   <span style={{ fontSize: 11, color: "var(--text-dim)" }}>{r.l}</span>
@@ -1057,7 +1098,7 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
                       <div style={{ fontSize: 8, color: "var(--text-muted)" }}>1% chance per flip</div>
                     </div>
                   </div>
-                  <span style={{ fontSize: 14, color: "#f7b32b", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace" }}>{Number(protocolStats.jackpotPool).toFixed(4)}</span>
+                  <span style={{ fontSize: 14, color: "#f7b32b", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace" }}>{fmtNum(protocolStats.jackpotPool, 4)}</span>
                 </div>
                 <div style={{ height: 4, background: "rgba(0,0,0,0.3)", borderRadius: 2, overflow: "hidden" }}>
                   <div style={{ height: "100%", width: jackpotPercent + "%", background: "linear-gradient(90deg, #f7b32b, #d4a020)", borderRadius: 2, boxShadow: "0 0 6px rgba(247,179,43,0.4)", transition: "width 0.5s ease" }} />
@@ -1194,9 +1235,10 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
   const [seatBuyDeposit, setSeatBuyDeposit] = useState("0.002");
   const [seatBuyPrice, setSeatBuyPrice] = useState("1000");
   const [recentActivity, setRecentActivity] = useState([]);
-  const [selectedDuration, setSelectedDuration] = useState(672); // hours; 672 = 4w = contract min
+  // V8: deposit duration is measured in hours. Contract min is 1h.
+  const [selectedDuration, setSelectedDuration] = useState(24); // 1h | 24h | 168h | 720h
   const [selectedMult, setSelectedMult] = useState(0); // index into [1.1x, 1.2x, 2x, 5x]
-  const [mintDepositWeeks, setMintDepositWeeks] = useState(4); // 4|8|13|26 (labels: 4w/8w/3m/6m)
+  const [mintDepositHours, setMintDepositHours] = useState(24); // 1 | 24 | 168 | 720
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [boardFilter, setBoardFilter] = useState("all");
   const [newPriceInput, setNewPriceInput] = useState("");
@@ -1205,14 +1247,14 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
   const [bulkBuying, setBulkBuying] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0, seatIds: [] });
   const [bulkListPrice, setBulkListPrice] = useState("1000"); // FLIP per seat
-  const [bulkDepositWeeks, setBulkDepositWeeks] = useState(4);
+  const [bulkDepositHours, setBulkDepositHours] = useState(24);
   const [onChainMintPriceWei, setOnChainMintPriceWei] = useState(null); // bigint
   const [showTakeOver, setShowTakeOver] = useState(false);
   const [takeOverSelected, setTakeOverSelected] = useState([]); // seat ids
   // Multiplier tenths: 11 = 1.1x (strictly > current), 12, 20, 50
   const [takeOverMult, setTakeOverMult] = useState(11);
-  // Deposit hours. Default 4w = 672h (contract MIN_DEPOSIT_WEEKS=4).
-  const [takeOverDuration, setTakeOverDuration] = useState(672);
+  // V8 deposit hours. Contract min is MIN_DEPOSIT_HOURS=1.
+  const [takeOverDuration, setTakeOverDuration] = useState(24);
   const [takeOverBusy, setTakeOverBusy] = useState(false);
 
   // Fetch detailed seat info when modal opens. V8 getSeatInfo returns BigInts;
@@ -1246,13 +1288,21 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
   useEffect(() => { setCooldownRemaining(0); }, [seatDetail]);
 
   // Read calculateMintPrice() once so every modal displays the real
-  // on-chain number (was hardcoded 50K; actual is 50M).
+  // on-chain number (was hardcoded 50K; actual is 50M). V8 BF7: when the
+  // on-chain price lands, pre-seed the single-seat/bulk price inputs so
+  // the recommended default equals what the user just paid to mint.
   useEffect(() => {
     if (!contract || onChainMintPriceWei) return;
     (async () => {
       try {
         const mp = await contract.calculateMintPrice();
         setOnChainMintPriceWei(mp);
+        try {
+          const mpNum = parseFloat(formatUnits(mp, 18));
+          const rec = Math.round(mpNum).toString();
+          setSeatBuyPrice(prev => (prev === "1000" ? rec : prev));
+          setBulkListPrice(prev => (prev === "1000" ? rec : prev));
+        } catch {}
       } catch {}
     })();
   }, [contract, onChainMintPriceWei]);
@@ -1315,7 +1365,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
     const active = seatHook.seats?.filter(s => s.active);
     if (!active || active.length === 0) return "0";
     const prices = active.map(s => s.priceNum).filter(p => p > 0);
-    return prices.length > 0 ? Math.min(...prices).toFixed(0) : "0";
+    return prices.length > 0 ? fmtNum(Math.min(...prices), 0) : "0";
   }, [seatHook.seats]);
 
   // "Total locked" = sum of active seat DEPOSITS (FLIPPER sitting in
@@ -1323,7 +1373,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
   const totalValue = useMemo(() => {
     const active = seatHook.seats?.filter(s => s.active);
     if (!active || active.length === 0) return "0";
-    return active.reduce((sum, s) => sum + (s.depositNum || 0), 0).toFixed(0);
+    return fmtNum(active.reduce((sum, s) => sum + (s.depositNum || 0), 0), 0);
   }, [seatHook.seats]);
 
   const estYieldPerSeat = useMemo(() => {
@@ -1397,7 +1447,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
           { l: "Total locked", v: `${totalValue} FLIP`, c: "#e2e8f0" },
           { l: "Rent per week", v: "5%", c: "#e2e8f0" },
           { l: "You own", v: `${seatHook.mySeats.length}`, c: "#f7b32b" },
-          { l: "Yield pool", v: `${seatHook.yieldPool ? parseFloat(formatEther(seatHook.yieldPool)).toFixed(4) : "0"} \u039E`, c: "#22c55e" },
+          { l: "Yield pool", v: `${seatHook.yieldPool ? fmtNum(parseFloat(formatEther(seatHook.yieldPool)), 4) : "0"} \u039E`, c: "#22c55e" },
         ].map((r, i) => (
           <div className="board-info-row" key={i}>
             <span className="board-info-label">{r.l}</span>
@@ -1409,7 +1459,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
         {connected && (<>
           <button onClick={() => {
             const firstEmpty = seatHook.seats.find(s => !s.active);
-            if (firstEmpty) { setSelectedSeat(firstEmpty); setSelectedMult(0); setSelectedDuration(672); }
+            if (firstEmpty) { setSelectedSeat(firstEmpty); setSelectedMult(0); setSelectedDuration(24); }
           }} style={{
             width: "100%", padding: 10, borderRadius: 8, marginTop: 12,
             background: "linear-gradient(135deg, #b8860b, #f7b32b)", color: "#0b0e11",
@@ -1455,7 +1505,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   if (occupied.length === 0) { addToast("info", "No seats to take over"); return; }
                   setTakeOverSelected(occupied.slice(0, 10));
                   setTakeOverMult(11);
-                  setTakeOverDuration(672);
+                  setTakeOverDuration(24);
                   setShowTakeOver(true);
                 }}
                 style={{
@@ -1534,7 +1584,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 const isExpiring = seat.active && seat.daysLeft < 3 && !isMine;
                 return (
                   <div key={seat.id}
-                    onClick={() => { setSelectedSeat(seat); setSelectedMult(0); setSelectedDuration(672); audio.playClick(); }}
+                    onClick={() => { setSelectedSeat(seat); setSelectedMult(0); setSelectedDuration(24); audio.playClick(); }}
                     style={{
                       aspectRatio: "1", borderRadius: 6, cursor: "pointer", position: "relative",
                       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
@@ -1606,7 +1656,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
             <div style={{ fontSize: 10, color: "#475569", marginBottom: 8 }}>Nothing yet.</div>
             {connected && <button onClick={() => {
               const firstEmpty = seatHook.seats.find(s => !s.active);
-              if (firstEmpty) { setSelectedSeat(firstEmpty); setSelectedMult(0); setSelectedDuration(672); }
+              if (firstEmpty) { setSelectedSeat(firstEmpty); setSelectedMult(0); setSelectedDuration(24); }
             }} style={{
               fontSize: 10, color: "#f7b32b", background: "none", border: "none",
               cursor: "pointer", fontFamily: "inherit", fontWeight: 600,
@@ -1730,19 +1780,19 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   Amount in whole FLIPPER tokens. Decimals allowed (dot or comma).
                 </div>
 
-                <div className="modal-section-label">DEPOSIT DURATION</div>
+                <div className="modal-section-label">DEPOSIT DURATION (min 1h)</div>
                 <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
                   {[
-                    { l: "4w", w: 4,  sub: "min" },
-                    { l: "8w", w: 8,  sub: "" },
-                    { l: "3m", w: 13, sub: "" },
-                    { l: "6m", w: 26, sub: "" },
+                    { l: "1h", h: 1,   sub: "min" },
+                    { l: "1d", h: 24,  sub: "" },
+                    { l: "7d", h: 168, sub: "" },
+                    { l: "1m", h: 720, sub: "" },
                   ].map(opt => (
-                    <button key={opt.w} type="button" onClick={() => setMintDepositWeeks(opt.w)} style={{
+                    <button key={opt.h} type="button" onClick={() => setMintDepositHours(opt.h)} style={{
                       flex: 1, padding: "8px 4px", borderRadius: 6,
-                      border: "1px solid " + (mintDepositWeeks === opt.w ? "#f7b32b" : "#1c2430"),
-                      background: mintDepositWeeks === opt.w ? "#f7b32b12" : "#0b0e11",
-                      color: mintDepositWeeks === opt.w ? "#f7b32b" : "#94a3b8",
+                      border: "1px solid " + (mintDepositHours === opt.h ? "#f7b32b" : "#1c2430"),
+                      background: mintDepositHours === opt.h ? "#f7b32b12" : "#0b0e11",
+                      color: mintDepositHours === opt.h ? "#f7b32b" : "#94a3b8",
                       fontSize: 11, fontWeight: 700, cursor: "pointer",
                       fontFamily: "inherit", display: "flex", flexDirection: "column", alignItems: "center", gap: 1,
                     }}>
@@ -1754,20 +1804,24 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
 
                 <div style={{ padding: 10, background: "#0b0e11", borderRadius: 8, marginBottom: 12, marginTop: 8 }}>
                   {(() => {
-                    // All math in BigInt to avoid float scaling bugs; we only
-                    // convert to a decimal string for display at the end.
+                    // V8 math: deposit = weeklyTax * (hours / 168).
                     const cleaned = sanitizeNum(seatBuyPrice);
                     let listedWei = 0n;
                     try { listedWei = cleaned ? parseUnits(cleaned, 18) : 0n; } catch { listedWei = 0n; }
                     const weeklyTaxWei = listedWei * 500n / 10000n;
-                    const depositWei = weeklyTaxWei * BigInt(mintDepositWeeks);
+                    const depositWei = weeklyTaxWei * BigInt(mintDepositHours) / 168n;
                     const mintWei = onChainMintPriceWei || 0n;
                     const totalWei = mintWei + depositWei;
-                    const fmt = (w) => Number(formatUnits(w, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+                    const fmt = (w) => fmtNum(Number(formatUnits(w, 18)), 2);
+                    const durLabel = mintDepositHours === 1 ? "1h"
+                      : mintDepositHours === 24 ? "1d"
+                      : mintDepositHours === 168 ? "7d"
+                      : mintDepositHours === 720 ? "1m"
+                      : mintDepositHours + "h";
                     return [
                       { l: "Mint price",            v: (onChainMintPriceWei ? fmt(mintWei) : "loading…") + " FLIP", c: "#94a3b8" },
                       { l: "Weekly tax",            v: fmt(weeklyTaxWei) + " FLIP/wk" },
-                      { l: `Deposit (${mintDepositWeeks === 13 ? "3m" : mintDepositWeeks === 26 ? "6m" : mintDepositWeeks + "w"})`, v: fmt(depositWei) + " FLIP" },
+                      { l: `Deposit (${durLabel})`, v: fmt(depositWei) + " FLIP" },
                       { l: "Total approve",         v: fmt(totalWei) + " FLIP", c: "#f7b32b", bold: true },
                     ];
                   })().map((r, i) => (
@@ -1801,7 +1855,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   const pendingId = addToast("pending", "Approving FLIPPER…");
                   try {
                     const weeklyTax = initialPrice * 500n / 10000n;
-                    const deposit = weeklyTax * BigInt(mintDepositWeeks);
+                    const deposit = weeklyTax * BigInt(mintDepositHours) / 168n;
                     // Balance pre-check so we fail fast with a useful message
                     // instead of a generic revert downstream.
                     try {
@@ -1931,11 +1985,12 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                     }}
                     onClick={async () => {
                       if (!seatsContract) return;
-                      const price = parseFloat(newPriceInput);
+                      const cleaned = sanitizeNum(newPriceInput);
+                      const price = parseFloat(cleaned);
                       if (!price || price < 1) { addToast("error", "Price must be > 0"); return; }
                       try {
-                        await updateSeatPriceFn(seatsContract, selectedSeat.id, parseUnits(newPriceInput, 18));
-                        addToast("success", "Price updated to " + newPriceInput + " FLIP");
+                        await updateSeatPriceFn(seatsContract, selectedSeat.id, parseUnits(cleaned, 18));
+                        addToast("success", "Price updated to " + cleaned + " FLIP");
                         setNewPriceInput(""); seatHook.refreshSeats();
                         loadSeatDetail(selectedSeat.id);
                       } catch (err) { addToast("error", decodeError(err)); }
@@ -1971,41 +2026,48 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                     <div key={opt.m} className={`price-option ${selectedMult === opt.m ? "active" : ""}`}
                       onClick={() => setSelectedMult(opt.m)}>
                       <div className="price-option-value">
-                        {selectedSeat?.price ? parseFloat(formatUnits(selectedSeat.price * opt.t / 10n, 18)).toFixed(0) : "..."}
+                        {selectedSeat?.price ? fmtNum(parseFloat(formatUnits(selectedSeat.price * opt.t / 10n, 18)), 0) : "..."}
                       </div>
                       <div className="price-option-mult">{opt.l}</div>
                     </div>
                   ))}
                 </div>
 
-                <div className="modal-section-label">DEPOSIT DURATION (min 4w)</div>
+                <div className="modal-section-label">DEPOSIT DURATION (min 1h)</div>
                 <div className="duration-options">
-                  {[{l:"4w",h:672},{l:"8w",h:1344},{l:"3m",h:2184},{l:"6m",h:4368}].map(d => (
+                  {[{l:"1h",h:1},{l:"1d",h:24},{l:"7d",h:168},{l:"1m",h:720}].map(d => (
                     <button key={d.h} className={`duration-btn ${selectedDuration === d.h ? "active" : ""}`}
                       onClick={() => setSelectedDuration(d.h)}>{d.l}</button>
                   ))}
                 </div>
 
-                {buyoutCalc && (
+                {buyoutCalc && (() => {
+                  const durLabel = selectedDuration === 1 ? "1h"
+                    : selectedDuration === 24 ? "1d"
+                    : selectedDuration === 168 ? "7d"
+                    : selectedDuration === 720 ? "1m"
+                    : selectedDuration + "h";
+                  return (
                   <>
                     <div className="cost-row">
                       <span className="cost-label">Buyout price</span>
-                      <span className="cost-value">{parseFloat(formatUnits(buyoutCalc.buyoutPrice, 18)).toFixed(2)} FLIP</span>
+                      <span className="cost-value">{fmtNum(parseFloat(formatUnits(buyoutCalc.buyoutPrice, 18)), 2)} FLIP</span>
                     </div>
                     <div className="cost-row">
                       <span className="cost-label">Your new price</span>
-                      <span className="cost-value">{parseFloat(formatUnits(buyoutCalc.newPrice, 18)).toFixed(2)} FLIP</span>
+                      <span className="cost-value">{fmtNum(parseFloat(formatUnits(buyoutCalc.newPrice, 18)), 2)} FLIP</span>
                     </div>
                     <div className="cost-row">
-                      <span className="cost-label">Tax deposit ({(() => { const w = Math.round(selectedDuration / 168); return w === 13 ? "3m" : w === 26 ? "6m" : w + "w"; })()})</span>
-                      <span className="cost-value">{parseFloat(formatUnits(buyoutCalc.deposit, 18)).toFixed(2)} FLIP</span>
+                      <span className="cost-label">Tax deposit ({durLabel})</span>
+                      <span className="cost-value">{fmtNum(parseFloat(formatUnits(buyoutCalc.deposit, 18)), 2)} FLIP</span>
                     </div>
                     <div className="total-row">
                       <span className="total-label">Approve</span>
-                      <span className="total-value">{parseFloat(formatUnits(buyoutCalc.totalVal, 18)).toFixed(2)} FLIP</span>
+                      <span className="total-value">{fmtNum(parseFloat(formatUnits(buyoutCalc.totalVal, 18)), 2)} FLIP</span>
                     </div>
                   </>
-                )}
+                  );
+                })()}
 
                 <div style={{ fontSize: 9, color: "#475569", margin: "4px 0 8px", textAlign: "center" }}>
                   {seatHook.graduation?.graduated
@@ -2046,11 +2108,12 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
         let listedWei = 0n;
         try { listedWei = cleanedPrice ? parseUnits(cleanedPrice, 18) : 0n; } catch { listedWei = 0n; }
         const weeklyTaxWei = listedWei * 500n / 10000n;
-        const depositPerWei = weeklyTaxWei * BigInt(bulkDepositWeeks);
+        // V8: deposit = weeklyTax * (hours / 168)
+        const depositPerWei = weeklyTaxWei * BigInt(bulkDepositHours) / 168n;
         const mintWei = onChainMintPriceWei || 0n;
         const approvePerWei = mintWei + depositPerWei;
         const grandTotalWei = approvePerWei * BigInt(qty);
-        const fmt = (w) => Number(formatUnits(w, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+        const fmt = (w) => fmtNum(Number(formatUnits(w, 18)), 2);
 
         const plannedIds = (bulkProgress.total > 0 ? bulkProgress.seatIds : emptyAll.slice(0, qty).map(s => s.id));
         const progressPct = bulkProgress.total > 0 ? Math.round((bulkProgress.done / bulkProgress.total) * 100) : 0;
@@ -2115,15 +2178,15 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                     fontFamily: "'JetBrains Mono', monospace", marginBottom: 10,
                   }} />
 
-                {/* Deposit duration */}
-                <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>DEPOSIT DURATION (min 4w)</div>
+                {/* V8 deposit duration (hours) */}
+                <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>DEPOSIT DURATION (min 1h)</div>
                 <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-                  {[{l:"4w",w:4},{l:"8w",w:8},{l:"3m",w:13},{l:"6m",w:26}].map(opt => (
-                    <button key={opt.w} onClick={() => setBulkDepositWeeks(opt.w)} style={{
+                  {[{l:"1h",h:1},{l:"1d",h:24},{l:"7d",h:168},{l:"1m",h:720}].map(opt => (
+                    <button key={opt.h} onClick={() => setBulkDepositHours(opt.h)} style={{
                       flex: 1, padding: "6px 0", borderRadius: 6,
-                      border: "1px solid " + (bulkDepositWeeks === opt.w ? "#f7b32b" : "#1c2430"),
-                      background: bulkDepositWeeks === opt.w ? "#f7b32b12" : "#0b0e11",
-                      color: bulkDepositWeeks === opt.w ? "#f7b32b" : "#94a3b8",
+                      border: "1px solid " + (bulkDepositHours === opt.h ? "#f7b32b" : "#1c2430"),
+                      background: bulkDepositHours === opt.h ? "#f7b32b12" : "#0b0e11",
+                      color: bulkDepositHours === opt.h ? "#f7b32b" : "#94a3b8",
                       fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                     }}>{opt.l}</button>
                   ))}
@@ -2131,14 +2194,21 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
               </>)}
 
               <div style={{ padding: 12, background: "#0b0e11", borderRadius: 8, marginBottom: 12 }}>
-                {[
+                {(() => {
+                  const bulkDurLabel = bulkDepositHours === 1 ? "1h"
+                    : bulkDepositHours === 24 ? "1d"
+                    : bulkDepositHours === 168 ? "7d"
+                    : bulkDepositHours === 720 ? "1m"
+                    : bulkDepositHours + "h";
+                  return [
                   { l: "Seats",               v: String(qty) },
                   { l: "Mint price (chain)",  v: (onChainMintPriceWei ? fmt(mintWei) : "loading…") + " FLIP", c: "#94a3b8" },
                   { l: "List price / seat",   v: fmt(listedWei) + " FLIP" },
-                  { l: `Deposit / seat (${bulkDepositWeeks === 13 ? "3m" : bulkDepositWeeks === 26 ? "6m" : bulkDepositWeeks + "w"})`, v: fmt(depositPerWei) + " FLIP" },
+                  { l: `Deposit / seat (${bulkDurLabel})`, v: fmt(depositPerWei) + " FLIP" },
                   { l: "Approve / seat",      v: fmt(approvePerWei) + " FLIP", c: "#94a3b8" },
                   { l: "Total approve",       v: fmt(grandTotalWei) + " FLIP", c: "#f7b32b", bold: true },
-                ].map((r, i) => (
+                  ];
+                })().map((r, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11 }}>
                     <span style={{ color: "#475569" }}>{r.l}</span>
                     <span style={{ color: r.c || "#e2e8f0", fontFamily: "'JetBrains Mono', monospace", fontWeight: r.bold ? 700 : 600 }}>{r.v}</span>
@@ -2220,45 +2290,45 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                     }
                   } catch {}
 
-                  // 3) Single approve. No per-mint approve.
-                  const approvePendingId = addToast("pending", `Approving ${fmt(withMargin)} FLIPPER once for ${toBuy.length} mints…`);
+                  // V8 F6: one approve + one batchMint call. The contract
+                  // handles all N seats atomically (all succeed or all fail).
+                  const approvePendingId = addToast("pending", `Approving ${fmt(withMargin)} FLIPPER for ${toBuy.length} seats…`);
                   try {
                     await approveFlipperFn(tokenContract, withMargin);
                   } finally {
                     dismissToast(approvePendingId);
                   }
 
-                  // 4) Verify the approve landed before firing mints. Spares the
-                  //    user N failed transactions if the approve silently errored.
                   try {
                     const allow = await tokenContract.allowance(address, SEATS_ADDRESS);
-                    if (allow < needPerSeat) {
+                    if (allow < grand) {
                       addToast("error", "Approve didn't land. Try again.");
                       setBulkBuying(false); return;
                     }
                   } catch {}
 
-                  // 5) Parallel mints — fire up to 5 concurrent txs per wave.
-                  //    Failures don't abort the run; they're skipped and
-                  //    listed in a single summary toast at the end.
-                  const PARALLEL = 5;
+                  // batchMint is capped at 64 per TX by the contract.
+                  const CHUNK = 64;
                   let bought = 0;
-                  const failed = [];
-                  for (let i = 0; i < toBuy.length; i += PARALLEL) {
-                    const wave = toBuy.slice(i, i + PARALLEL);
-                    const outcomes = await Promise.all(wave.map(seat =>
-                      mintSeatNoApproveFn(seatsContract, seat.id, listedWei, "")
-                        .then(() => ({ id: seat.id, ok: true }))
-                        .catch(err => { console.error(`[bulkMint #${seat.id}]`, err); return { id: seat.id, ok: false, err }; })
-                    ));
-                    for (const o of outcomes) {
-                      if (o.ok) bought++;
-                      else failed.push(o.id);
+                  const failedIds = [];
+                  for (let i = 0; i < toBuy.length; i += CHUNK) {
+                    const wave = toBuy.slice(i, i + CHUNK);
+                    const ids = wave.map(s => s.id);
+                    const pId = addToast("pending", `Minting batch ${i + 1}–${i + wave.length}…`);
+                    try {
+                      const tx = await seatsContract.batchMint(ids, listedWei, depositPerWei);
+                      await tx.wait();
+                      bought += wave.length;
+                    } catch (err) {
+                      console.error("[batchMint]", err);
+                      failedIds.push(...ids);
+                    } finally {
+                      dismissToast(pId);
                     }
                     setBulkProgress(p => ({ ...p, done: bought }));
                   }
-                  if (bought > 0) addToast("success", `Minted ${bought}/${toBuy.length} seats`);
-                  if (failed.length > 0) addToast("error", `Skipped seats: ${failed.slice(0, 8).map(id => "#" + id).join(", ")}${failed.length > 8 ? "…" : ""}`);
+                  if (bought > 0) addToast("success", `Minted ${bought}/${toBuy.length} seats in 1 TX`);
+                  if (failedIds.length > 0) addToast("error", `Skipped seats: ${failedIds.slice(0, 8).map(id => "#" + id).join(", ")}${failedIds.length > 8 ? "…" : ""}`);
                   if (bought === toBuy.length) {
                     setTimeout(() => { setShowBulkBuy(false); setBulkProgress({ done: 0, total: 0, seatIds: [] }); }, 800);
                   }
@@ -2276,7 +2346,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
               }}>
                 {bulkBuying ? `Minting ${bulkProgress.done + 1}/${bulkProgress.total}…` : `Mint ${qty} Seat${qty === 1 ? "" : "s"}`}
               </button>
-              <div style={{ fontSize: 9, color: "#475569", marginTop: 8, textAlign: "center" }}>Each seat = separate mint transaction (no batch mint on-chain)</div>
+              <div style={{ fontSize: 9, color: "#475569", marginTop: 8, textAlign: "center" }}>V8: 1 approve + 1 batchMint for all seats (atomic)</div>
             </div>
           </div>
         );
@@ -2334,10 +2404,10 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 ))}
               </div>
 
-              {/* Duration — min 4w because contract requires MIN_DEPOSIT_WEEKS runway */}
-              <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>DEPOSIT DURATION (min 4w)</div>
+              {/* V8: duration is hours; contract min is MIN_DEPOSIT_HOURS=1 */}
+              <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>DEPOSIT DURATION (min 1h)</div>
               <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-                {[{l:"4w",h:672},{l:"8w",h:1344},{l:"3m",h:2184},{l:"6m",h:4368}].map(d => (
+                {[{l:"1h",h:1},{l:"1d",h:24},{l:"7d",h:168},{l:"1m",h:720}].map(d => (
                   <button key={d.h} onClick={() => setTakeOverDuration(d.h)} style={{
                     flex: 1, padding: "6px 0", borderRadius: 6,
                     border: "1px solid " + (takeOverDuration === d.h ? "#f7b32b" : "#1c2430"),
@@ -2371,10 +2441,10 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
               <div style={{ padding: 12, background: "#0b0e11", borderRadius: 8, marginBottom: 12 }}>
                 {[
                   { l: "Seats",          v: String(selected.length) },
-                  { l: "Buyouts total",  v: `${parseFloat(formatUnits(totalBuyout, 18)).toFixed(0)} FLIP` },
-                  { l: "Deposits total", v: `${parseFloat(formatUnits(totalDeposit, 18)).toFixed(0)} FLIP` },
-                  { l: "Total approve",  v: `${approveFlip.toFixed(0)} FLIP`, c: "#f7b32b" },
-                  { l: "USD equivalent", v: `~$${usd.toFixed(0)}`, c: "#22c55e" },
+                  { l: "Buyouts total",  v: `${fmtNum(parseFloat(formatUnits(totalBuyout, 18)), 0)} FLIP` },
+                  { l: "Deposits total", v: `${fmtNum(parseFloat(formatUnits(totalDeposit, 18)), 0)} FLIP` },
+                  { l: "Total approve",  v: `${fmtNum(approveFlip, 0)} FLIP`, c: "#f7b32b" },
+                  { l: "USD equivalent", v: `~$${fmtNum(usd, 0)}`, c: "#22c55e" },
                 ].map((r, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11 }}>
                     <span style={{ color: "#475569" }}>{r.l}</span>
@@ -2420,34 +2490,415 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
 // ═══════════════════════════════════════
 //  MAIN APP
 // ═══════════════════════════════════════
-function AdminPanel({ contract, seatsContract }) {
+function AdminPanel({ contract, seatsContract, protocolStats, graduation, yieldPoolWei }) {
   const [loading, setLoading] = useState("");
-  const exec = async (label, fn) => {
-    setLoading(label);
-    try { const tx = await fn(); await tx.wait(); addToast("success", label + " done"); }
-    catch (e) { addToast("error", decodeError(e)); }
-    setLoading("");
+  const [confirm, setConfirm] = useState(null); // { label, run }
+  const [lastWithdrawAt, setLastWithdrawAt] = useState(() => {
+    try { return parseInt(localStorage.getItem("admin_last_withdraw") || "0", 10) || 0; }
+    catch { return 0; }
+  });
+  const [nowSec, setNowSec] = useState(Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    const iv = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const COOLDOWN = 24 * 60 * 60; // 24h
+  const untilNext = Math.max(0, lastWithdrawAt + COOLDOWN - nowSec);
+  const countdownStr = (() => {
+    const h = Math.floor(untilNext / 3600);
+    const m = Math.floor((untilNext % 3600) / 60);
+    const s = untilNext % 60;
+    return `${h}h ${m.toString().padStart(2, "0")}m ${s.toString().padStart(2, "0")}s`;
+  })();
+
+  const exec = async (label, fn, { gated = false } = {}) => {
+    const run = async () => {
+      setLoading(label);
+      try {
+        const tx = await fn();
+        await tx.wait();
+        addToast("success", label + " done");
+        if (gated) {
+          const t = Math.floor(Date.now() / 1000);
+          setLastWithdrawAt(t);
+          try { localStorage.setItem("admin_last_withdraw", String(t)); } catch {}
+        }
+      } catch (e) { addToast("error", decodeError(e)); }
+      setLoading("");
+      setConfirm(null);
+    };
+    setConfirm({ label, run });
   };
+
   const btnStyle = (color) => ({
     padding: "12px", borderRadius: 8, cursor: "pointer", width: "100%",
     background: color + "10", border: "1px solid " + color + "30",
     color, fontSize: 11, fontWeight: 700, fontFamily: "inherit",
     opacity: loading ? 0.5 : 1, marginBottom: 6,
   });
+
+  const stat = (label, value, color = "#e2e8f0") => (
+    <div style={{
+      padding: "10px 12px", background: "#0b0e11", border: "1px solid #1c2430",
+      borderRadius: 8, display: "flex", justifyContent: "space-between", alignItems: "center",
+    }}>
+      <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: 0.5 }}>{label}</span>
+      <span style={{ fontSize: 13, color, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+        {value}
+      </span>
+    </div>
+  );
+
+  const protocolBal = protocolStats?.protocolBalance || "0";
+  const treasuryBal = protocolStats?.treasuryBalance || "0";
+  const jackpotBal  = protocolStats?.jackpotPool || "0";
+  const yieldPoolEth = yieldPoolWei ? parseFloat(formatEther(yieldPoolWei)) : 0;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <button disabled={loading !== ""} onClick={() => exec("Withdraw Protocol", () => contract.withdrawProtocol())} style={btnStyle("#22c55e")}>
-        Withdraw Protocol
-      </button>
-      <button disabled={loading !== ""} onClick={() => exec("Withdraw Jackpot", () => contract.withdrawJackpot())} style={btnStyle("#3b82f6")}>
-        Withdraw Jackpot
-      </button>
-      <button disabled={loading !== ""} onClick={() => exec("Distribute Yield", () => seatsContract.distributeYield())} style={btnStyle("#f7b32b")}>
-        Distribute Seat Yield
-      </button>
-      <button disabled={loading !== ""} onClick={() => exec("Fund Treasury +0.01", () => contract.fundTreasury({ value: parseEther("0.01") }))} style={btnStyle("#94a3b8")}>
-        Fund Treasury +0.01 ETH
-      </button>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* STATS GRID */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        {stat("Total Flips",        fmtNum(protocolStats?.totalFlips || 0, 0))}
+        {stat("Total Volume (ETH)", fmtNum(protocolStats?.totalVolume || 0, 4))}
+        {stat("Treasury (ETH)",     fmtNum(treasuryBal, 4), "#f7b32b")}
+        {stat("Protocol fees (ETH)", fmtNum(protocolBal, 4), "#22c55e")}
+        {stat("Jackpot pool (ETH)", fmtNum(jackpotBal, 4), "#3b82f6")}
+        {stat("Yield pool (ETH)",   fmtNum(yieldPoolEth, 4), "#22c55e")}
+        {stat("Active seats",       `${graduation?.activeCount ?? 0}`)}
+        {stat("Total minted",       `${graduation?.totalMinted ?? 0}/256`)}
+      </div>
+
+      {/* COUNTDOWN */}
+      <div style={{
+        padding: "12px 14px", background: "rgba(239,68,68,0.06)",
+        border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8,
+      }}>
+        <div style={{ fontSize: 10, color: "#ef4444", fontWeight: 700, letterSpacing: 0.5 }}>NEXT TREASURY CLAIM</div>
+        <div style={{ fontSize: 16, color: untilNext === 0 ? "#22c55e" : "#e2e8f0", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>
+          {untilNext === 0 ? "Available now" : `in ${countdownStr}`}
+        </div>
+      </div>
+
+      {/* ACTIONS */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <button disabled={loading !== ""} onClick={() => exec("Withdraw Protocol", () => contract.withdrawProtocol())} style={btnStyle("#22c55e")}>
+          Withdraw Protocol
+        </button>
+        <button disabled={loading !== ""} onClick={() => exec("Withdraw Jackpot", () => contract.withdrawJackpot())} style={btnStyle("#3b82f6")}>
+          Withdraw Jackpot
+        </button>
+        <button disabled={loading !== ""} onClick={() => exec("Distribute Yield", () => seatsContract.distributeYield())} style={btnStyle("#f7b32b")}>
+          Distribute Seat Yield
+        </button>
+        <button disabled={loading !== "" || untilNext > 0}
+          onClick={() => exec("Withdraw Treasury", () => contract.withdrawTreasury(), { gated: true })}
+          style={btnStyle("#ef4444")}>
+          {untilNext > 0 ? "Treasury locked" : "Withdraw Treasury"}
+        </button>
+        <button disabled={loading !== ""} onClick={() => exec("Fund Treasury +0.01", () => contract.fundTreasury({ value: parseEther("0.01") }))} style={btnStyle("#94a3b8")}>
+          Fund Treasury +0.01 ETH
+        </button>
+        <button disabled={loading !== ""} onClick={() => exec("Pause", () => contract.pause())} style={btnStyle("#94a3b8")}>
+          Pause
+        </button>
+        <button disabled={loading !== ""} onClick={() => exec("Unpause", () => contract.unpause())} style={btnStyle("#94a3b8")}>
+          Unpause
+        </button>
+      </div>
+
+      {/* CONFIRM MODAL */}
+      {confirm && (
+        <div onClick={e => { if (e.target === e.currentTarget) setConfirm(null); }}
+          style={{ position: "fixed", inset: 0, zIndex: 1100, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "#131820", border: "1px solid #ef444440", borderRadius: 12, padding: 24, maxWidth: 400, width: "100%" }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#ef4444", marginBottom: 8 }}>Confirm action</div>
+            <div style={{ fontSize: 12, color: "#e2e8f0", marginBottom: 16 }}>
+              {confirm.label} — this is irreversible. Proceed?
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setConfirm(null)} style={{ flex: 1, padding: 10, borderRadius: 8, background: "#0b0e11", border: "1px solid #1c2430", color: "#94a3b8", fontWeight: 700, cursor: "pointer" }}>
+                Cancel
+              </button>
+              <button onClick={confirm.run} disabled={loading !== ""} style={{ flex: 1, padding: 10, borderRadius: 8, background: "#ef4444", border: "none", color: "#fff", fontWeight: 800, cursor: "pointer" }}>
+                {loading ? "Sending…" : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════
+//  F4: PERSISTENT FLIP TICKER
+// ═══════════════════════════════════════
+function FlipTicker({ recentFlips }) {
+  const treasuryLC = COINFLIP_ADDRESS.toLowerCase();
+  const flips = recentFlips.filter(f => parseFloat(f.amount || 0) >= 0.005).slice(0, 20);
+  if (flips.length === 0) return null;
+  return (
+    <div style={{
+      background: "linear-gradient(180deg, #07090d, #0b0e11)",
+      borderBottom: "1px solid #1c2430",
+      overflow: "hidden", position: "relative",
+    }}>
+      <div style={{
+        display: "flex", gap: 14, padding: "6px 16px",
+        whiteSpace: "nowrap", overflowX: "auto",
+        fontFamily: "'JetBrains Mono', monospace",
+        scrollbarWidth: "none", msOverflowStyle: "none",
+      }}>
+        {flips.map((f, i) => {
+          const winner = (f.winner || "").toLowerCase();
+          const isTrW = winner === treasuryLC;
+          const payoutNum = parseFloat(f.payout || 0);
+          const amountNum = parseFloat(f.amount || 0);
+          return (
+            <div key={f.id + "-" + i} style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "4px 10px", borderRadius: 12,
+              background: isTrW ? "rgba(239,68,68,0.08)" : "rgba(34,197,94,0.08)",
+              border: "1px solid " + (isTrW ? "rgba(239,68,68,0.2)" : "rgba(34,197,94,0.2)"),
+              fontSize: 10, color: isTrW ? "#ef4444" : "#22c55e", fontWeight: 700,
+              flexShrink: 0,
+            }}>
+              <span>{isTrW ? "L" : "W"}</span>
+              <span>{fmtNum(amountNum)} ETH</span>
+              <span style={{ color: "#94a3b8" }}>
+                {isTrW ? "Treasury" : shortAddr(f.winner)}
+              </span>
+              {!isTrW && payoutNum > 0 && (
+                <span style={{ color: "#22c55e" }}>
+                  +{fmtNum(payoutNum)}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════
+//  F1: PROFILE VIEW
+// ═══════════════════════════════════════
+function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance, playerStats, userProfile, linkTwitter, twitterUser, onBack }) {
+  const [profileData, setProfileData] = useState({ name: "", avatar: "", twitter: "" });
+  const [editing, setEditing] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const targetAddr = (address || "").toLowerCase();
+
+  useEffect(() => {
+    if (!targetAddr) return;
+    fetch(`${PROFILES_API}/api/profiles/${targetAddr}`)
+      .then(r => r.json())
+      .then(data => {
+        setProfileData({
+          name: data.name || "",
+          avatar: data.avatar || "",
+          twitter: data.twitter || "",
+        });
+        setNameInput(data.name || "");
+      })
+      .catch(() => {});
+  }, [targetAddr]);
+
+  // If this is MY profile and Privy has my Twitter info, auto-sync it.
+  useEffect(() => {
+    if (!isOwnProfile || !twitterUser || !targetAddr) return;
+    const handle = twitterUser.username || "";
+    const avatar = twitterUser.profilePictureUrl || "";
+    if (!handle && !avatar) return;
+    if (profileData.twitter === handle && profileData.avatar === avatar) return;
+    fetch(`${PROFILES_API}/api/profiles`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        wallet: targetAddr,
+        name: profileData.name || handle,
+        avatar,
+        twitter: handle,
+      }),
+    }).then(() => setProfileData(p => ({ ...p, avatar, twitter: handle })))
+      .catch(() => {});
+  }, [twitterUser, isOwnProfile, targetAddr, profileData.twitter, profileData.avatar, profileData.name]);
+
+  const mySeats = useMemo(() => {
+    if (!Array.isArray(seats)) return [];
+    return seats.filter(s => s.active && (s.owner || "").toLowerCase() === targetAddr);
+  }, [seats, targetAddr]);
+
+  const totalSeatValue = mySeats.reduce((sum, s) => sum + (s.priceNum || 0), 0);
+  const netWeek = mySeats.reduce((sum, s) => sum + (s.priceNum * 0.05), 0); // 5% weekly tax = expected yield scale
+  const flipBal = tokenBalance ? parseFloat(formatUnits(tokenBalance, 18)) : 0;
+  const level = userProfile?.level ?? 0;
+  const levelName = LEVEL_NAMES[Math.min(level, LEVEL_NAMES.length - 1)];
+  const levelColor = LEVEL_COLORS[Math.min(level, 5)];
+
+  const saveName = async () => {
+    setSaving(true);
+    try {
+      await fetch(`${PROFILES_API}/api/profiles`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet: targetAddr, name: nameInput }),
+      });
+      setProfileData(p => ({ ...p, name: nameInput }));
+      setEditing(false);
+      addToast("success", "Profile saved");
+    } catch { addToast("error", "Failed to save"); }
+    setSaving(false);
+  };
+
+  const avatarBg = profileData.avatar
+    ? `url(${profileData.avatar}) center/cover`
+    : `linear-gradient(135deg, ${addrColor(address)}, ${addrColor(address)}99)`;
+  const [tab, setTab] = useState("seats");
+
+  return (
+    <div style={{ maxWidth: 880, margin: "0 auto", padding: "24px 20px" }}>
+      <button onClick={onBack} style={{
+        background: "none", border: "none", color: "#94a3b8", cursor: "pointer",
+        fontSize: 12, marginBottom: 16, padding: "6px 0",
+      }}>← Back</button>
+
+      {/* HEADER CARD */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 20, padding: 20,
+        background: "linear-gradient(135deg, rgba(247,179,43,0.04), transparent)",
+        border: "1px solid #1c2430", borderRadius: 16, marginBottom: 20,
+      }}>
+        <div style={{
+          width: 80, height: 80, borderRadius: "50%", background: avatarBg,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 24, fontWeight: 800, color: "#0b0e11", flexShrink: 0,
+          border: "2px solid " + levelColor,
+        }}>
+          {!profileData.avatar && address?.slice(2, 4).toUpperCase()}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {editing ? (
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <input value={nameInput} onChange={e => setNameInput(e.target.value)} maxLength={32}
+                style={{ flex: 1, padding: "8px 10px", borderRadius: 6, background: "#0b0e11", border: "1px solid #1c2430", color: "#e2e8f0", fontSize: 14, fontFamily: "inherit" }}
+                placeholder="Display name" autoFocus />
+              <button onClick={saveName} disabled={saving} style={{ padding: "8px 14px", borderRadius: 6, background: "#f7b32b", color: "#0b0e11", border: "none", fontWeight: 800, cursor: "pointer" }}>
+                {saving ? "…" : "Save"}
+              </button>
+              <button onClick={() => { setEditing(false); setNameInput(profileData.name); }} style={{ padding: "8px 10px", borderRadius: 6, background: "transparent", color: "#94a3b8", border: "1px solid #1c2430", cursor: "pointer" }}>
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 22, fontWeight: 900, color: "#e2e8f0" }}>
+                {profileData.name || shortAddr(address)}
+              </div>
+              <span style={{
+                padding: "3px 8px", borderRadius: 10, background: levelColor + "22",
+                color: levelColor, fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
+              }}>Lv.{level} {levelName}</span>
+              {profileData.twitter && (
+                <a href={`https://x.com/${profileData.twitter}`} target="_blank" rel="noreferrer"
+                  style={{ fontSize: 11, color: "#1da1f2", textDecoration: "none" }}>@{profileData.twitter}</a>
+              )}
+              {isOwnProfile && (
+                <button onClick={() => setEditing(true)} style={{ fontSize: 11, background: "none", border: "1px solid #1c2430", color: "#94a3b8", padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>
+                  Edit
+                </button>
+              )}
+            </div>
+          )}
+          <div onClick={() => { navigator.clipboard.writeText(address); addToast("success", "Address copied"); }}
+            style={{ fontSize: 11, color: "#475569", marginTop: 6, cursor: "pointer", fontFamily: "'JetBrains Mono', monospace", wordBreak: "break-all" }}>
+            {address} {" "}<span style={{ color: "#f7b32b" }}>↗ copy</span>
+          </div>
+          {isOwnProfile && !profileData.twitter && linkTwitter && (
+            <button onClick={() => linkTwitter()} style={{
+              marginTop: 10, padding: "6px 14px", borderRadius: 6,
+              background: "#1da1f215", border: "1px solid #1da1f240",
+              color: "#1da1f2", fontSize: 11, fontWeight: 700, cursor: "pointer",
+            }}>Connect X</button>
+          )}
+        </div>
+      </div>
+
+      {/* STATS GRID */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 20 }}>
+        {[
+          { l: "Total Seat Value", v: fmtNum(totalSeatValue, 0) + " FLIP", c: "#f7b32b" },
+          { l: "Net / week (est.)", v: fmtNum(netWeek, 0) + " FLIP", c: "#22c55e" },
+          { l: "Seats Owned",      v: fmtNum(mySeats.length, 0),       c: "#e2e8f0" },
+          { l: "FLIPPER Balance",  v: fmtNum(flipBal, 0),              c: "#f7b32b" },
+          { l: "XP",               v: fmtNum(userProfile?.xp || 0, 0), c: "#3b82f6" },
+          { l: "Wins / Flips",     v: `${userProfile?.wins || 0}/${userProfile?.totalFlips || 0}`, c: "#e2e8f0" },
+        ].map((r, i) => (
+          <div key={i} style={{
+            padding: "14px 16px", background: "#0b0e11",
+            border: "1px solid #1c2430", borderRadius: 10,
+          }}>
+            <div style={{ fontSize: 9, color: "#475569", letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>{r.l}</div>
+            <div style={{ fontSize: 20, color: r.c, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{r.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* TABS */}
+      <div style={{ display: "flex", gap: 0, borderBottom: "1px solid #1c2430", marginBottom: 16 }}>
+        {[{ k: "seats", l: "Seats" }, { k: "stats", l: "Stats" }].map(t => (
+          <button key={t.k} onClick={() => setTab(t.k)} style={{
+            padding: "10px 20px", background: "none", border: "none",
+            color: tab === t.k ? "#f7b32b" : "#94a3b8",
+            borderBottom: "2px solid " + (tab === t.k ? "#f7b32b" : "transparent"),
+            fontSize: 12, fontWeight: 700, cursor: "pointer",
+          }}>{t.l}</button>
+        ))}
+      </div>
+
+      {tab === "seats" && (
+        mySeats.length === 0 ? (
+          <div style={{ padding: 40, textAlign: "center", color: "#475569", fontSize: 12 }}>
+            No seats owned yet.
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
+            {mySeats.map(s => (
+              <div key={s.id} style={{
+                padding: 12, background: "#0b0e11",
+                border: "1px solid #1c2430", borderRadius: 10,
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: "#f7b32b" }}>#{s.id}</span>
+                  {s.name && <span style={{ fontSize: 10, color: "#94a3b8" }}>"{s.name}"</span>}
+                </div>
+                <div style={{ fontSize: 11, color: "#94a3b8" }}>Price: <span style={{ color: "#e2e8f0", fontFamily: "'JetBrains Mono', monospace" }}>{fmtNum(s.priceNum, 0)} FLIP</span></div>
+                <div style={{ fontSize: 11, color: "#94a3b8" }}>Deposit: <span style={{ color: "#e2e8f0", fontFamily: "'JetBrains Mono', monospace" }}>{fmtNum(s.depositNum, 0)} FLIP</span></div>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+
+      {tab === "stats" && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+          {[
+            { l: "Total wagered (ETH)", v: fmtNum(playerStats?.wagered || 0, 4) },
+            { l: "Total won (ETH)",     v: fmtNum(playerStats?.won || 0, 4) },
+            { l: "Streak",              v: `${playerStats?.streak || 0}` },
+            { l: "Best streak",         v: `${playerStats?.bestStreak || 0}` },
+          ].map((r, i) => (
+            <div key={i} style={{ padding: "12px 14px", background: "#0b0e11", border: "1px solid #1c2430", borderRadius: 10 }}>
+              <div style={{ fontSize: 9, color: "#475569", letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>{r.l}</div>
+              <div style={{ fontSize: 15, color: "#e2e8f0", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 3 }}>{r.v}</div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -2643,11 +3094,17 @@ export default function FlipperRooms() {
     if (won) {
       audio.playWin(); triggerWinConfetti();
       vibrate([30, 50, 30, 50, 30]);
-      setTimeout(() => addToast("success", "Won " + pending.payout + " ETH!"), 2500);
+      setTimeout(
+        () => addToast("success", `You won +${fmtNum(parseFloat(pending.payout))} ETH`),
+        2500,
+      );
     } else {
       audio.playLoss();
       vibrate(20);
-      setTimeout(() => addToast("error", "Lost " + pending.amount + " ETH"), 2500);
+      setTimeout(
+        () => addToast("error", `You lost -${fmtNum(parseFloat(pending.amount))} ETH`),
+        2500,
+      );
     }
     refreshBalance();
     getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
@@ -2762,6 +3219,19 @@ export default function FlipperRooms() {
   }, [contract, address]);
 
   const isAdmin = address?.toLowerCase() === OWNER.toLowerCase();
+  const [adminUnlocked, setAdminUnlocked] = useState(false);
+  const [profileViewAddr, setProfileViewAddr] = useState(null);
+
+  const openAdmin = useCallback(() => {
+    if (adminUnlocked) { setView("admin"); return; }
+    const guess = window.prompt("Admin password:");
+    if (guess === ADMIN_PASSWORD) {
+      setAdminUnlocked(true);
+      setView("admin");
+    } else if (guess != null) {
+      addToast("error", "Wrong password");
+    }
+  }, [adminUnlocked]);
 
   // Close wallet menu on outside click
   useEffect(() => {
@@ -3286,6 +3756,8 @@ export default function FlipperRooms() {
 
         {/* ═══ CENTER — GAME ═══ */}
         <div className="game-center">
+          {/* V8 F4: persistent flip ticker shown across all tabs */}
+          <FlipTicker recentFlips={recentFlips} />
           <div className="game-topbar">
             <div className="logo">
               <span className="logo-text"><span className="logo-gold">FLIPPER</span><span className="logo-dim">ROOMS</span></span>
@@ -3305,7 +3777,7 @@ export default function FlipperRooms() {
                 </button>
               ))}
               {isAdmin && (
-                <button className={`nav-btn ${view === "admin" ? "active" : ""}`} onClick={() => { setView("admin"); audio.playClick(); }}
+                <button className={`nav-btn ${view === "admin" ? "active" : ""}`} onClick={() => { openAdmin(); audio.playClick(); }}
                   style={view === "admin" ? { color: "#ef4444", background: "#ef444410" } : {}}>
                   Admin
                 </button>
@@ -3396,6 +3868,10 @@ export default function FlipperRooms() {
                         style={{ fontSize: 10, color: "#94a3b8", padding: "6px 0", cursor: "pointer", fontFamily: "'JetBrains Mono', monospace", wordBreak: "break-all" }}>
                         {address}
                       </div>
+                      <button onClick={() => { setProfileViewAddr(address); setView("profile"); setShowWalletMenu(false); }}
+                        style={{ width: "100%", padding: "8px 0", background: "none", border: "none", borderTop: "1px solid #1c2430", color: "#f7b32b", fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+                        My Profile
+                      </button>
                       <a href={`${EXPLORER}/address/${address}`} target="_blank" rel="noreferrer"
                         style={{ display: "block", fontSize: 10, color: "#f7b32b", padding: "8px 0", borderTop: "1px solid #1c2430", textDecoration: "none" }}>
                         View on BaseScan
@@ -4131,13 +4607,35 @@ export default function FlipperRooms() {
             )}
 
             {/* ═══ ADMIN VIEW ═══ */}
-            {view === "admin" && isAdmin && (
-              <div style={{ maxWidth: 700, margin: "0 auto", padding: "24px 20px" }}>
+            {view === "admin" && isAdmin && adminUnlocked && (
+              <div style={{ maxWidth: 820, margin: "0 auto", padding: "24px 20px" }}>
                 <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 22, fontWeight: 900, color: "#ef4444", marginBottom: 4 }}>Admin Panel</div>
-                <div style={{ fontSize: 11, color: "#475569", marginBottom: 24 }}>Only visible to contract owner</div>
+                <div style={{ fontSize: 11, color: "#475569", marginBottom: 24 }}>Password-gated · contract owner only</div>
 
-                <AdminPanel contract={contract} seatsContract={seatsContract} />
+                <AdminPanel
+                  contract={contract}
+                  seatsContract={seatsContract}
+                  protocolStats={stats}
+                  graduation={seatHook.graduation}
+                  yieldPoolWei={seatHook.yieldPool}
+                />
               </div>
+            )}
+
+            {/* ═══ PROFILE VIEW ═══ */}
+            {view === "profile" && (
+              <ProfileView
+                address={profileViewAddr || address}
+                isOwnProfile={(profileViewAddr || address)?.toLowerCase() === (address || "").toLowerCase()}
+                seats={seatHook.seats}
+                seatsContract={seatsContract}
+                tokenBalance={tokenHook.balance}
+                playerStats={playerStats}
+                userProfile={userProfile.profile}
+                linkTwitter={wallet.linkTwitter}
+                twitterUser={wallet.user?.twitter}
+                onBack={() => { setView("flip"); setProfileViewAddr(null); }}
+              />
             )}
            </div>
           </div>
@@ -4170,6 +4668,32 @@ export default function FlipperRooms() {
           seatsContract={seatsContract}
           refreshSeats={seatHook.refreshSeats}
         />
+      </div>
+
+      {/* V8 F7: footer links — Flaunch, How it Works, X, Website */}
+      <div style={{
+        display: "flex", justifyContent: "center", gap: 18,
+        padding: "12px 16px", borderTop: "1px solid #1c2430",
+        background: "#07090d",
+        fontSize: 10, color: "#475569", fontFamily: "inherit",
+        flexWrap: "wrap",
+      }}>
+        <a href={FLAUNCH_URL} target="_blank" rel="noreferrer"
+          style={{ color: "#f7b32b", textDecoration: "none", fontWeight: 700 }}>
+          Buy $FLIPPER →
+        </a>
+        <button onClick={() => setShowHowItWorks(true)}
+          style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 10, fontWeight: 600, padding: 0 }}>
+          How it Works
+        </button>
+        <a href={TWITTER_URL} target="_blank" rel="noreferrer"
+          style={{ color: "#94a3b8", textDecoration: "none" }}>
+          X @BasedJaider
+        </a>
+        <a href={WEBSITE_URL} target="_blank" rel="noreferrer"
+          style={{ color: "#94a3b8", textDecoration: "none" }}>
+          Website
+        </a>
       </div>
 
       {/* LIVE FLIP NOTIFICATION — skip our own flips and treasury wins

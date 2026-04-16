@@ -44,11 +44,11 @@ export function fmtTokens(wei) {
 
 export async function getAllSeatsBasic(seatsContract) {
   const data = await seatsContract.getAllSeatsBasic();
-  // ABI field name is `_deposits` (with underscore) — positional access is
-  // safest across ABI regenerations: [owners, prices, _deposits, names].
+  // V8 ABI returns `owners, prices, deposits, names` (no underscore).
+  // Positional access is safest across ABI regenerations.
   const ownersArr   = data[0] || data.owners   || [];
   const pricesArr   = data[1] || data.prices   || [];
-  const depositsArr = data[2] || data._deposits || data.deposits || [];
+  const depositsArr = data[2] || data.deposits || data._deposits || [];
   const namesArr    = data[3] || data.names    || [];
   const ZERO = "0x0000000000000000000000000000000000000000";
   const seats = [];
@@ -212,6 +212,16 @@ export async function buyOutSeat(seatsContract, tokenContract, seatId, newPrice,
 export async function takeOverMultiple(seatsContract, tokenContract, seatIds, newPrices, additionalDeposits, totalApproval) {
   await sendTx(tokenContract.approve(SEATS_ADDRESS, totalApproval));
   return sendTx(seatsContract.takeOverMultiple(seatIds, newPrices, additionalDeposits));
+}
+
+// V8: batchMint up to 64 empty seats in a single TX (one approve + one mint).
+// `initialPrice` and `depositPerSeat` apply to every seat in the batch.
+export async function batchMint(seatsContract, tokenContract, seatIds, initialPrice, depositPerSeat) {
+  const onChainMintPrice = await seatsContract.calculateMintPrice();
+  const perSeat = onChainMintPrice + depositPerSeat;
+  const total = perSeat * BigInt(seatIds.length);
+  await sendTx(tokenContract.approve(SEATS_ADDRESS, total));
+  return sendTx(seatsContract.batchMint(seatIds, initialPrice, depositPerSeat));
 }
 
 export async function addDeposit(seatsContract, tokenContract, seatId, amount) {

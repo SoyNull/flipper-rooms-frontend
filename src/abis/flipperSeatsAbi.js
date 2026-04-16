@@ -73,6 +73,19 @@ export const flipperSeatsAbi = [
   },
   {
     "type": "function",
+    "name": "HOURS_PER_WEEK",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "MINT_PRICE_USD",
     "inputs": [],
     "outputs": [
@@ -86,7 +99,7 @@ export const flipperSeatsAbi = [
   },
   {
     "type": "function",
-    "name": "MIN_DEPOSIT_WEEKS",
+    "name": "MIN_DEPOSIT_HOURS",
     "inputs": [],
     "outputs": [
       {
@@ -206,6 +219,29 @@ export const flipperSeatsAbi = [
         "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "batchMint",
+    "inputs": [
+      {
+        "name": "seatIds",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "initialPrice",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "depositPerSeat",
+        "type": "uint128",
+        "internalType": "uint128"
       }
     ],
     "outputs": [],
@@ -400,7 +436,7 @@ export const flipperSeatsAbi = [
         "internalType": "uint128[]"
       },
       {
-        "name": "_deposits",
+        "name": "deposits",
         "type": "uint128[]",
         "internalType": "uint128[]"
       },
