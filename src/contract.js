@@ -44,13 +44,19 @@ export function fmtTokens(wei) {
 
 export async function getAllSeatsBasic(seatsContract) {
   const data = await seatsContract.getAllSeatsBasic();
+  // ABI field name is `_deposits` (with underscore) — positional access is
+  // safest across ABI regenerations: [owners, prices, _deposits, names].
+  const ownersArr   = data[0] || data.owners   || [];
+  const pricesArr   = data[1] || data.prices   || [];
+  const depositsArr = data[2] || data._deposits || data.deposits || [];
+  const namesArr    = data[3] || data.names    || [];
   const ZERO = "0x0000000000000000000000000000000000000000";
   const seats = [];
   for (let i = 0; i < 256; i++) {
-    const owner = data.owners[i];
+    const owner = ownersArr[i] || ZERO;
     const isOwned = owner !== ZERO;
-    const priceRaw = data.prices[i];
-    const depositRaw = data.deposits[i];
+    const priceRaw = pricesArr[i] ?? 0n;
+    const depositRaw = depositsArr[i] ?? 0n;
     const priceNum = parseFloat(formatUnits(priceRaw, 18));
     const depositNum = parseFloat(formatUnits(depositRaw, 18));
     const weeklyTax = priceNum * 0.05;
@@ -63,7 +69,7 @@ export async function getAllSeatsBasic(seatsContract) {
       priceNum,
       deposit: depositRaw,
       depositNum,
-      name: data.names[i] || "",
+      name: namesArr[i] || "",
       active: isOwned,
       daysLeft,
     });

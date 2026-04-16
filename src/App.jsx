@@ -2186,11 +2186,38 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 setBulkBuying(true);
                 setBulkProgress({ done: 0, total: toBuy.length, seatIds: toBuy.map(s => s.id) });
                 try {
-                  // Always read the on-chain mint price fresh at send time.
+                  // 1) Fresh on-chain mint price + 1% safety margin on the approve
+                  //    to absorb any rounding drift between calls.
                   const mpNow = await seatsContract.calculateMintPrice();
-                  const grand = (mpNow + depositPerWei) * BigInt(toBuy.length);
-                  addToast("pending", "Approving " + fmt(grand) + " FLIPPER for " + toBuy.length + " seats...");
-                  await approveFlipperFn(tokenContract, grand);
+                  const needPerSeat = mpNow + depositPerWei;
+                  const grand = needPerSeat * BigInt(toBuy.length);
+                  const withMargin = grand + (grand / 100n); // +1%
+
+                  // 2) Balance pre-check so we surface the real problem instead
+                  //    of an opaque "execution reverted".
+                  try {
+                    const bal = await tokenContract.balanceOf(address);
+                    if (bal < grand) {
+                      addToast("error", `Need ${fmt(grand)} FLIPPER, only have ${fmt(bal)}`);
+                      setBulkBuying(false); return;
+                    }
+                  } catch {}
+
+                  // 3) Single approve. No per-mint approve.
+                  addToast("pending", `Approving ${fmt(withMargin)} FLIPPER once for ${toBuy.length} mints…`);
+                  await approveFlipperFn(tokenContract, withMargin);
+
+                  // 4) Verify the approve landed before firing mints. Spares the
+                  //    user N failed transactions if the approve silently errored.
+                  try {
+                    const allow = await tokenContract.allowance(address, SEATS_ADDRESS);
+                    if (allow < needPerSeat) {
+                      addToast("error", "Approve didn't land. Try again.");
+                      setBulkBuying(false); return;
+                    }
+                  } catch {}
+
+                  // 5) Sequential mints — no approve between them.
                   let bought = 0;
                   for (const seat of toBuy) {
                     try {
@@ -4117,8 +4144,12 @@ export default function FlipperRooms() {
         />
       </div>
 
-      {/* LIVE FLIP NOTIFICATION */}
-      {liveFlip && liveFlip.winner?.toLowerCase() !== address?.toLowerCase() && (
+      {/* LIVE FLIP NOTIFICATION — skip our own flips and treasury wins
+          (those are just the house, not interesting news). */}
+      {liveFlip
+        && liveFlip.winner?.toLowerCase() !== address?.toLowerCase()
+        && liveFlip.winner?.toLowerCase() !== CONTRACT_ADDRESS.toLowerCase()
+        && (
         <div style={{
           position: "fixed", top: 60, left: "50%", transform: "translateX(-50%)",
           zIndex: 999, padding: "10px 20px", borderRadius: 10,
