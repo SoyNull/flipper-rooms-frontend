@@ -1431,14 +1431,22 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
             {/* Detail rows */}
             {seatDetail && (
               <div style={{ marginBottom: 16 }}>
-                {[
-                  { l: "Price", v: `${parseFloat(seatDetail.price).toFixed(4)} ETH`, c: "#f7b32b" },
-                  { l: "Deposit", v: `${parseFloat(seatDetail.deposit).toFixed(4)} ETH`, c: "#e2e8f0" },
-                  { l: "Rewards", v: `${parseFloat(seatDetail.rewards).toFixed(4)} ETH`, c: "#22c55e" },
-                  { l: "Earned", v: `${parseFloat(seatDetail.earned).toFixed(4)} ETH`, c: "#f7b32b" },
-                  { l: "Tax", v: `${parseFloat(seatDetail.pendingTax).toFixed(4)} ETH`, c: "#ef4444" },
-                  { l: "Runway", v: seatDetail.runway > 0 ? `${Math.floor(seatDetail.runway / 86400)}d ${Math.floor((seatDetail.runway % 86400) / 3600)}h` : "\u2014", c: "#94a3b8" },
-                ].map((r, i) => (
+                {(() => {
+                  const deposit = parseFloat(seatDetail.deposit);
+                  const tax = parseFloat(seatDetail.pendingTax);
+                  const effectiveDeposit = Math.max(0, deposit - tax);
+                  const runway = seatDetail.runway;
+                  const runwayDays = Math.floor(runway / 86400);
+                  const runwayHours = Math.floor((runway % 86400) / 3600);
+                  return [
+                    { l: "Price", v: `${parseFloat(seatDetail.price).toFixed(4)} ETH`, c: "#f7b32b" },
+                    { l: "Deposit", v: `${effectiveDeposit.toFixed(4)} ETH`, c: "#e2e8f0" },
+                    { l: "Pending Tax", v: `${tax.toFixed(4)} ETH`, c: "#ef4444" },
+                    { l: "Claimable Rewards", v: `${parseFloat(seatDetail.rewards).toFixed(4)} ETH`, c: "#22c55e" },
+                    { l: "Total Earned", v: `${parseFloat(seatDetail.earned).toFixed(4)} ETH`, c: "#f7b32b" },
+                    { l: "Time to Forfeit", v: runway > 0 ? `${runwayDays}d ${runwayHours}h` : "\u2014", c: runway > 0 && runway < 259200 ? "#ef4444" : "#94a3b8" },
+                  ];
+                })().map((r, i) => (
                   <div className="cost-row" key={i}>
                     <span className="cost-label">{r.l}</span>
                     <span className="cost-value" style={{ color: r.c }}>{r.v}</span>
