@@ -1652,9 +1652,11 @@ export default function FlipperRooms() {
   const [vsFlash, setVsFlash] = useState(null);
   const processingFlipRef = useRef(false);
   const processedFlipsRef = useRef(new Set());
+  const showCoinStageRef = useRef(false);
 
-  // Keep ref in sync so timers/closures always see current roomId
+  // Keep refs in sync so timers/closures always see current values
   useEffect(() => { myRoomIdRef.current = myRoomId; }, [myRoomId]);
+  useEffect(() => { showCoinStageRef.current = showCoinStage; }, [showCoinStage]);
 
   const resetFlip = useCallback(() => {
     setCoinState("idle");
@@ -1855,6 +1857,41 @@ export default function FlipperRooms() {
     contract.on("FlipResolved", onFlipResolved);
     return () => { contract.off("FlipResolved", onFlipResolved); };
   }, [contract, address]);
+
+  // Simple room status check — fast detection for creator
+  useEffect(() => {
+    if (!myRoomId || !contract) return;
+
+    const check = async () => {
+      try {
+        const data = await contract.getAllOpenChallenges();
+        const stillOpen = data.ids.some(id => Number(id) === myRoomIdRef.current);
+
+        if (!stillOpen && myRoomIdRef.current) {
+          // Room disappeared — someone accepted it
+          setMyRoomId(null);
+          myRoomIdRef.current = null;
+          setRoomCountdown(0);
+
+          // Show MATCH FOUND overlay
+          // The FlipResolved listener will handle the actual flip result
+          setMatchFoundAnim(true);
+          setTimeout(() => {
+            // If after 8s the listener hasn't shown coin stage, close overlay
+            if (!showCoinStageRef.current) {
+              setMatchFoundAnim(false);
+              addToast("info", "Match completed. Check your balance.");
+              refreshOpenRooms();
+              refreshBalance();
+            }
+          }, 8000);
+        }
+      } catch {}
+    };
+
+    const iv = setInterval(check, 2000);
+    return () => clearInterval(iv);
+  }, [myRoomId, contract]);
 
 
   // ═══════════════════════════════════════
