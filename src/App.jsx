@@ -7,7 +7,7 @@ import {
 const Coin3D = lazy(() => import("./Coin3D.jsx"));
 import {
   getPlayerInfo, getTreasuryMaxBet, getSeatInfo, decodeError,
-  mintSeat as mintSeatFn, buyOutSeat as buyOutSeatFn,
+  mintSeat as mintSeatFn, buyOutSeat as buyOutSeatFn, takeOverMultiple as takeOverMultipleFn,
   addDeposit as addDepositFn, withdrawDeposit as withdrawDepositFn,
   claimRewards as claimRewardsFn, claimMultipleRewards as claimMultipleRewardsFn,
   updateSeatPrice as updateSeatPriceFn, abandonSeat as abandonSeatFn,
@@ -1125,6 +1125,12 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
   const [showBulkBuy, setShowBulkBuy] = useState(false);
   const [bulkCount, setBulkCount] = useState(3);
   const [bulkBuying, setBulkBuying] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0, seatIds: [] });
+  const [showTakeOver, setShowTakeOver] = useState(false);
+  const [takeOverSelected, setTakeOverSelected] = useState([]); // seat ids
+  const [takeOverMult, setTakeOverMult] = useState(0); // 0..3 -> 1x,1.2x,2x,5x
+  const [takeOverDuration, setTakeOverDuration] = useState(168);
+  const [takeOverBusy, setTakeOverBusy] = useState(false);
 
   // Fetch detailed seat info when modal opens. V8 getSeatInfo returns BigInts;
   // adapt to the V7-shaped object the render code expects (human-readable strings).
@@ -1314,6 +1320,42 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
             color: "#f7b32b80", fontSize: 10, fontWeight: 600,
             cursor: "pointer", fontFamily: "inherit",
           }}>Buy Several at Once</button>
+          {(() => {
+            const emptyCount = seatHook.seats?.filter(s => !s.active).length || 0;
+            return (
+              <button
+                disabled={emptyCount === 0}
+                onClick={() => { setBulkCount(Math.min(emptyCount, 20)); setShowBulkBuy(true); }}
+                style={{
+                  width: "100%", padding: 10, borderRadius: 8, marginTop: 6,
+                  background: emptyCount > 0
+                    ? "linear-gradient(135deg, rgba(247,179,43,0.12), rgba(247,179,43,0.04))"
+                    : "rgba(255,255,255,0.02)",
+                  border: "1px solid " + (emptyCount > 0 ? "#f7b32b" : "#1c2430"),
+                  color: emptyCount > 0 ? "#f7b32b" : "#475569",
+                  fontSize: 11, fontWeight: 800, letterSpacing: 0.5,
+                  cursor: emptyCount > 0 ? "pointer" : "not-allowed", fontFamily: "inherit",
+                  textShadow: emptyCount > 0 ? "0 0 10px rgba(247,179,43,0.25)" : "none",
+                }}>
+                Take Over All Empty {emptyCount > 0 ? `(${emptyCount})` : ""}
+              </button>
+            );
+          })()}
+          <button
+            onClick={() => {
+              const occupied = seatHook.seats?.filter(s => s.active && s.owner?.toLowerCase() !== address?.toLowerCase()).map(s => s.id) || [];
+              if (occupied.length === 0) { addToast("info", "No seats to take over"); return; }
+              setTakeOverSelected(occupied.slice(0, 10));
+              setTakeOverMult(0);
+              setTakeOverDuration(168);
+              setShowTakeOver(true);
+            }}
+            style={{
+              width: "100%", padding: 8, borderRadius: 8, marginTop: 6,
+              background: "transparent", border: "1px dashed rgba(239,68,68,0.3)",
+              color: "#fca5a5", fontSize: 10, fontWeight: 600,
+              cursor: "pointer", fontFamily: "inherit",
+            }}>Take Over Multiple (buyout)</button>
           {seatHook.mySeats.length > 0 && (
             <button onClick={async () => {
               if (!seatsContract) { addToast("error", "Wallet not ready"); return; }
@@ -1808,73 +1850,282 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
         </div>
       )}
 
-      {/* BULK BUY MODAL */}
-      {showBulkBuy && (
-        <div onClick={e => { if (e.target === e.currentTarget) setShowBulkBuy(false); }}
-          style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: "#131820", border: "1px solid #1c2430", borderRadius: 14, padding: 24, width: 380 }}>
-            <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 16, fontWeight: 800, color: "#f7b32b", marginBottom: 16 }}>Buy Several at Once</div>
-            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>
-              Mint {bulkCount} empty seats — each list price 1000 FLIP + 4w deposit.
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-              <span style={{ fontSize: 11, color: "#475569" }}>Qty:</span>
-              {[1, 3, 5, 10].map(n => (
-                <button key={n} onClick={() => setBulkCount(n)} style={{
-                  padding: "6px 14px", borderRadius: 6,
-                  border: "1px solid " + (bulkCount === n ? "#f7b32b" : "#1c2430"),
-                  background: bulkCount === n ? "#f7b32b10" : "#0b0e11",
-                  color: bulkCount === n ? "#f7b32b" : "#475569",
-                  fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-                }}>{n}</button>
-              ))}
-            </div>
-            <div style={{ padding: 12, background: "#0b0e11", borderRadius: 8, marginBottom: 16 }}>
-              {[
-                { l: "Seats", v: bulkCount },
-                { l: "List price each", v: "1000 FLIP" },
-                { l: "Approve per seat", v: "~50K FLIP", c: "#f7b32b" },
-              ].map((r, i) => (
-                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11 }}>
-                  <span style={{ color: "#475569" }}>{r.l}</span>
-                  <span style={{ color: r.c || "#e2e8f0", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{r.v}</span>
+      {/* BULK BUY MODAL — empty seats (mint) */}
+      {showBulkBuy && (() => {
+        // Planning numbers — list price 1000 FLIP per seat, 4w min deposit.
+        const LIST_PER = 1000;
+        const WEEKLY_TAX_RATE = 0.05;
+        const MINT_APPROVE_PER = 50000; // safe upper bound for calculateMintPrice
+        const depositPer = LIST_PER * WEEKLY_TAX_RATE * 4; // 200 FLIP
+        const approvePer = MINT_APPROVE_PER + depositPer;  // 50,200 FLIP
+        const totalApprove = approvePer * bulkCount;
+        const totalDeposit = depositPer * bulkCount;
+        const usdPerSeat = 10; // mint price is the USD-equivalent in FLIP (~$10)
+        const totalUsd = usdPerSeat * bulkCount;
+        const emptyAll = seatHook.seats.filter(s => !s.active);
+        const plannedIds = (bulkProgress.total > 0 ? bulkProgress.seatIds : emptyAll.slice(0, bulkCount).map(s => s.id));
+        const progressPct = bulkProgress.total > 0 ? Math.round((bulkProgress.done / bulkProgress.total) * 100) : 0;
+
+        return (
+          <div onClick={e => { if (e.target === e.currentTarget && !bulkBuying) setShowBulkBuy(false); }}
+            style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+            <div style={{ background: "#131820", border: "1px solid #1c2430", borderRadius: 14, padding: 24, width: 420, maxHeight: "85vh", overflowY: "auto" }}>
+              <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 16, fontWeight: 800, color: "#f7b32b", marginBottom: 6 }}>
+                {bulkBuying ? "Minting…" : "Buy Several at Once"}
+              </div>
+              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 14, lineHeight: 1.5 }}>
+                Each seat requires mint price (~${usdPerSeat} USD in FLIPPER) + a 4-week deposit at 5% weekly tax.
+              </div>
+
+              {!bulkBuying && (<>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                  <span style={{ fontSize: 11, color: "#475569" }}>Qty:</span>
+                  {[1, 3, 5, 10, 20].filter(n => n <= Math.max(1, emptyAll.length)).map(n => (
+                    <button key={n} onClick={() => setBulkCount(n)} style={{
+                      padding: "6px 14px", borderRadius: 6,
+                      border: "1px solid " + (bulkCount === n ? "#f7b32b" : "#1c2430"),
+                      background: bulkCount === n ? "#f7b32b10" : "#0b0e11",
+                      color: bulkCount === n ? "#f7b32b" : "#475569",
+                      fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                    }}>{n}</button>
+                  ))}
+                  {emptyAll.length > 0 && (
+                    <button onClick={() => setBulkCount(Math.min(emptyAll.length, 64))} style={{
+                      padding: "6px 12px", borderRadius: 6, marginLeft: 4,
+                      border: "1px solid #f7b32b50", background: "transparent",
+                      color: "#f7b32b", fontSize: 10, fontWeight: 700,
+                      cursor: "pointer", fontFamily: "inherit",
+                    }}>All ({Math.min(emptyAll.length, 64)})</button>
+                  )}
                 </div>
-              ))}
-            </div>
-            <button disabled={bulkBuying} onClick={async () => {
-              if (!seatsContract || !tokenContract) { addToast("error", "Wallet not ready"); return; }
-              setBulkBuying(true);
-              const empty = seatHook.seats.filter(s => !s.active);
-              const toBuy = empty.slice(0, bulkCount);
-              let bought = 0;
-              for (const seat of toBuy) {
-                try {
-                  const initialPrice = parseUnits("1000", 18);
-                  const weeklyTax = initialPrice * 500n / 10000n;
-                  const deposit = weeklyTax * 4n;
-                  const mintCost = parseUnits("50000", 18);
-                  await mintSeatFn(seatsContract, tokenContract, seat.id, initialPrice, "", mintCost, deposit);
-                  bought++;
-                  addToast("success", "Seat #" + seat.id + " minted (" + bought + "/" + bulkCount + ")");
-                  if (bought < toBuy.length) await new Promise(r => setTimeout(r, 1000));
-                } catch (err) {
-                  addToast("error", "Seat #" + seat.id + ": " + decodeError(err));
-                  break;
+              </>)}
+
+              <div style={{ padding: 12, background: "#0b0e11", borderRadius: 8, marginBottom: 12 }}>
+                {[
+                  { l: "Seats",               v: String(bulkCount) },
+                  { l: "List price each",     v: `${LIST_PER.toLocaleString()} FLIP` },
+                  { l: "Deposit each (4w)",   v: `${depositPer.toFixed(0)} FLIP` },
+                  { l: "Approve per seat",    v: `~${approvePer.toLocaleString()} FLIP`, c: "#94a3b8" },
+                  { l: "Total deposit",       v: `${totalDeposit.toLocaleString()} FLIP`, c: "#e2e8f0" },
+                  { l: "Total approve",       v: `~${totalApprove.toLocaleString()} FLIP`, c: "#f7b32b" },
+                  { l: "USD equivalent",      v: `~$${totalUsd.toFixed(0)}`, c: "#22c55e" },
+                ].map((r, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11 }}>
+                    <span style={{ color: "#475569" }}>{r.l}</span>
+                    <span style={{ color: r.c || "#e2e8f0", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{r.v}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Seat IDs that will be minted */}
+              {plannedIds.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>SEATS TO MINT</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {plannedIds.slice(0, 40).map((id, i) => {
+                      const done = bulkProgress.total > 0 && i < bulkProgress.done;
+                      const active = bulkProgress.total > 0 && i === bulkProgress.done;
+                      return (
+                        <span key={id} style={{
+                          fontSize: 10, padding: "3px 8px", borderRadius: 4,
+                          fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
+                          border: "1px solid " + (done ? "#22c55e40" : active ? "#f7b32b" : "#1c2430"),
+                          background: done ? "#22c55e15" : active ? "#f7b32b18" : "#0b0e11",
+                          color: done ? "#22c55e" : active ? "#f7b32b" : "#94a3b8",
+                        }}>#{id}{done ? " \u2713" : ""}</span>
+                      );
+                    })}
+                    {plannedIds.length > 40 && <span style={{ fontSize: 10, color: "#475569" }}>+{plannedIds.length - 40}</span>}
+                  </div>
+                </div>
+              )}
+
+              {/* Progress */}
+              {bulkBuying && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>
+                    <span>Progress</span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: "#f7b32b" }}>
+                      {bulkProgress.done}/{bulkProgress.total} ({progressPct}%)
+                    </span>
+                  </div>
+                  <div style={{ height: 6, background: "rgba(255,255,255,0.04)", borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{
+                      height: "100%", width: progressPct + "%",
+                      background: "linear-gradient(90deg, #b8860b, #f7b32b)",
+                      transition: "width 0.3s ease",
+                    }}/>
+                  </div>
+                </div>
+              )}
+
+              <button disabled={bulkBuying || bulkCount === 0 || emptyAll.length === 0} onClick={async () => {
+                if (!seatsContract || !tokenContract) { addToast("error", "Wallet not ready"); return; }
+                const toBuy = emptyAll.slice(0, bulkCount);
+                setBulkBuying(true);
+                setBulkProgress({ done: 0, total: toBuy.length, seatIds: toBuy.map(s => s.id) });
+                let bought = 0;
+                for (const seat of toBuy) {
+                  try {
+                    const initialPrice = parseUnits(String(LIST_PER), 18);
+                    const weeklyTax = initialPrice * 500n / 10000n;
+                    const deposit = weeklyTax * 4n;
+                    const mintCost = parseUnits(String(MINT_APPROVE_PER), 18);
+                    await mintSeatFn(seatsContract, tokenContract, seat.id, initialPrice, "", mintCost, deposit);
+                    bought++;
+                    setBulkProgress(p => ({ ...p, done: bought }));
+                    if (bought < toBuy.length) await new Promise(r => setTimeout(r, 800));
+                  } catch (err) {
+                    addToast("error", "Seat #" + seat.id + ": " + decodeError(err));
+                    break;
+                  }
                 }
-              }
-              setBulkBuying(false);
-              setShowBulkBuy(false);
-              seatHook.refreshSeats(); refreshTokenBalance?.();
-            }} style={{
-              width: "100%", padding: 14, borderRadius: 10,
-              background: bulkBuying ? "#475569" : "linear-gradient(135deg, #b8860b, #f7b32b)",
-              color: "#0b0e11", fontSize: 14, fontWeight: 800, border: "none",
-              cursor: bulkBuying ? "wait" : "pointer", fontFamily: "'Chakra Petch', sans-serif",
-            }}>{bulkBuying ? "Minting..." : "Mint " + bulkCount + " Seats"}</button>
-            <div style={{ fontSize: 9, color: "#475569", marginTop: 8, textAlign: "center" }}>Each seat = separate transaction</div>
+                if (bought > 0) addToast("success", `Minted ${bought}/${toBuy.length} seats`);
+                setBulkBuying(false);
+                seatHook.refreshSeats(); refreshTokenBalance?.();
+                if (bought === toBuy.length) {
+                  setTimeout(() => { setShowBulkBuy(false); setBulkProgress({ done: 0, total: 0, seatIds: [] }); }, 800);
+                }
+              }} style={{
+                width: "100%", padding: 14, borderRadius: 10,
+                background: bulkBuying ? "#475569" : "linear-gradient(135deg, #b8860b, #f7b32b)",
+                color: "#0b0e11", fontSize: 14, fontWeight: 800, border: "none",
+                cursor: bulkBuying ? "wait" : "pointer", fontFamily: "'Chakra Petch', sans-serif",
+              }}>
+                {bulkBuying ? `Minting ${bulkProgress.done + 1}/${bulkProgress.total}…` : `Mint ${bulkCount} Seat${bulkCount === 1 ? "" : "s"}`}
+              </button>
+              <div style={{ fontSize: 9, color: "#475569", marginTop: 8, textAlign: "center" }}>Each seat = separate transaction (no batch mint on-chain)</div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
+
+      {/* TAKE OVER MULTIPLE MODAL — occupied seats (batch buyout) */}
+      {showTakeOver && (() => {
+        const occupiedAll = seatHook.seats
+          .filter(s => s.active && s.owner?.toLowerCase() !== address?.toLowerCase());
+        const selected = occupiedAll.filter(s => takeOverSelected.includes(s.id));
+        const mults = [10n, 12n, 20n, 50n]; // /10
+        const multLabels = ["1x", "1.2x", "2x", "5x"];
+        const computed = selected.map(s => {
+          const newPrice = s.price * mults[takeOverMult] / 10n;
+          const weeklyTax = newPrice * 500n / 10000n;
+          const deposit = weeklyTax * BigInt(takeOverDuration) / 168n;
+          const buyoutCost = s.price; // paid to prior owner
+          return { id: s.id, price: s.price, newPrice, deposit, buyoutCost };
+        });
+        const totalBuyout = computed.reduce((a, c) => a + c.buyoutCost, 0n);
+        const totalDeposit = computed.reduce((a, c) => a + c.deposit, 0n);
+        const totalApprove = totalBuyout + totalDeposit;
+        const approveFlip = parseFloat(formatUnits(totalApprove, 18));
+        const usd = approveFlip / 1000 * 10; // 1000 FLIP ≈ $10 (mint-price convention)
+
+        const toggle = (id) => setTakeOverSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id].slice(0, 64));
+
+        return (
+          <div onClick={e => { if (e.target === e.currentTarget && !takeOverBusy) setShowTakeOver(false); }}
+            style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+            <div style={{ background: "#131820", border: "1px solid #1c2430", borderRadius: 14, padding: 24, width: 460, maxHeight: "85vh", overflowY: "auto" }}>
+              <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 16, fontWeight: 800, color: "#ef4444", marginBottom: 6 }}>
+                Take Over Multiple
+              </div>
+              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 14, lineHeight: 1.5 }}>
+                Buy {selected.length} occupied seat{selected.length === 1 ? "" : "s"} in a single transaction. Max 64 per TX.
+              </div>
+
+              {/* Multiplier */}
+              <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>NEW PRICE MULTIPLIER</div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+                {multLabels.map((l, i) => (
+                  <button key={l} onClick={() => setTakeOverMult(i)} style={{
+                    flex: 1, padding: "6px 0", borderRadius: 6,
+                    border: "1px solid " + (takeOverMult === i ? "#f7b32b" : "#1c2430"),
+                    background: takeOverMult === i ? "#f7b32b10" : "#0b0e11",
+                    color: takeOverMult === i ? "#f7b32b" : "#475569",
+                    fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                  }}>{l}</button>
+                ))}
+              </div>
+
+              {/* Duration */}
+              <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>DEPOSIT DURATION</div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+                {[{l:"1d",h:24},{l:"7d",h:168},{l:"30d",h:720}].map(d => (
+                  <button key={d.h} onClick={() => setTakeOverDuration(d.h)} style={{
+                    flex: 1, padding: "6px 0", borderRadius: 6,
+                    border: "1px solid " + (takeOverDuration === d.h ? "#f7b32b" : "#1c2430"),
+                    background: takeOverDuration === d.h ? "#f7b32b10" : "#0b0e11",
+                    color: takeOverDuration === d.h ? "#f7b32b" : "#475569",
+                    fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                  }}>{d.l}</button>
+                ))}
+              </div>
+
+              {/* Selection grid */}
+              <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>
+                TARGETS ({selected.length}/{Math.min(occupiedAll.length, 64)})
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, padding: 8, background: "#0b0e11", borderRadius: 6, marginBottom: 12, maxHeight: 140, overflowY: "auto" }}>
+                {occupiedAll.map(s => {
+                  const on = takeOverSelected.includes(s.id);
+                  return (
+                    <button key={s.id} onClick={() => toggle(s.id)} style={{
+                      fontSize: 10, padding: "3px 8px", borderRadius: 4,
+                      border: "1px solid " + (on ? "#ef4444" : "#1c2430"),
+                      background: on ? "rgba(239,68,68,0.15)" : "transparent",
+                      color: on ? "#fca5a5" : "#94a3b8",
+                      fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, cursor: "pointer",
+                    }}>#{s.id} · {s.priceNum.toFixed(0)}</button>
+                  );
+                })}
+              </div>
+
+              {/* Totals */}
+              <div style={{ padding: 12, background: "#0b0e11", borderRadius: 8, marginBottom: 12 }}>
+                {[
+                  { l: "Seats",          v: String(selected.length) },
+                  { l: "Buyouts total",  v: `${parseFloat(formatUnits(totalBuyout, 18)).toFixed(0)} FLIP` },
+                  { l: "Deposits total", v: `${parseFloat(formatUnits(totalDeposit, 18)).toFixed(0)} FLIP` },
+                  { l: "Total approve",  v: `${approveFlip.toFixed(0)} FLIP`, c: "#f7b32b" },
+                  { l: "USD equivalent", v: `~$${usd.toFixed(0)}`, c: "#22c55e" },
+                ].map((r, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11 }}>
+                    <span style={{ color: "#475569" }}>{r.l}</span>
+                    <span style={{ color: r.c || "#e2e8f0", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{r.v}</span>
+                  </div>
+                ))}
+              </div>
+
+              <button disabled={takeOverBusy || selected.length === 0} onClick={async () => {
+                if (!seatsContract || !tokenContract) { addToast("error", "Wallet not ready"); return; }
+                setTakeOverBusy(true);
+                try {
+                  const ids = computed.map(c => c.id);
+                  const prices = computed.map(c => c.newPrice);
+                  const deposits = computed.map(c => c.deposit);
+                  await takeOverMultipleFn(seatsContract, tokenContract, ids, prices, deposits, totalApprove);
+                  addToast("success", `Took over ${selected.length} seats`);
+                  seatHook.refreshSeats(); refreshTokenBalance?.();
+                  setShowTakeOver(false);
+                } catch (err) {
+                  addToast("error", decodeError(err));
+                }
+                setTakeOverBusy(false);
+              }} style={{
+                width: "100%", padding: 14, borderRadius: 10,
+                background: takeOverBusy ? "#475569" : "linear-gradient(135deg, #ef4444, #b91c1c)",
+                color: "#fff", fontSize: 14, fontWeight: 800, border: "none",
+                cursor: takeOverBusy ? "wait" : "pointer", fontFamily: "'Chakra Petch', sans-serif",
+              }}>
+                {takeOverBusy ? "Taking over…" : `Take Over ${selected.length} Seat${selected.length === 1 ? "" : "s"}`}
+              </button>
+              <div style={{ fontSize: 9, color: "#475569", marginTop: 8, textAlign: "center" }}>
+                Two transactions: approve FLIPPER → takeOverMultiple
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -2084,14 +2335,17 @@ export default function FlipperRooms() {
     setLastPayout(pending.payout);
     setFlipHistory(prev => [{ won }, ...prev].slice(0, 12));
 
+    // Immediate: play sound + confetti as the coin finishes its landing
+    // flourish, but defer the toast ~2.5s so it lands AFTER the result
+    // text has been read. Keeps the reveal in sync with the animation.
     if (won) {
       audio.playWin(); triggerWinConfetti();
       vibrate([30, 50, 30, 50, 30]);
-      addToast("success", "Won " + pending.payout + " ETH!");
+      setTimeout(() => addToast("success", "Won " + pending.payout + " ETH!"), 2500);
     } else {
       audio.playLoss();
       vibrate(20);
-      addToast("error", "Lost " + pending.amount + " ETH");
+      setTimeout(() => addToast("error", "Lost " + pending.amount + " ETH"), 2500);
     }
     refreshBalance();
     getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
@@ -3423,13 +3677,17 @@ export default function FlipperRooms() {
                 <div style={{ padding: 14, background: "#131820", borderRadius: 10, border: "1px solid #1c2430" }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: 1.5, marginBottom: 8 }}>FEE BREAKDOWN (4% of pot)</div>
                   {[
-                    { label: "Seat holders", pct: "1.25%", color: "#f7b32b" },
-                    { label: "Protocol", pct: "2.0%", color: "#94a3b8" },
-                    { label: "Referral", pct: "0.5%", color: "#3b82f6" },
-                    { label: "Jackpot pool", pct: "0.25%", color: "#ef4444" },
+                    { label: "Seat holders",    pct: "1.25%", note: "distributed to 256 seat owners", color: "#f7b32b" },
+                    { label: "Protocol",        pct: "1.00%", note: "creator wallet (ETH)",          color: "#94a3b8" },
+                    { label: "Treasury growth", pct: "1.00%", note: "grows the house pool",          color: "#a78bfa" },
+                    { label: "Referral",        pct: "0.50%", note: "to the referring seat",         color: "#3b82f6" },
+                    { label: "Jackpot pool",    pct: "0.25%", note: "1% chance per flip",            color: "#ef4444" },
                   ].map((item, i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11 }}>
-                      <span style={{ color: "#94a3b8" }}>{item.label}</span>
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "5px 0", fontSize: 11 }}>
+                      <div style={{ display: "flex", flexDirection: "column" }}>
+                        <span style={{ color: "#94a3b8" }}>{item.label}</span>
+                        <span style={{ color: "#475569", fontSize: 9 }}>{item.note}</span>
+                      </div>
                       <span style={{ color: item.color, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{item.pct}</span>
                     </div>
                   ))}

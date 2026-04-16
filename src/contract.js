@@ -181,6 +181,12 @@ export async function buyOutSeat(seatsContract, tokenContract, seatId, newPrice,
   return sendTx(seatsContract.buyOutSeat(seatId, newPrice));
 }
 
+// Batch buyout (max 64 per TX). Caller pre-computes total FLIPPER approval.
+export async function takeOverMultiple(seatsContract, tokenContract, seatIds, newPrices, additionalDeposits, totalApproval) {
+  await sendTx(tokenContract.approve(SEATS_ADDRESS, totalApproval));
+  return sendTx(seatsContract.takeOverMultiple(seatIds, newPrices, additionalDeposits));
+}
+
 export async function addDeposit(seatsContract, tokenContract, seatId, amount) {
   await sendTx(tokenContract.approve(SEATS_ADDRESS, amount));
   return sendTx(seatsContract.addDeposit(seatId, amount));
