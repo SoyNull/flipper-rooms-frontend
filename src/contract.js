@@ -125,9 +125,9 @@ export async function getProtocolStats(coinflipContract) {
     totalVolume: formatEther(r[1]),
     jackpotPool: formatEther(r[2]),
     treasuryBalance: formatEther(r[3]),
-    protocolBalance: formatEther(r[5]),
-    lastJackpotWinner: r[6],
-    lastJackpotAmount: formatEther(r[7]),
+    protocolBalance: formatEther(r[4]),
+    lastJackpotWinner: r[5],
+    lastJackpotAmount: formatEther(r[6]),
   };
 }
 

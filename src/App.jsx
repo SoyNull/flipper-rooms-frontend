@@ -2573,27 +2573,20 @@ export default function FlipperRooms() {
 
       {loadError && !dataLoaded && (
         <div style={{
-          position: "fixed", inset: 0, zIndex: 3000,
-          display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center",
-          background: "#0b0e11", gap: 16,
+          position: "fixed", top: 0, left: 0, right: 0, zIndex: 2400,
+          padding: "8px 16px",
+          background: "linear-gradient(180deg, rgba(239,68,68,0.14), rgba(239,68,68,0.06))",
+          borderBottom: "1px solid rgba(239,68,68,0.3)",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+          fontFamily: "'Chakra Petch', sans-serif", flexWrap: "wrap",
         }}>
-          <div style={{
-            fontSize: 20, fontWeight: 700, color: "#f7b32b",
-            fontFamily: "'Orbitron', sans-serif",
-          }}>FLIPPERROOMS</div>
-          <div style={{ fontSize: 13, color: "#ef4444", marginTop: 8 }}>
-            Having trouble connecting to Base network
-          </div>
-          <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", maxWidth: 300, lineHeight: 1.6 }}>
-            This could be a temporary network issue.
-            Make sure you're connected to the internet and try again.
-          </div>
-          <button onClick={() => window.location.reload()} style={{
-            padding: "10px 32px", borderRadius: 8, marginTop: 8,
-            background: "linear-gradient(135deg, #b8860b, #f7b32b)",
-            color: "#0b0e11", fontSize: 13, fontWeight: 700,
-            border: "none", cursor: "pointer",
+          <span style={{ fontSize: 11, color: "#fca5a5", fontWeight: 600 }}>
+            {"\u26A0"} Base Sepolia RPC slow to respond. UI is live, on-chain data may be stale.
+          </span>
+          <button onClick={() => { setLoadError(false); protocol.refreshStats?.(); }} style={{
+            padding: "4px 12px", borderRadius: 6, fontSize: 10, fontWeight: 700,
+            background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.4)",
+            color: "#fca5a5", cursor: "pointer", fontFamily: "inherit",
           }}>Retry</button>
         </div>
       )}
