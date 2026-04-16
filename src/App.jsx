@@ -32,35 +32,39 @@ const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg-deep: #0b0e11;
-  --bg-main: #0f1318;
-  --bg-card: #151a22;
-  --bg-card-hover: #1c232e;
-  --bg-elevated: #1f2937;
-  --border: #151b25;
-  --border-light: #1c2430;
+  --bg-deep: #07090d;
+  --bg-main: #0a0d13;
+  --bg-card: #0d1118;
+  --bg-card-hover: #131820;
+  --bg-elevated: #131820;
+  --border: rgba(255,255,255,0.04);
+  --border-light: rgba(255,255,255,0.06);
+  --border-strong: rgba(255,255,255,0.1);
+  --border-gold: rgba(247,179,43,0.2);
 
   --gold: #f7b32b;
-  --gold-bright: #ffd700;
-  --gold-glow: #f7b32b50;
-  --gold-dark: #b8860b;
+  --gold-bright: #ffc94a;
+  --gold-glow: rgba(247,179,43,0.25);
+  --gold-dark: #d4a020;
+  --gold-deep: #a87a18;
 
   --green: #22c55e;
-  --green-glow: #22c55e40;
+  --green-glow: rgba(34,197,94,0.3);
   --red: #ef4444;
-  --red-glow: #ef444440;
+  --red-glow: rgba(239,68,68,0.3);
 
-  --text: #f1f5f9;
-  --text-dim: #94a3b8;
-  --text-muted: #475569;
+  --text: #e8eef5;
+  --text-dim: #c0c8d4;
+  --text-muted: #5a6577;
+  --text-faint: #3d4756;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petch', sans-serif; }
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--bg-card); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.1); }
 
 /* ═══ KEYFRAMES ═══ */
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
@@ -90,6 +94,8 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 @keyframes scaleIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes roomPulse { 0%, 100% { border-color: #22c55e15; } 50% { border-color: #22c55e35; } }
+@keyframes liveDot { 0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--gold); } 50% { opacity: 0.4; box-shadow: 0 0 4px var(--gold); } }
+@keyframes cardTopGlow { 0%, 100% { box-shadow: 0 0 30px rgba(247,179,43,0.08); } 50% { box-shadow: 0 0 50px rgba(247,179,43,0.18); } }
 
 /* ═══ COIN STAGE — DUEL LAYOUT ═══ */
 .coin-wrapper {
@@ -248,10 +254,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
   height: 100vh; width: 100vw; overflow: hidden;
   display: grid;
   grid-template-columns: 280px 1fr 300px;
-  background:
-    radial-gradient(ellipse at 20% 80%, #f7b32b04 0%, transparent 40%),
-    radial-gradient(ellipse at 80% 20%, #f7b32b03 0%, transparent 35%),
-    var(--bg-deep);
+  background: linear-gradient(180deg, #07090d 0%, #0a0d13 100%);
   position: relative;
 }
 .app-root::before {
@@ -270,8 +273,8 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 /* ═══ CHAT SIDEBAR (LEFT) ═══ */
 .chat-sidebar {
   display: flex; flex-direction: column; height: 100%;
-  background: linear-gradient(180deg, #0c1019 0%, #080b10 50%, #0c1019 100%);
-  border-right: 1px solid #151b25;
+  background: linear-gradient(180deg, #0a0d14 0%, #07090d 100%);
+  border-right: 1px solid var(--border);
   position: relative; z-index: 1;
 }
 .chat-header {
@@ -282,7 +285,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 .online-badge { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
 .online-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px #22c55e60; animation: blink 2s infinite; }
 
-.chat-messages { flex: 1; overflow-y: auto; padding: 0; display: flex; flex-direction: column; gap: 0; background: linear-gradient(180deg, #090c12, #0b0e14, #090c12); }
+.chat-messages { flex: 1; overflow-y: auto; padding: 0; display: flex; flex-direction: column; gap: 0; background: transparent; }
 .chat-msg { display: flex; align-items: flex-start; gap: 8px; padding: 10px 18px; border-bottom: 1px solid #0e1219; }
 .chat-avatar {
   width: 32px; height: 32px; min-width: 32px; border-radius: 50%;
@@ -319,46 +322,44 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
   border-left: 1px solid var(--border); border-right: 1px solid var(--border);
   overflow: hidden; display: flex; flex-direction: column;
   position: relative; z-index: 1;
-  background: radial-gradient(ellipse at 50% 0%, #f7b32b04 0%, transparent 50%), #0b0e11;
+  background: transparent;
 }
 .game-topbar {
-  height: 52px; display: flex; align-items: center; justify-content: space-between;
+  height: 56px; display: flex; align-items: center; justify-content: space-between;
   padding: 0 24px; border-bottom: 1px solid var(--border);
-  background: linear-gradient(180deg, var(--bg-main), var(--bg-deep)); flex-shrink: 0;
+  background: linear-gradient(180deg, rgba(247,179,43,0.02), transparent); flex-shrink: 0;
   position: relative;
 }
 .game-topbar::after {
   content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
-  background: linear-gradient(90deg, transparent 5%, #f7b32b30 30%, #b8860b30 50%, #f7b32b30 70%, transparent 95%);
+  background: linear-gradient(90deg, transparent 10%, rgba(247,179,43,0.15) 50%, transparent 90%);
 }
 .logo { display: flex; align-items: center; gap: 8px; }
-.logo-text { font-family: 'Orbitron', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: 3px; }
-.logo-gold { color: var(--gold); text-shadow: 0 0 30px #f7b32b40; }
+.logo-text { font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 900; letter-spacing: 3px; }
+.logo-gold { color: var(--gold); }
 .logo-dim { color: var(--text-muted); }
 .logo-badge {
-  font-size: 8px; font-weight: 800; letter-spacing: 1.5px; padding: 3px 8px;
-  border-radius: 4px; background: #f7b32b15; color: var(--gold); border: 1px solid #f7b32b30;
+  font-size: 9px; font-weight: 800; letter-spacing: 1px; padding: 3px 8px;
+  border-radius: 4px; background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+  color: #07090d; border: none;
 }
-.nav { display: flex; gap: 4px; }
+.nav { display: flex; gap: 4px; padding: 3px; background: rgba(255,255,255,0.03); border-radius: 8px; }
 .nav-btn {
-  padding: 8px 18px; border: none; background: none; color: var(--text-dim);
-  font-size: 13px; font-weight: 600; font-family: 'Chakra Petch', sans-serif;
+  padding: 8px 18px; border: none; background: transparent; color: var(--text-muted);
+  font-size: 12px; font-weight: 600; font-family: 'Chakra Petch', sans-serif;
   cursor: pointer; border-radius: 6px; transition: all 0.2s; position: relative;
 }
-.nav-btn:hover { color: var(--text); background: var(--bg-card); }
-.nav-btn.active { color: var(--gold); background: #f7b32b10; text-shadow: 0 0 10px #f7b32b30; }
-.nav-btn.active::after {
-  content: ''; position: absolute; bottom: 2px; left: 20%; right: 20%;
-  height: 2px; background: var(--gold); border-radius: 2px;
-}
+.nav-btn:hover { color: var(--text-dim); }
+.nav-btn.active { background: linear-gradient(135deg, var(--gold), #c98c1d); color: #07090d; font-weight: 700; }
+.nav-btn.active::after { display: none; }
 .header-right { display: flex; align-items: center; gap: 10px; }
 .connect-btn {
-  padding: 8px 20px; border: none; border-radius: 8px; font-size: 13px;
-  font-weight: 700; font-family: 'Chakra Petch', sans-serif; cursor: pointer;
-  background: linear-gradient(135deg, #b8860b, #f7b32b); color: #0b0e11;
-  box-shadow: 0 0 25px #f7b32b40; transition: all 0.2s;
+  padding: 8px 20px; border: none; border-radius: 10px; font-size: 13px;
+  font-weight: 800; font-family: 'Chakra Petch', sans-serif; cursor: pointer;
+  background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: #07090d;
+  box-shadow: 0 4px 16px rgba(247,179,43,0.3); transition: all 0.2s; letter-spacing: 0.5px;
 }
-.connect-btn:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 0 35px #f7b32b60; }
+.connect-btn:hover { box-shadow: 0 6px 24px rgba(247,179,43,0.45); transform: translateY(-1px); }
 .addr-pill {
   padding: 6px 14px; background: var(--bg-card); border: 1px solid var(--border);
   border-radius: 8px; font-size: 12px; color: var(--text-dim); cursor: pointer;
@@ -370,25 +371,27 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 
 /* Hero section */
 .hero-section {
-  position: relative; padding: 32px 24px; text-align: center;
+  position: relative; padding: 36px 24px 24px; text-align: center;
 }
 .hero-section::before {
   content: ''; position: absolute; inset: 0;
-  background-image: linear-gradient(#f7b32b06 1px, transparent 1px), linear-gradient(90deg, #f7b32b06 1px, transparent 1px);
+  background-image: linear-gradient(rgba(247,179,43,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(247,179,43,0.03) 1px, transparent 1px);
   background-size: 40px 40px; opacity: 0.5; pointer-events: none;
 }
 .hero-section::after {
   content: ''; position: absolute; inset: 0;
-  background: radial-gradient(ellipse at center, #f7b32b15 0%, transparent 70%);
+  background: radial-gradient(ellipse at center, rgba(247,179,43,0.06) 0%, transparent 60%);
   pointer-events: none;
 }
 .hero-inner { position: relative; z-index: 1; }
 .hero-title-text {
   font-family: 'Orbitron', sans-serif;
-  font-size: 48px; font-weight: 900; letter-spacing: 8px; margin-bottom: 4px;
-  color: #f7b32b; text-shadow: 0 0 30px #f7b32b20;
+  font-size: 56px; font-weight: 900; letter-spacing: 8px; margin-bottom: 4px;
+  background: linear-gradient(180deg, #ffc94a 0%, #f7b32b 50%, #a87a18 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; line-height: 1;
 }
-.hero-sub { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; letter-spacing: 1px; }
+.hero-sub { color: var(--text-muted); font-size: 13px; margin-bottom: 20px; letter-spacing: 0.5px; }
 
 /* (coin stage styles above in DUEL LAYOUT section) */
 
@@ -493,8 +496,8 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 /* ═══ STATS SIDEBAR (RIGHT) ═══ */
 .stats-sidebar {
   display: flex; flex-direction: column; height: 100%;
-  background: linear-gradient(180deg, #0c1019 0%, #080b10 50%, #0c1019 100%);
-  border-left: 1px solid #151b25;
+  background: linear-gradient(180deg, #0a0d14 0%, #07090d 100%);
+  border-left: 1px solid var(--border);
   overflow-y: auto; position: relative; z-index: 1;
 }
 .stats-section { padding: 16px; border-bottom: 1px solid var(--border); }
@@ -2438,18 +2441,34 @@ export default function FlipperRooms() {
               <>
                 <div className="hero-section">
                   <div className="hero-inner">
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+                    {/* Live badge */}
+                    <div style={{
+                      display: "inline-flex", alignItems: "center", gap: 8,
+                      padding: "4px 12px", background: "rgba(247,179,43,0.08)",
+                      border: "1px solid var(--border-gold)", borderRadius: 20,
+                      marginBottom: 12,
+                    }}>
                       <div style={{
-                        fontFamily: "'Orbitron', sans-serif", fontSize: 44, fontWeight: 900,
-                        color: "#f7b32b", letterSpacing: 6, textShadow: "0 0 40px #f7b32b15",
-                      }}>COINFLIP</div>
+                        width: 5, height: 5, borderRadius: "50%",
+                        background: "var(--gold)", animation: "liveDot 1.5s ease infinite",
+                      }}/>
+                      <span style={{
+                        fontSize: 10, color: "var(--gold)", fontWeight: 700,
+                        letterSpacing: 1.5, textTransform: "uppercase",
+                      }}>
+                        Live {"\u00B7"} {openRooms?.length || 0} room{(openRooms?.length || 0) !== 1 ? "s" : ""} waiting
+                      </span>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+                      <div className="hero-title-text">COINFLIP</div>
                       <button onClick={() => setShowHowItWorks(true)} style={{
                         padding: "5px 10px", borderRadius: 6, background: "transparent",
-                        border: "1px solid #1c2430", color: "#475569", fontSize: 11,
+                        border: "1px solid var(--border-light)", color: "var(--text-muted)", fontSize: 11,
                         fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: 12,
                       }}>?</button>
                     </div>
-                    <div className="hero-sub">PvP rooms {"\u2022"} Custom amounts {"\u2022"} Direct payout</div>
+                    <div className="hero-sub">Bet against another player. Winner takes <span style={{ color: "var(--green)", fontWeight: 700 }}>96%</span>.</div>
 
                     {!connected && (
                       <button className="connect-btn" onClick={connect} style={{ padding: "14px 40px", fontSize: 16, borderRadius: 12, margin: "0 auto" }}>
@@ -2675,49 +2694,63 @@ export default function FlipperRooms() {
                 {/* ═══ CREATE ROOM ═══ */}
                 <div className="games-section" style={{ paddingTop: 20, animation: "slideUp 0.3s ease" }}>
                   <div style={{
-                    padding: "20px 24px",
-                    background: "linear-gradient(135deg, #f7b32b06, #131820, #f7b32b04)",
-                    borderRadius: 14, border: "1px solid #f7b32b20", marginBottom: 16,
+                    padding: "24px",
+                    background: "linear-gradient(135deg, rgba(247,179,43,0.04), rgba(247,179,43,0.01))",
+                    borderRadius: 16, border: "1px solid var(--border-gold)", marginBottom: 16,
                     position: "relative", overflow: "hidden",
-                    animation: "borderGlow 4s ease infinite",
+                    animation: "cardTopGlow 3s ease infinite",
                   }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: 1.5, marginBottom: 12 }}>
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(247,179,43,0.6), transparent)" }} />
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", letterSpacing: 1.5, marginBottom: 14 }}>
                       CREATE PVP ROOM
                     </div>
-                    <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginBottom: 14 }}>
                       {[0.001, 0.005, 0.01, 0.05, 0.1].map(amt => (
                         <button key={amt} onClick={() => setCustomBet(amt.toString())}
                           style={{
-                            padding: "7px 14px", borderRadius: 8, cursor: "pointer",
-                            background: customBet === amt.toString() ? "#f7b32b15" : "#0b0e11",
-                            border: "1px solid " + (customBet === amt.toString() ? "#f7b32b" : "#1c2430"),
-                            color: customBet === amt.toString() ? "#f7b32b" : "#94a3b8",
-                            fontSize: 12, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+                            padding: "12px 4px", borderRadius: 8, cursor: "pointer", textAlign: "center",
+                            background: customBet === amt.toString() ? "linear-gradient(135deg, rgba(247,179,43,0.15), rgba(247,179,43,0.05))" : "rgba(255,255,255,0.02)",
+                            border: "1px solid " + (customBet === amt.toString() ? "var(--gold)" : "var(--border-light)"),
+                            color: customBet === amt.toString() ? "var(--gold)" : "var(--text-dim)",
+                            fontSize: 13, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+                            boxShadow: customBet === amt.toString() ? "0 0 12px rgba(247,179,43,0.2)" : "none",
+                            transition: "all 0.2s",
                           }}
-                        >{amt} ETH</button>
+                        >
+                          <div>{amt}</div>
+                          <div style={{ fontSize: 9, color: customBet === amt.toString() ? "var(--gold-dark)" : "var(--text-faint)", marginTop: 2, fontWeight: 600 }}>ETH</div>
+                        </button>
                       ))}
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
-                      <input
-                        type="number" step="0.001" min="0.0005" max="1"
-                        value={customBet} onChange={e => setCustomBet(e.target.value)}
-                        placeholder="Custom amount"
-                        style={{
-                          flex: 1, padding: "10px 12px", borderRadius: 8,
-                          background: "#0b0e11", border: "1px solid #1c2430",
-                          color: "#e2e8f0", fontSize: 13, fontFamily: "'JetBrains Mono', monospace",
-                          outline: "none",
-                        }}
-                      />
+                      <div style={{
+                        flex: 1, padding: "12px 16px", borderRadius: 10,
+                        background: "rgba(0,0,0,0.3)", border: "1px solid var(--border-light)",
+                        display: "flex", alignItems: "center", gap: 8,
+                        transition: "border-color 0.2s",
+                      }}>
+                        <input
+                          type="number" step="0.001" min="0.0005" max="1"
+                          value={customBet} onChange={e => setCustomBet(e.target.value)}
+                          placeholder="Amount"
+                          style={{
+                            flex: 1, background: "transparent", border: "none",
+                            color: "var(--gold)", fontSize: 18, fontWeight: 700,
+                            fontFamily: "'JetBrains Mono', monospace", outline: "none",
+                          }}
+                        />
+                        <span style={{ fontSize: 11, color: "var(--text-faint)", fontWeight: 600, whiteSpace: "nowrap" }}>
+                          {"\u2248"} ${(parseFloat(customBet || "0") * 2500).toFixed(0)}
+                        </span>
+                      </div>
                       <button onClick={() => connected ? handleCreateRoom() : connect()} style={{
-                        padding: "10px 24px", borderRadius: 8,
-                        background: "linear-gradient(135deg, #b8860b, #f7b32b, #daa520)",
-                        backgroundSize: "200% 200%",
-                        animation: "shimmer 2s ease infinite",
-                        color: "#0b0e11", fontSize: 13, fontWeight: 800,
-                        border: "none", cursor: "pointer",
+                        padding: "12px 32px", borderRadius: 10,
+                        background: "linear-gradient(135deg, var(--gold), var(--gold-dark))",
+                        color: "#07090d", fontSize: 13, fontWeight: 800,
+                        border: "none", cursor: "pointer", letterSpacing: 1,
                         fontFamily: "'Chakra Petch', sans-serif", whiteSpace: "nowrap",
-                        boxShadow: "0 0 16px #f7b32b25",
+                        boxShadow: "0 4px 16px rgba(247,179,43,0.3)",
+                        transition: "all 0.2s",
                       }}>
                         {connected ? "Create Room" : "Connect to Create"}
                       </button>
