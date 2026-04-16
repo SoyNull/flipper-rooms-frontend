@@ -1856,7 +1856,7 @@ export default function FlipperRooms() {
           setTimeout(() => {
             setMatchFoundAnim(false);
             showFlipAnim();
-          }, 1500);
+          }, 2000);
         } else {
           showFlipAnim();
         }
@@ -1909,13 +1909,14 @@ export default function FlipperRooms() {
       // Wallet confirmed — VS flash for PvP
       setWaitingConfirm(false);
       if (opponent) {
-        setVsFlash({ you: address, them: opponent, amount: betAmount });
-      }
+        // Phase 1: "Joining..." text (0.5s)
+        setVsFlash({ you: address, them: opponent, amount: betAmount, phase: "joining" });
+        await new Promise(r => setTimeout(r, 500));
 
-      // Delay before spin to show VS flash
-      await new Promise(r => setTimeout(r, opponent ? 1000 : 0));
+        // Phase 2: "VS" display (1.5s)
+        setVsFlash({ you: address, them: opponent, amount: betAmount, phase: "vs" });
+        await new Promise(r => setTimeout(r, 1500));
 
-      if (opponent) {
         setVsFlash(null);
       }
 
@@ -2081,7 +2082,7 @@ export default function FlipperRooms() {
             setCoinState(won ? "win" : "lose");
             setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
           }, 1500);
-        }, 1500);
+        }, 2000);
       } catch {}
     };
     const iv = setInterval(checkRoom, 2000);
@@ -2985,34 +2986,43 @@ export default function FlipperRooms() {
           background: "rgba(0,0,0,0.92)",
           animation: "fadeIn 0.15s ease",
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 32, animation: "scaleIn 0.2s ease" }}>
-            <div style={{ textAlign: "center" }}>
-              <div style={{
-                width: 56, height: 56, borderRadius: "50%",
-                background: "#f7b32b", display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 18, fontWeight: 800, color: "#0b0e11",
-                boxShadow: "0 0 20px #f7b32b40",
-              }}>{vsFlash.you?.slice(2,4).toUpperCase()}</div>
-              <div style={{ fontSize: 11, color: "#f7b32b", marginTop: 6, fontWeight: 700 }}>YOU</div>
-            </div>
+          {vsFlash.phase === "joining" ? (
             <div style={{
-              fontSize: 28, fontWeight: 900, color: "#ef4444",
+              fontSize: 24, fontWeight: 700, color: "#f7b32b",
               fontFamily: "'Orbitron', sans-serif",
-              textShadow: "0 0 20px #ef444440",
-              animation: "pulse 0.5s ease infinite",
-            }}>VS</div>
-            <div style={{ textAlign: "center" }}>
+              letterSpacing: 4,
+              animation: "pulse 1s ease infinite",
+            }}>JOINING ROOM...</div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 32, animation: "scaleIn 0.2s ease" }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{
+                  width: 56, height: 56, borderRadius: "50%",
+                  background: "#f7b32b", display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 18, fontWeight: 800, color: "#0b0e11",
+                  boxShadow: "0 0 20px #f7b32b40",
+                }}>{vsFlash.you?.slice(2,4).toUpperCase()}</div>
+                <div style={{ fontSize: 11, color: "#f7b32b", marginTop: 6, fontWeight: 700 }}>YOU</div>
+              </div>
               <div style={{
-                width: 56, height: 56, borderRadius: "50%",
-                background: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 18, fontWeight: 800, color: "#0b0e11",
-                boxShadow: "0 0 20px #94a3b840",
-              }}>{vsFlash.them?.slice(2,4).toUpperCase()}</div>
-              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6, fontWeight: 700 }}>
-                {vsFlash.them?.slice(0,6)}...
+                fontSize: 28, fontWeight: 900, color: "#ef4444",
+                fontFamily: "'Orbitron', sans-serif",
+                textShadow: "0 0 20px #ef444440",
+                animation: "pulse 0.5s ease infinite",
+              }}>VS</div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{
+                  width: 56, height: 56, borderRadius: "50%",
+                  background: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 18, fontWeight: 800, color: "#0b0e11",
+                  boxShadow: "0 0 20px #94a3b840",
+                }}>{vsFlash.them?.slice(2,4).toUpperCase()}</div>
+                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6, fontWeight: 700 }}>
+                  {vsFlash.them ? (vsFlash.them.slice(0,6) + "..." + vsFlash.them.slice(-4)) : ""}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
