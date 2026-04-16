@@ -8,6 +8,7 @@ const Coin3D = lazy(() => import("./Coin3D.jsx"));
 import {
   getPlayerInfo, getTreasuryMaxBet, getSeatInfo, decodeError,
   mintSeat as mintSeatFn, buyOutSeat as buyOutSeatFn, takeOverMultiple as takeOverMultipleFn,
+  approveFlipperForSeats as approveFlipperFn, mintSeatNoApprove as mintSeatNoApproveFn,
   addDeposit as addDepositFn, withdrawDeposit as withdrawDepositFn,
   claimRewards as claimRewardsFn, claimMultipleRewards as claimMultipleRewardsFn,
   updateSeatPrice as updateSeatPriceFn, abandonSeat as abandonSeatFn,
@@ -1117,8 +1118,9 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
   const [seatBuyDeposit, setSeatBuyDeposit] = useState("0.002");
   const [seatBuyPrice, setSeatBuyPrice] = useState("0.001");
   const [recentActivity, setRecentActivity] = useState([]);
-  const [selectedDuration, setSelectedDuration] = useState(168);
-  const [selectedMult, setSelectedMult] = useState(0);
+  const [selectedDuration, setSelectedDuration] = useState(672); // hours; 672 = 4w = contract min
+  const [selectedMult, setSelectedMult] = useState(0); // index into [1.1x, 1.2x, 2x, 5x]
+  const [mintDepositWeeks, setMintDepositWeeks] = useState(4); // 4|8|12|26
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [boardFilter, setBoardFilter] = useState("all");
   const [newPriceInput, setNewPriceInput] = useState("");
@@ -1128,8 +1130,10 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0, seatIds: [] });
   const [showTakeOver, setShowTakeOver] = useState(false);
   const [takeOverSelected, setTakeOverSelected] = useState([]); // seat ids
-  const [takeOverMult, setTakeOverMult] = useState(0); // 0..3 -> 1x,1.2x,2x,5x
-  const [takeOverDuration, setTakeOverDuration] = useState(168);
+  // Multiplier tenths: 11 = 1.1x (strictly > current), 12, 20, 50
+  const [takeOverMult, setTakeOverMult] = useState(11);
+  // Deposit hours. Default 4w = 672h (contract MIN_DEPOSIT_WEEKS=4).
+  const [takeOverDuration, setTakeOverDuration] = useState(672);
   const [takeOverBusy, setTakeOverBusy] = useState(false);
 
   // Fetch detailed seat info when modal opens. V8 getSeatInfo returns BigInts;
@@ -1254,11 +1258,12 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
   }, [seatHook.seats, boardFilter, isMineSeat]);
 
   // Calculate buyout cost breakdown (V8: denominated in FLIPPER tokens, 18-decimal)
+  // Tenths — 1.1x minimum because the contract requires a strictly higher new price.
   const buyoutCalc = useMemo(() => {
     if (!selectedSeat || !selectedSeat.active || !selectedSeat.price) return null;
     try {
       const price = selectedSeat.price; // BigInt tokens
-      const mults = [10n, 12n, 20n, 50n]; // /10 → 1x, 1.2x, 2x, 5x
+      const mults = [11n, 12n, 20n, 50n]; // /10 → 1.1x, 1.2x, 2x, 5x
       const newPrice = price * mults[selectedMult] / 10n;
       const weeklyTax = newPrice * 500n / 10000n;
       const deposit = weeklyTax * BigInt(selectedDuration) / 168n;
@@ -1307,7 +1312,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
         {connected && (<>
           <button onClick={() => {
             const firstEmpty = seatHook.seats.find(s => !s.active);
-            if (firstEmpty) { setSelectedSeat(firstEmpty); setSelectedMult(0); setSelectedDuration(168); }
+            if (firstEmpty) { setSelectedSeat(firstEmpty); setSelectedMult(0); setSelectedDuration(672); }
           }} style={{
             width: "100%", padding: 10, borderRadius: 8, marginTop: 12,
             background: "linear-gradient(135deg, #b8860b, #f7b32b)", color: "#0b0e11",
@@ -1421,7 +1426,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 const isExpiring = seat.active && seat.daysLeft < 3 && !isMine;
                 return (
                   <div key={seat.id}
-                    onClick={() => { setSelectedSeat(seat); setSelectedMult(0); setSelectedDuration(168); audio.playClick(); }}
+                    onClick={() => { setSelectedSeat(seat); setSelectedMult(0); setSelectedDuration(672); audio.playClick(); }}
                     style={{
                       aspectRatio: "1", borderRadius: 6, cursor: "pointer", position: "relative",
                       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
@@ -1490,7 +1495,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
             <div style={{ fontSize: 10, color: "#475569", marginBottom: 8 }}>Nothing yet.</div>
             {connected && <button onClick={() => {
               const firstEmpty = seatHook.seats.find(s => !s.active);
-              if (firstEmpty) { setSelectedSeat(firstEmpty); setSelectedMult(0); setSelectedDuration(168); }
+              if (firstEmpty) { setSelectedSeat(firstEmpty); setSelectedMult(0); setSelectedDuration(672); }
             }} style={{
               fontSize: 10, color: "#f7b32b", background: "none", border: "none",
               cursor: "pointer", fontFamily: "inherit", fontWeight: 600,
@@ -1610,16 +1615,40 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 <input className="seat-modal-input" type="number" step="100" min="1"
                   placeholder="Initial price in FLIPPER tokens" value={seatBuyPrice}
                   onChange={e => setSeatBuyPrice(e.target.value)} />
+
+                <div className="modal-section-label">DEPOSIT DURATION</div>
+                <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                  {[
+                    { l: "4w", w: 4, sub: "min" },
+                    { l: "8w", w: 8, sub: "" },
+                    { l: "12w", w: 12, sub: "" },
+                    { l: "26w", w: 26, sub: "6 mo" },
+                  ].map(opt => (
+                    <button key={opt.w} type="button" onClick={() => setMintDepositWeeks(opt.w)} style={{
+                      flex: 1, padding: "8px 4px", borderRadius: 6,
+                      border: "1px solid " + (mintDepositWeeks === opt.w ? "#f7b32b" : "#1c2430"),
+                      background: mintDepositWeeks === opt.w ? "#f7b32b12" : "#0b0e11",
+                      color: mintDepositWeeks === opt.w ? "#f7b32b" : "#94a3b8",
+                      fontSize: 11, fontWeight: 700, cursor: "pointer",
+                      fontFamily: "inherit", display: "flex", flexDirection: "column", alignItems: "center", gap: 1,
+                    }}>
+                      <span>{opt.l}</span>
+                      {opt.sub && <span style={{ fontSize: 8, opacity: 0.6 }}>{opt.sub}</span>}
+                    </button>
+                  ))}
+                </div>
+
                 <div style={{ padding: 10, background: "#0b0e11", borderRadius: 8, marginBottom: 12, marginTop: 8 }}>
                   {(() => {
                     const priceNum = parseFloat(seatBuyPrice || "0");
                     const weeklyTax = priceNum * 0.05;
-                    const minDeposit = weeklyTax * 4; // 4-week min runway
+                    const deposit = weeklyTax * mintDepositWeeks;
+                    const mintPriceFlip = 50_000_000;
                     return [
-                      { l: "Mint price", v: "0.01 ETH equiv. in FLIP", c: "#94a3b8" },
-                      { l: "Weekly tax", v: weeklyTax.toFixed(4) + " FLIP/wk" },
-                      { l: "Min deposit (4w)", v: minDeposit.toFixed(4) + " FLIP" },
-                      { l: "Approve", v: "FLIPPER tokens", c: "#f7b32b", bold: true },
+                      { l: "Mint price",            v: mintPriceFlip.toLocaleString() + " FLIP", c: "#94a3b8" },
+                      { l: "Weekly tax",            v: weeklyTax.toFixed(2) + " FLIP/wk" },
+                      { l: `Deposit (${mintDepositWeeks}w)`, v: deposit.toFixed(2) + " FLIP" },
+                      { l: "Total approve",         v: (mintPriceFlip + deposit).toLocaleString(undefined, { maximumFractionDigits: 0 }) + " FLIP", c: "#f7b32b", bold: true },
                     ];
                   })().map((r, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 10 }}>
@@ -1632,18 +1661,17 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   Two transactions: approve FLIPPER → mint seat
                 </div>
                 <button className="modal-buy-btn" onClick={async () => {
-                  if (!tokenContract) { addToast("error", "Wallet not ready"); return; }
+                  if (!tokenContract || !seatsContract) { addToast("error", "Wallet not ready"); return; }
                   const priceNum = parseFloat(seatBuyPrice || "0");
                   if (!priceNum || priceNum < 1) { addToast("error", "Price must be > 0"); return; }
+                  const pendingId = addToast("pending", "Approving FLIPPER...");
                   try {
                     const initialPrice = parseUnits(String(priceNum), 18);
-                    // Approve 2x mint+deposit generously so user doesn't re-approve for small deltas
                     const weeklyTax = initialPrice * 500n / 10000n;
-                    const deposit = weeklyTax * 4n; // 4 weeks min
-                    const mintCost = parseUnits("50000", 18); // safe upper bound on calculateMintPrice
-                    const approveAmt = mintCost + deposit + (deposit / 2n);
-                    addToast("pending", "Approving FLIPPER...");
-                    await mintSeatFn(seatsContract, tokenContract, selectedSeat.id, initialPrice, seatBuyName, mintCost, deposit);
+                    const deposit = weeklyTax * BigInt(mintDepositWeeks);
+                    // mintSeatFn reads calculateMintPrice() from-chain and approves
+                    // (mintPrice + deposit) sequentially before calling mintSeat.
+                    await mintSeatFn(seatsContract, tokenContract, selectedSeat.id, initialPrice, seatBuyName, 0n, deposit);
                     addToast("success", `Minted Seat #${selectedSeat.id}!`);
                     setSelectedSeat(null); setSeatBuyName("");
                     seatHook.refreshSeats(); refreshTokenBalance?.();
@@ -1789,22 +1817,22 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
             ) : (
               /* BUYOUT another's seat */
               <div>
-                <div className="modal-section-label">NEW PRICE</div>
+                <div className="modal-section-label">NEW PRICE (min 1.1x)</div>
                 <div className="price-options">
-                  {[{l:"Current",m:0},{l:"1.2x",m:1},{l:"2x",m:2},{l:"5x",m:3}].map(opt => (
+                  {[{l:"1.1x",m:0,t:11n},{l:"1.2x",m:1,t:12n},{l:"2x",m:2,t:20n},{l:"5x",m:3,t:50n}].map(opt => (
                     <div key={opt.m} className={`price-option ${selectedMult === opt.m ? "active" : ""}`}
                       onClick={() => setSelectedMult(opt.m)}>
                       <div className="price-option-value">
-                        {buyoutCalc ? parseFloat(formatEther(buyoutCalc.newPrice * (opt.m === selectedMult ? 1n : [10n,12n,20n,50n][opt.m]) / (opt.m === selectedMult ? 1n : [10n,12n,20n,50n][selectedMult]))).toFixed(4) : "..."}
+                        {selectedSeat?.price ? parseFloat(formatUnits(selectedSeat.price * opt.t / 10n, 18)).toFixed(0) : "..."}
                       </div>
                       <div className="price-option-mult">{opt.l}</div>
                     </div>
                   ))}
                 </div>
 
-                <div className="modal-section-label">DEPOSIT DURATION</div>
+                <div className="modal-section-label">DEPOSIT DURATION (min 4w)</div>
                 <div className="duration-options">
-                  {[{l:"1h",h:1},{l:"1d",h:24},{l:"7d",h:168},{l:"30d",h:720}].map(d => (
+                  {[{l:"4w",h:672},{l:"8w",h:1344},{l:"12w",h:2016},{l:"26w",h:4368}].map(d => (
                     <button key={d.h} className={`duration-btn ${selectedDuration === d.h ? "active" : ""}`}
                       onClick={() => setSelectedDuration(d.h)}>{d.l}</button>
                   ))}
@@ -1821,7 +1849,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                       <span className="cost-value">{parseFloat(formatUnits(buyoutCalc.newPrice, 18)).toFixed(2)} FLIP</span>
                     </div>
                     <div className="cost-row">
-                      <span className="cost-label">Tax deposit ({selectedDuration}h)</span>
+                      <span className="cost-label">Tax deposit ({Math.round(selectedDuration / 168)}w)</span>
                       <span className="cost-value">{parseFloat(formatUnits(buyoutCalc.deposit, 18)).toFixed(2)} FLIP</span>
                     </div>
                     <div className="total-row">
@@ -1964,27 +1992,37 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 const toBuy = emptyAll.slice(0, bulkCount);
                 setBulkBuying(true);
                 setBulkProgress({ done: 0, total: toBuy.length, seatIds: toBuy.map(s => s.id) });
-                let bought = 0;
-                for (const seat of toBuy) {
-                  try {
-                    const initialPrice = parseUnits(String(LIST_PER), 18);
-                    const weeklyTax = initialPrice * 500n / 10000n;
-                    const deposit = weeklyTax * 4n;
-                    const mintCost = parseUnits(String(MINT_APPROVE_PER), 18);
-                    await mintSeatFn(seatsContract, tokenContract, seat.id, initialPrice, "", mintCost, deposit);
-                    bought++;
-                    setBulkProgress(p => ({ ...p, done: bought }));
-                    if (bought < toBuy.length) await new Promise(r => setTimeout(r, 800));
-                  } catch (err) {
-                    addToast("error", "Seat #" + seat.id + ": " + decodeError(err));
-                    break;
+                try {
+                  // 1) One approve for the grand total. Read real mint price from-chain
+                  //    so the allowance actually covers N mints.
+                  const onChainMintPrice = await seatsContract.calculateMintPrice();
+                  const initialPrice = parseUnits(String(LIST_PER), 18);
+                  const depositPerSeat = (initialPrice * 500n / 10000n) * 4n; // 4w min per seat
+                  const grandTotal = (onChainMintPrice + depositPerSeat) * BigInt(toBuy.length);
+                  addToast("pending", "Approving FLIPPER for " + toBuy.length + " seats...");
+                  await approveFlipperFn(tokenContract, grandTotal);
+                  // 2) Loop sequential mints — no re-approve.
+                  let bought = 0;
+                  for (const seat of toBuy) {
+                    try {
+                      await mintSeatNoApproveFn(seatsContract, seat.id, initialPrice, "");
+                      bought++;
+                      setBulkProgress(p => ({ ...p, done: bought }));
+                      if (bought < toBuy.length) await new Promise(r => setTimeout(r, 400));
+                    } catch (err) {
+                      addToast("error", "Seat #" + seat.id + ": " + decodeError(err));
+                      break;
+                    }
                   }
-                }
-                if (bought > 0) addToast("success", `Minted ${bought}/${toBuy.length} seats`);
-                setBulkBuying(false);
-                seatHook.refreshSeats(); refreshTokenBalance?.();
-                if (bought === toBuy.length) {
-                  setTimeout(() => { setShowBulkBuy(false); setBulkProgress({ done: 0, total: 0, seatIds: [] }); }, 800);
+                  if (bought > 0) addToast("success", `Minted ${bought}/${toBuy.length} seats`);
+                  if (bought === toBuy.length) {
+                    setTimeout(() => { setShowBulkBuy(false); setBulkProgress({ done: 0, total: 0, seatIds: [] }); }, 800);
+                  }
+                } catch (err) {
+                  addToast("error", decodeError(err));
+                } finally {
+                  setBulkBuying(false);
+                  seatHook.refreshSeats(); refreshTokenBalance?.();
                 }
               }} style={{
                 width: "100%", padding: 14, borderRadius: 10,
@@ -2005,10 +2043,15 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
         const occupiedAll = seatHook.seats
           .filter(s => s.active && s.owner?.toLowerCase() !== address?.toLowerCase());
         const selected = occupiedAll.filter(s => takeOverSelected.includes(s.id));
-        const mults = [10n, 12n, 20n, 50n]; // /10
-        const multLabels = ["1x", "1.2x", "2x", "5x"];
+        // Tenths — 1.1x is the min that is strictly above current on-chain price.
+        const multOptions = [
+          { tenths: 11, label: "1.1x" },
+          { tenths: 12, label: "1.2x" },
+          { tenths: 20, label: "2x"   },
+          { tenths: 50, label: "5x"   },
+        ];
         const computed = selected.map(s => {
-          const newPrice = s.price * mults[takeOverMult] / 10n;
+          const newPrice = s.price * BigInt(takeOverMult) / 10n;
           const weeklyTax = newPrice * 500n / 10000n;
           const deposit = weeklyTax * BigInt(takeOverDuration) / 168n;
           const buyoutCost = s.price; // paid to prior owner
@@ -2033,24 +2076,24 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 Buy {selected.length} occupied seat{selected.length === 1 ? "" : "s"} in a single transaction. Max 64 per TX.
               </div>
 
-              {/* Multiplier */}
+              {/* Multiplier — min 1.1x because on-chain requires new price > current */}
               <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>NEW PRICE MULTIPLIER</div>
               <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-                {multLabels.map((l, i) => (
-                  <button key={l} onClick={() => setTakeOverMult(i)} style={{
+                {multOptions.map(opt => (
+                  <button key={opt.tenths} onClick={() => setTakeOverMult(opt.tenths)} style={{
                     flex: 1, padding: "6px 0", borderRadius: 6,
-                    border: "1px solid " + (takeOverMult === i ? "#f7b32b" : "#1c2430"),
-                    background: takeOverMult === i ? "#f7b32b10" : "#0b0e11",
-                    color: takeOverMult === i ? "#f7b32b" : "#475569",
+                    border: "1px solid " + (takeOverMult === opt.tenths ? "#f7b32b" : "#1c2430"),
+                    background: takeOverMult === opt.tenths ? "#f7b32b10" : "#0b0e11",
+                    color: takeOverMult === opt.tenths ? "#f7b32b" : "#475569",
                     fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-                  }}>{l}</button>
+                  }}>{opt.label}</button>
                 ))}
               </div>
 
-              {/* Duration */}
-              <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>DEPOSIT DURATION</div>
+              {/* Duration — min 4w because contract requires MIN_DEPOSIT_WEEKS runway */}
+              <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>DEPOSIT DURATION (min 4w)</div>
               <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-                {[{l:"1d",h:24},{l:"7d",h:168},{l:"30d",h:720}].map(d => (
+                {[{l:"4w",h:672},{l:"8w",h:1344},{l:"12w",h:2016},{l:"26w",h:4368}].map(d => (
                   <button key={d.h} onClick={() => setTakeOverDuration(d.h)} style={{
                     flex: 1, padding: "6px 0", borderRadius: 6,
                     border: "1px solid " + (takeOverDuration === d.h ? "#f7b32b" : "#1c2430"),
@@ -2319,16 +2362,30 @@ export default function FlipperRooms() {
     setResult(null);
   }, []);
 
-  // Called by Coin3D when landing animation completes
+  // Called by Coin3D when landing animation completes.
+  //
+  // Truth source for the win/loss toast is the RAW winner/loser addresses
+  // captured at event-parse time — we re-derive `won` here instead of
+  // trusting a cached boolean, and we refuse to toast at all if the
+  // current user isn't in {winner, loser} (that flip wasn't theirs).
   const onFlipDone = useCallback(() => {
     const pending = pendingResultRef.current;
     if (!pending) return;
     pendingResultRef.current = null;
     processingFlipRef.current = false;
 
-    // Defense: a `won: true` with zero payout is nonsense — treat as noop
-    // so we never show a phantom "Won 0 ETH!" toast.
-    const won = !!pending.won && parseFloat(pending.payout) > 0;
+    const myAddr = (address || "").toLowerCase();
+    const winnerAddr = (pending.winner || "").toLowerCase();
+    const loserAddr  = (pending.loser  || "").toLowerCase();
+    const iAmWinner = !!myAddr && winnerAddr === myAddr;
+    const iAmLoser  = !!myAddr && loserAddr  === myAddr;
+
+    // Guard: if neither address matches, this `pending` was mis-routed.
+    // Do not render a toast at all.
+    if (!iAmWinner && !iAmLoser) return;
+
+    // A winner toast also requires a non-zero payout.
+    const won = iAmWinner && parseFloat(pending.payout || "0") > 0;
 
     setShowResult(true);
     setResult(won ? "win" : "lose");
@@ -2534,7 +2591,12 @@ export default function FlipperRooms() {
 
           setTimeout(() => {
             stopSpinAudio();
-            pendingResultRef.current = { won, payout: formatEther(payout), amount: formatEther(betAmount) };
+            pendingResultRef.current = {
+              won,
+              winner, loser,
+              payout: formatEther(payout),
+              amount: formatEther(betAmount),
+            };
             setCoinState(won ? "win" : "lose");
             setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
           }, 2500);
@@ -2625,6 +2687,8 @@ export default function FlipperRooms() {
           }
           result = {
             won: iAmWinner,
+            winner: String(parsed.args.winner || ""),
+            loser: String(parsed.args.loser || ""),
             payout: formatEther(parsed.args.payout),
             amount: formatEther(parsed.args.betAmount),
           };
@@ -2642,7 +2706,7 @@ export default function FlipperRooms() {
       audio.playJackpot(); triggerJackpotConfetti();
       vibrate([100, 50, 100, 50, 100, 50, 200]);
     }
-    return result || { won: false, payout: "0", amount: "0" };
+    return result || { won: false, winner: "", loser: "", payout: "0", amount: "0" };
   };
 
   // Core: send a flip TX, show coin animation, display result
@@ -2679,12 +2743,13 @@ export default function FlipperRooms() {
       audio.playFlip();
 
       const receipt = await tx.wait();
-      const { won, payout, amount } = parseFlipResult(receipt);
+      const parsed = parseFlipResult(receipt);
+      const { won, payout, amount, winner, loser } = parsed;
 
       const elapsed = Date.now() - spinStartRef.current;
       setTimeout(() => {
         stopSpinAudio();
-        pendingResultRef.current = { won, payout, amount };
+        pendingResultRef.current = { won, payout, amount, winner, loser };
         setCoinState(won ? "win" : "lose");
         setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
       }, Math.max(0, 1500 - elapsed));

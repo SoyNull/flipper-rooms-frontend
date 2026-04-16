@@ -169,16 +169,33 @@ export async function getTreasuryMaxBet(coinflipContract) {
 //        SEATS — WRITE
 // ═══════════════════════════════════════
 
-export async function mintSeat(seatsContract, tokenContract, seatId, initialPrice, name, mintPrice, deposit) {
-  const totalApproval = mintPrice + deposit;
-  await sendTx(tokenContract.approve(SEATS_ADDRESS, totalApproval));
+// Approve FLIPPER for the Seats contract as a stand-alone step.
+// Returns the receipt so callers can await before queueing mints.
+export async function approveFlipperForSeats(tokenContract, amount) {
+  return sendTx(tokenContract.approve(SEATS_ADDRESS, amount));
+}
+
+// Single mint: read the real mint price from-chain, approve
+// (mintPrice + deposit + safety buffer), then mint. Sequential awaits.
+export async function mintSeat(seatsContract, tokenContract, seatId, initialPrice, name, _ignoredMintPrice, deposit) {
+  const onChainMintPrice = await seatsContract.calculateMintPrice();
+  const needed = onChainMintPrice + deposit;
+  await sendTx(tokenContract.approve(SEATS_ADDRESS, needed));
   return sendTx(seatsContract.mintSeat(seatId, initialPrice, name));
 }
 
-export async function buyOutSeat(seatsContract, tokenContract, seatId, newPrice, newDeposit) {
-  const totalApproval = newPrice + newDeposit;
+// Mint without approving (caller is responsible for a prior blanket approve).
+// Used by the bulk flow: one approve for the grand total, then N mints.
+export async function mintSeatNoApprove(seatsContract, seatId, initialPrice, name) {
+  return sendTx(seatsContract.mintSeat(seatId, initialPrice, name));
+}
+
+// ABI: buyOutSeat(seatId, newPrice, additionalDeposit) — 3 args.
+// Approve = newPrice (paid to previous owner) + additionalDeposit.
+export async function buyOutSeat(seatsContract, tokenContract, seatId, newPrice, additionalDeposit) {
+  const totalApproval = newPrice + additionalDeposit;
   await sendTx(tokenContract.approve(SEATS_ADDRESS, totalApproval));
-  return sendTx(seatsContract.buyOutSeat(seatId, newPrice));
+  return sendTx(seatsContract.buyOutSeat(seatId, newPrice, additionalDeposit));
 }
 
 // Batch buyout (max 64 per TX). Caller pre-computes total FLIPPER approval.
