@@ -18,8 +18,10 @@ import {
   decodeError,
   EXPLORER,
 } from "./contract.js";
-import { TIERS } from "./config.js";
-import { parseEther, formatEther, BrowserProvider } from "ethers";
+import { TIERS, RPC_URL } from "./config.js";
+import { parseEther, formatEther, BrowserProvider, JsonRpcProvider, Contract } from "ethers";
+import ABI from "./abi.json";
+import { CONTRACT_ADDRESS } from "./config.js";
 
 // ═══════════════════════════════════════
 //             TOAST SYSTEM
@@ -58,6 +60,10 @@ function removeToast(id) {
 //              useWallet (Privy)
 // ═══════════════════════════════════════
 
+// Read-only contract — always available, no wallet needed
+const _readProvider = new JsonRpcProvider(RPC_URL);
+const _readContract = new Contract(CONTRACT_ADDRESS, ABI, _readProvider);
+
 export function useWallet() {
   const { login, logout, authenticated, ready } = usePrivy();
   const { wallets } = useWallets();
@@ -67,7 +73,9 @@ export function useWallet() {
   const [address, setAddress] = useState(null);
   const [sessionBalance, setSessionBalance] = useState("0");
   const [isEmbedded, setIsEmbedded] = useState(false);
+  const [chainId, setChainId] = useState(null);
   const setupRef = useRef(null); // track which wallet address we've set up
+  const readContract = _readContract;
 
   // Auto-connect when Privy session exists (page load or login)
   useEffect(() => {
@@ -111,6 +119,11 @@ export function useWallet() {
         setAddress(addr);
 
         try {
+          const net = await ethProvider.getNetwork();
+          setChainId(Number(net.chainId));
+        } catch { setChainId(null); }
+
+        try {
           const rawBal = await ctr.sessionBalance(addr);
           setSessionBalance(formatEther(rawBal));
         } catch (e) {
@@ -134,6 +147,7 @@ export function useWallet() {
       setProvider(null);
       setSessionBalance("0");
       setIsEmbedded(false);
+      setChainId(null);
     }
   }, [authenticated]);
 
@@ -153,6 +167,8 @@ export function useWallet() {
     provider,
     signer,
     contract,
+    readContract,
+    chainId,
     sessionBalance,
     refreshBalance,
     connect: login,
@@ -165,7 +181,7 @@ export function useWallet() {
 //              useFlip
 // ═══════════════════════════════════════
 
-export function useFlip(contract, address, refreshBalance) {
+export function useFlip(contract, address, refreshBalance, readContract) {
   const [isFlipping, setIsFlipping] = useState(false);
   const [lastResult, setLastResult] = useState(null);
   const [lastFlipDetails, setLastFlipDetails] = useState(null);
@@ -173,22 +189,24 @@ export function useFlip(contract, address, refreshBalance) {
   const [history, setHistory] = useState([]);
 
   const refreshChallenges = useCallback(async () => {
-    if (!contract) return;
+    const c = contract || readContract;
+    if (!c) return;
     try {
-      const openChallenges = await getAllOpenChallenges(contract);
+      const openChallenges = await getAllOpenChallenges(c);
       setChallenges(openChallenges);
     } catch (err) {
       console.warn("Challenges fetch failed:", err.message);
     }
-  }, [contract]);
+  }, [contract, readContract]);
 
   const refreshHistory = useCallback(async () => {
-    if (!contract || !contract.runner?.provider) return;
+    const c = contract || readContract;
+    if (!c || !c.runner?.provider) return;
     try {
-      const provider = contract.runner.provider;
+      const provider = c.runner.provider;
       const currentBlock = await provider.getBlockNumber();
       const fromBlock = Math.max(0, currentBlock - 1000);
-      const events = await contract.queryFilter("FlipResolved", fromBlock, currentBlock);
+      const events = await c.queryFilter("FlipResolved", fromBlock, currentBlock);
       const items = events.slice(-20).reverse().map(e => ({
         challengeId: Number(e.args.challengeId),
         winner: e.args.winner,
@@ -201,7 +219,7 @@ export function useFlip(contract, address, refreshBalance) {
     } catch (err) {
       console.warn("History fetch failed:", err.message);
     }
-  }, [contract]);
+  }, [contract, readContract]);
 
   const flipPvp = useCallback(async (tierWei, referral = 0) => {
     if (!contract) return null;
@@ -282,17 +300,18 @@ export function useFlip(contract, address, refreshBalance) {
 //              useSeats
 // ═══════════════════════════════════════
 
-export function useSeats(contract, address, refreshBalance) {
+export function useSeats(contract, address, refreshBalance, readContract) {
   const [seats, setSeats] = useState([]);
   const [mySeats, setMySeats] = useState([]);
   const [loading, setLoading] = useState(true);
   const ZERO = "0x0000000000000000000000000000000000000000";
 
   const refreshSeats = useCallback(async () => {
-    if (!contract) return;
+    const c = contract || readContract;
+    if (!c) return;
     try {
       // V7: 1 call for all 256 seats instead of 256 individual calls
-      const data = await contract.getAllSeatsBasic();
+      const data = await c.getAllSeatsBasic();
       const parsed = [];
       const mine = [];
       for (let i = 0; i < 256; i++) {
@@ -318,7 +337,7 @@ export function useSeats(contract, address, refreshBalance) {
       console.warn("Seats fetch failed:", err.message);
       // Fallback to individual calls
       try {
-        const all = await getAllSeatsFn(contract);
+        const all = await getAllSeatsFn(c);
         setSeats(all);
         if (address) {
           setMySeats(all.filter(s => s.owner?.toLowerCase() === address.toLowerCase() && s.active).map(s => s.id));
@@ -326,17 +345,18 @@ export function useSeats(contract, address, refreshBalance) {
       } catch {}
     }
     setLoading(false);
-  }, [contract, address]);
+  }, [contract, readContract, address]);
 
   // Auto-load on mount
   useEffect(() => { refreshSeats(); }, [refreshSeats]);
 
   // Refresh every 30s
   useEffect(() => {
-    if (!contract) return;
+    const c = contract || readContract;
+    if (!c) return;
     const iv = setInterval(refreshSeats, 30000);
     return () => clearInterval(iv);
-  }, [contract, refreshSeats]);
+  }, [contract, readContract, refreshSeats]);
 
   const buySeatAction = useCallback(async (seatId, newPriceEth, name, currentPriceWei, depositEth) => {
     if (!contract) return;
@@ -426,18 +446,19 @@ export function useSeats(contract, address, refreshBalance) {
 //            useProtocol
 // ═══════════════════════════════════════
 
-export function useProtocol(contract) {
+export function useProtocol(contract, readContract) {
   const [stats, setStats] = useState(null);
 
   const refreshStats = useCallback(async () => {
-    if (!contract) return;
+    const c = contract || readContract;
+    if (!c) return;
     try {
-      const s = await getProtocolStatsFn(contract);
+      const s = await getProtocolStatsFn(c);
       setStats(s);
     } catch (err) {
       console.warn("Protocol stats fetch failed:", err.message);
     }
-  }, [contract]);
+  }, [contract, readContract]);
 
   return { stats, refreshStats };
 }
@@ -446,18 +467,20 @@ export function useProtocol(contract) {
 //       GLOBAL FLIP FEED (on-chain)
 // ═══════════════════════════════════════
 
-export function useGlobalFeed(contract) {
+export function useGlobalFeed(contract, readContract) {
   const [recentFlips, setRecentFlips] = useState([]);
   const [liveFlip, setLiveFlip] = useState(null);
 
+  // Load history — works with readContract even without wallet
+  const feedContract = contract || readContract;
   useEffect(() => {
-    if (!contract || !contract.runner?.provider) return;
+    if (!feedContract || !feedContract.runner?.provider) return;
 
     const loadHistory = async () => {
       try {
-        const block = await contract.runner.provider.getBlockNumber();
+        const block = await feedContract.runner.provider.getBlockNumber();
         const from = Math.max(0, block - 5000);
-        const events = await contract.queryFilter("FlipResolved", from, block);
+        const events = await feedContract.queryFilter("FlipResolved", from, block);
         const flips = events.slice(-30).reverse().map(e => ({
           id: Number(e.args[0]),
           winner: e.args[1],
@@ -492,9 +515,9 @@ export function useGlobalFeed(contract) {
       } catch {}
     };
 
-    contract.on("FlipResolved", onFlip);
-    return () => { contract.off("FlipResolved", onFlip); };
-  }, [contract]);
+    feedContract.on("FlipResolved", onFlip);
+    return () => { feedContract.off("FlipResolved", onFlip); };
+  }, [feedContract]);
 
   return { recentFlips, liveFlip };
 }

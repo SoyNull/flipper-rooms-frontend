@@ -3,7 +3,7 @@ import { useWallet, useFlip, useSeats, useProtocol, useToasts, addToast, EXPLORE
 
 const Coin3D = lazy(() => import("./Coin3D.jsx"));
 import { getPlayerInfo, getTreasuryMaxBet, getSeatInfo, decodeError } from "./contract.js";
-import { CONTRACT_ADDRESS, TIERS } from "./config.js";
+import { CONTRACT_ADDRESS, TIERS, CHAIN_ID, CHAIN_ID_HEX } from "./config.js";
 import { parseEther, formatEther } from "ethers";
 import { playClickSound, playFlipSound, playWinSound, playLoseSound, playStreakSound } from "./sounds.js";
 
@@ -1606,10 +1606,11 @@ function HowItWorksModal({ onClose }) {
 
 export default function FlipperRooms() {
   const wallet = useWallet();
-  const { connected, address, contract, connect, disconnect, sessionBalance, refreshBalance, ready, isEmbedded } = wallet;
-  const flipHook = useFlip(contract, address, refreshBalance);
-  const seatHook = useSeats(contract, address, refreshBalance);
-  const protocol = useProtocol(contract);
+  const { connected, address, contract, readContract, chainId, connect, disconnect, sessionBalance, refreshBalance, ready, isEmbedded } = wallet;
+  const wrongNetwork = connected && chainId && chainId !== CHAIN_ID;
+  const flipHook = useFlip(contract, address, refreshBalance, readContract);
+  const seatHook = useSeats(contract, address, refreshBalance, readContract);
+  const protocol = useProtocol(contract, readContract);
   const { toasts, remove: removeToastFn } = useToasts();
 
   const [view, setView] = useState("flip");
@@ -1627,8 +1628,12 @@ export default function FlipperRooms() {
   const [showCoinStage, setShowCoinStage] = useState(false);
   const OWNER = "0xE5678F8659d229a303ABecdD0D0113Cf1F4F83aE";
 
+  // Data loading timeout
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+
   // Global feeds
-  const { recentFlips, liveFlip } = useGlobalFeed(contract);
+  const { recentFlips, liveFlip } = useGlobalFeed(contract, readContract);
   const playerCache = useRef({});
 
   // Coin state
@@ -1693,27 +1698,42 @@ export default function FlipperRooms() {
     }
   }, [address, refreshBalance, contract]);
 
-  // Load data
+  // Data loading timeout — show error if nothing loads in 10s
   useEffect(() => {
-    if (!contract) return;
+    if (dataLoaded) return;
+    const timeout = setTimeout(() => {
+      if (!dataLoaded) setLoadError(true);
+    }, 10000);
+    return () => clearTimeout(timeout);
+  }, [dataLoaded]);
+
+  // Mark data as loaded when stats arrive
+  useEffect(() => {
+    if (protocol.stats && !dataLoaded) setDataLoaded(true);
+  }, [protocol.stats, dataLoaded]);
+
+  // Load data — works with readContract even without wallet
+  const dataContract = contract || readContract;
+  useEffect(() => {
+    if (!dataContract) return;
     flipHook.refreshChallenges();
     flipHook.refreshHistory();
     protocol.refreshStats();
-    getTreasuryMaxBet(contract).then(v => setTreasuryMax(v)).catch(() => {});
-  }, [contract]);
+    getTreasuryMaxBet(dataContract).then(v => setTreasuryMax(v)).catch(() => {});
+  }, [dataContract]);
 
-  // Polling
+  // Polling — works without wallet
   useEffect(() => {
-    if (!contract) return;
+    if (!dataContract) return;
     const iv = setInterval(() => {
-      refreshBalance();
+      if (contract) refreshBalance();
       protocol.refreshStats();
       flipHook.refreshChallenges();
       flipHook.refreshHistory();
-      getTreasuryMaxBet(contract).then(v => setTreasuryMax(v)).catch(() => {});
+      getTreasuryMaxBet(dataContract).then(v => setTreasuryMax(v)).catch(() => {});
     }, 15000);
     return () => clearInterval(iv);
-  }, [contract, refreshBalance]);
+  }, [dataContract, contract, refreshBalance]);
 
   // Player stats
   useEffect(() => {
@@ -1728,11 +1748,12 @@ export default function FlipperRooms() {
     }
   }, [referral]);
 
-  // V7: Stable refresh function for open rooms
+  // V7: Stable refresh function for open rooms — works without wallet
   const refreshOpenRooms = useCallback(async () => {
-    if (!contract) return;
+    const c = contract || readContract;
+    if (!c) return;
     try {
-      const data = await contract.getAllOpenChallenges();
+      const data = await c.getAllOpenChallenges();
       const rooms = [];
       for (let i = 0; i < data.ids.length; i++) {
         rooms.push({
@@ -1745,22 +1766,23 @@ export default function FlipperRooms() {
       }
       setOpenRooms(rooms.reverse());
     } catch {}
-  }, [contract]);
+  }, [contract, readContract]);
 
   // V7: Poll open rooms every 3s + event-driven updates
   useEffect(() => {
-    if (!contract) return;
+    const c = contract || readContract;
+    if (!c) return;
     refreshOpenRooms();
     const iv = setInterval(refreshOpenRooms, 3000);
     const onRoomChange = () => refreshOpenRooms();
-    contract.on("ChallengeCreated", onRoomChange);
-    contract.on("ChallengeCancelled", onRoomChange);
+    c.on("ChallengeCreated", onRoomChange);
+    c.on("ChallengeCancelled", onRoomChange);
     return () => {
       clearInterval(iv);
-      contract.off("ChallengeCreated", onRoomChange);
-      contract.off("ChallengeCancelled", onRoomChange);
+      c.off("ChallengeCreated", onRoomChange);
+      c.off("ChallengeCancelled", onRoomChange);
     };
-  }, [refreshOpenRooms, contract]);
+  }, [refreshOpenRooms, contract, readContract]);
 
   // V7: Wallet native balance
   useEffect(() => {
@@ -1982,6 +2004,10 @@ export default function FlipperRooms() {
   // ═══ Treasury flip (from tier selector) ═══
   const handleFlip = async () => {
     if (!contract || !connected || coinState !== "idle") return;
+    if (parseFloat(walletBalance) <= 0) {
+      addToast("error", "You need ETH on Base to play. Bridge at bridge.base.org");
+      return;
+    }
     playClickSound();
     const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
     await executeFlip(
@@ -2032,6 +2058,10 @@ export default function FlipperRooms() {
   // ═══ Create PvP room ═══
   const handleCreateRoom = async (amount) => {
     if (!contract || !connected) return;
+    if (parseFloat(walletBalance) <= 0) {
+      addToast("error", "You need ETH on Base to play. Bridge at bridge.base.org");
+      return;
+    }
     playClickSound();
     const betAmt = (amount || customBet).replace(",", ".");
     if (isNaN(parseFloat(betAmt)) || parseFloat(betAmt) <= 0) {
@@ -2075,6 +2105,10 @@ export default function FlipperRooms() {
   // ═══ Join PvP room ═══
   const handleAccept = async (challengeId, creatorAddr) => {
     if (coinState !== "idle" || !connected) return;
+    if (parseFloat(walletBalance) <= 0) {
+      addToast("error", "You need ETH on Base to play. Bridge at bridge.base.org");
+      return;
+    }
     playClickSound();
     const c = (openRooms || []).find(ch => ch.id === challengeId) || flipHook.challenges.find(ch => ch.id === challengeId);
     const amt = c ? c.amount : "?";
@@ -2092,6 +2126,58 @@ export default function FlipperRooms() {
   return (
     <>
       <style>{CSS}</style>
+
+      {loadError && !dataLoaded && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 3000,
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          background: "#0b0e11", gap: 16,
+        }}>
+          <div style={{
+            fontSize: 20, fontWeight: 700, color: "#f7b32b",
+            fontFamily: "'Orbitron', sans-serif",
+          }}>FLIPPERROOMS</div>
+          <div style={{ fontSize: 13, color: "#ef4444", marginTop: 8 }}>
+            Having trouble connecting to Base network
+          </div>
+          <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", maxWidth: 300, lineHeight: 1.6 }}>
+            This could be a temporary network issue.
+            Make sure you're connected to the internet and try again.
+          </div>
+          <button onClick={() => window.location.reload()} style={{
+            padding: "10px 32px", borderRadius: 8, marginTop: 8,
+            background: "linear-gradient(135deg, #b8860b, #f7b32b)",
+            color: "#0b0e11", fontSize: 13, fontWeight: 700,
+            border: "none", cursor: "pointer",
+          }}>Retry</button>
+        </div>
+      )}
+
+      {wrongNetwork && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, zIndex: 2500,
+          padding: "12px 20px", background: "#ef4444",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 12,
+        }}>
+          <span style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>
+            Wrong network. Please switch to Base.
+          </span>
+          <button onClick={async () => {
+            try {
+              await window.ethereum?.request({
+                method: "wallet_switchEthereumChain",
+                params: [{ chainId: CHAIN_ID_HEX }],
+              });
+            } catch {}
+          }} style={{
+            padding: "6px 16px", borderRadius: 6,
+            background: "#fff", color: "#ef4444",
+            fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer",
+          }}>Switch Network</button>
+        </div>
+      )}
+
       <div className="app-root">
 
         {/* ═══ LEFT — CHAT ═══ */}
@@ -2522,17 +2608,17 @@ export default function FlipperRooms() {
                           outline: "none",
                         }}
                       />
-                      <button onClick={() => handleCreateRoom()} disabled={!connected} style={{
+                      <button onClick={() => connected ? handleCreateRoom() : connect()} style={{
                         padding: "10px 24px", borderRadius: 8,
-                        background: connected ? "linear-gradient(135deg, #b8860b, #f7b32b, #daa520)" : "#1c2430",
+                        background: "linear-gradient(135deg, #b8860b, #f7b32b, #daa520)",
                         backgroundSize: "200% 200%",
-                        animation: connected ? "shimmer 2s ease infinite" : "none",
+                        animation: "shimmer 2s ease infinite",
                         color: "#0b0e11", fontSize: 13, fontWeight: 800,
-                        border: "none", cursor: connected ? "pointer" : "not-allowed",
+                        border: "none", cursor: "pointer",
                         fontFamily: "'Chakra Petch', sans-serif", whiteSpace: "nowrap",
-                        boxShadow: connected ? "0 0 16px #f7b32b25" : "none",
+                        boxShadow: "0 0 16px #f7b32b25",
                       }}>
-                        Create Room
+                        {connected ? "Create Room" : "Connect to Create"}
                       </button>
                     </div>
                   </div>
@@ -2608,7 +2694,7 @@ export default function FlipperRooms() {
                           {isMine ? (
                             <button onClick={() => handleCancelRoom(room.id)} className="cancel-btn">Cancel</button>
                           ) : (
-                            <button onClick={() => handleAccept(room.id, room.creator)} className="join-btn">Join</button>
+                            <button onClick={() => connected ? handleAccept(room.id, room.creator) : connect()} className="join-btn">{connected ? "Join" : "Connect"}</button>
                           )}
                         </div>
                       );
@@ -2688,14 +2774,15 @@ export default function FlipperRooms() {
                             );
                           })}
                         </select>
-                        <button onClick={handleFlip} disabled={coinState !== "idle" || !connected}
+                        <button onClick={() => connected ? handleFlip() : connect()}
+                          disabled={connected && coinState !== "idle"}
                           style={{
                             padding: "8px 18px", borderRadius: 8,
                             background: "#f7b32b15", border: "1px solid #f7b32b30",
                             color: "#f7b32b", fontSize: 11, fontWeight: 700,
-                            cursor: connected && coinState === "idle" ? "pointer" : "not-allowed",
-                            fontFamily: "inherit", opacity: !connected || coinState !== "idle" ? 0.4 : 1,
-                          }}>Flip</button>
+                            cursor: connected && coinState !== "idle" ? "not-allowed" : "pointer",
+                            fontFamily: "inherit", opacity: connected && coinState !== "idle" ? 0.4 : 1,
+                          }}>{connected ? "Flip" : "Connect"}</button>
                       </div>
                     </div>
                     {treasuryMax && (
