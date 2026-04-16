@@ -89,6 +89,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.2); } }
 @keyframes scaleIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes roomPulse { 0%, 100% { border-color: #22c55e15; } 50% { border-color: #22c55e35; } }
 
 /* ═══ COIN STAGE — DUEL LAYOUT ═══ */
 .coin-wrapper {
@@ -476,12 +477,12 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 
 .join-btn {
   padding: 8px 20px; border: none; border-radius: 8px;
-  background: linear-gradient(135deg, #b8860b, #f7b32b);
-  color: #0b0e11; font-size: 12px; font-weight: 700; cursor: pointer;
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: #fff; font-size: 12px; font-weight: 700; cursor: pointer;
   font-family: 'Chakra Petch', sans-serif; transition: all 0.2s;
-  box-shadow: 0 0 12px #f7b32b30;
+  box-shadow: 0 0 12px #22c55e25;
 }
-.join-btn:hover { box-shadow: 0 0 20px #f7b32b50; transform: scale(1.05); }
+.join-btn:hover { box-shadow: 0 0 20px #22c55e50; transform: scale(1.05); }
 .cancel-btn {
   padding: 8px 16px; border: 1px solid var(--red); border-radius: 8px;
   background: transparent; color: var(--red); font-size: 11px; font-weight: 600;
@@ -803,7 +804,7 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
       {/* BALANCE */}
       <div style={{ padding: "16px", borderBottom: "1px solid #151b25" }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: 1.5, marginBottom: 6 }}>BALANCE</div>
-        <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "#f7b32b", letterSpacing: -1 }}>
+        <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "#f7b32b", letterSpacing: -1, textShadow: "0 0 20px #f7b32b15" }}>
           {walletBalance || "0.00"}
         </div>
         <div style={{ fontSize: 11, color: "#475569" }}>ETH</div>
@@ -826,10 +827,10 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {[
               { l: "Total Bets", v: protocolStats.totalFlips.toLocaleString() },
-              { l: "Treasury", v: `${Number(protocolStats.treasury).toFixed(4)} \u039E` },
+              { l: "🏦 Treasury", v: `${Number(protocolStats.treasury).toFixed(4)} \u039E` },
               { l: "Max Bet", v: treasuryMax ? `${parseFloat(treasuryMax).toFixed(4)} \u039E` : "0.0000 \u039E" },
-              { l: "Jackpot", v: `${Number(protocolStats.jackpot).toFixed(4)} \u039E` },
-              { l: "Volume", v: `${Number(protocolStats.totalVolume).toFixed(3)} \u039E` },
+              { l: "💰 Jackpot", v: `${Number(protocolStats.jackpot).toFixed(4)} \u039E` },
+              { l: "📊 Volume", v: `${Number(protocolStats.totalVolume).toFixed(3)} \u039E` },
             ].map((r, i) => (
               <div className="protocol-row" key={i}>
                 <span className="protocol-row-label">{r.l}</span>
@@ -844,19 +845,30 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
         <div className="stats-section">
           <div className="stats-label">Your Stats</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <div style={{ background: "linear-gradient(135deg, #22c55e08, #0a0d13)", borderRadius: 10, padding: "14px 8px", textAlign: "center", border: "1px solid #22c55e15" }}>
+            <div style={{ background: "#22c55e08", borderRadius: 10, padding: "14px 8px", textAlign: "center", border: "1px solid #22c55e15", boxShadow: "inset 0 0 20px #22c55e05" }}>
               <div style={{ fontSize: 24, fontWeight: 800, color: "#22c55e", fontFamily: "'JetBrains Mono', monospace" }}>{playerStats.wins}</div>
               <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Wins</div>
             </div>
-            <div style={{ background: "linear-gradient(135deg, #ef444408, #0a0d13)", borderRadius: 10, padding: "14px 8px", textAlign: "center", border: "1px solid #ef444415" }}>
+            <div style={{ background: "#ef444408", borderRadius: 10, padding: "14px 8px", textAlign: "center", border: "1px solid #ef444415", boxShadow: "inset 0 0 20px #ef444405" }}>
               <div style={{ fontSize: 24, fontWeight: 800, color: "#ef4444", fontFamily: "'JetBrains Mono', monospace" }}>{playerStats.losses}</div>
               <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Losses</div>
             </div>
           </div>
           {playerStats.streak > 0 && (
-            <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 10, background: "linear-gradient(135deg, #f7b32b08, transparent)", borderLeft: "3px solid #f7b32b" }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#f7b32b" }}>{playerStats.streak} Win Streak</div>
-              <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Best: {playerStats.bestStreak}</div>
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8,
+              marginTop: 12, padding: 12, borderLeft: "3px solid #f7b32b",
+              background: "#f7b32b05", borderRadius: "0 10px 10px 0",
+            }}>
+              <span style={{ fontSize: 18 }}>🔥</span>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#f7b32b" }}>
+                  {playerStats.streak} Win Streak
+                </div>
+                <div style={{ fontSize: 9, color: "#475569" }}>
+                  Best: {playerStats.bestStreak}
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -1637,6 +1649,7 @@ export default function FlipperRooms() {
   const [roomCountdown, setRoomCountdown] = useState(0);
   const [showWalletMenu, setShowWalletMenu] = useState(false);
   const [matchFoundAnim, setMatchFoundAnim] = useState(false);
+  const [vsFlash, setVsFlash] = useState(null);
   const processingFlipRef = useRef(false);
   const roomMissCountRef = useRef(0);
 
@@ -1818,7 +1831,6 @@ export default function FlipperRooms() {
           setCoinState("spinning");
           setBorderState("spinning");
           spinStartRef.current = Date.now();
-          playFlipSound();
 
           setTimeout(() => {
             pendingResultRef.current = { won, payout: formatEther(payout), amount: formatEther(betAmount) };
@@ -1876,8 +1888,15 @@ export default function FlipperRooms() {
     try {
       const tx = await txPromise;
 
-      // Wallet confirmed — start spinning
+      // Wallet confirmed — VS flash for PvP
       setWaitingConfirm(false);
+      if (opponent) {
+        setVsFlash({ you: address, them: opponent, amount: betAmount });
+        await new Promise(r => setTimeout(r, 800));
+        setVsFlash(null);
+      }
+
+      // Start spinning
       setCoinState("spinning");
       setBorderState("spinning");
       spinStartRef.current = Date.now();
@@ -2030,7 +2049,6 @@ export default function FlipperRooms() {
           setShowCoinStage(true);
           setCoinState("spinning");
           setBorderState("spinning");
-          playFlipSound();
 
           setTimeout(() => {
             pendingResultRef.current = { won, payout: formatEther(foundEvent.payout), amount: formatEther(foundEvent.betAmount) };
@@ -2234,11 +2252,14 @@ export default function FlipperRooms() {
                   const isWin = address && h.winner?.toLowerCase() === address.toLowerCase();
                   return (
                     <div key={i} style={{
-                      display: "flex", alignItems: "center", gap: 6,
-                      padding: "4px 10px", borderRadius: 6,
-                      background: isWin ? "#22c55e10" : "#ef444410",
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      padding: "4px 12px", borderRadius: 6,
+                      background: isWin ? "#22c55e08" : "#ef444408",
                       border: "1px solid " + (isWin ? "#22c55e25" : "#ef444425"),
+                      color: isWin ? "#22c55e" : "#ef4444",
                       whiteSpace: "nowrap", flexShrink: 0,
+                      fontFamily: "'JetBrains Mono', monospace",
+                      boxShadow: isWin ? "0 0 8px #22c55e15" : "0 0 8px #ef444415",
                     }}>
                       <span style={{ fontSize: 10, fontWeight: 800, color: isWin ? "#22c55e" : "#ef4444", fontFamily: "'JetBrains Mono', monospace" }}>
                         {isWin ? "W" : "L"}
@@ -2497,8 +2518,11 @@ export default function FlipperRooms() {
                 {/* ═══ CREATE ROOM ═══ */}
                 <div className="games-section" style={{ paddingTop: 20, animation: "slideUp 0.3s ease" }}>
                   <div style={{
-                    padding: "16px 20px", background: "linear-gradient(135deg, #f7b32b06, #131820)",
-                    borderRadius: 12, border: "1px solid #f7b32b20", marginBottom: 16,
+                    padding: "20px 24px",
+                    background: "linear-gradient(135deg, #f7b32b06, #131820, #f7b32b04)",
+                    borderRadius: 14, border: "1px solid #f7b32b20", marginBottom: 16,
+                    position: "relative", overflow: "hidden",
+                    animation: "borderGlow 4s ease infinite",
                   }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: 1.5, marginBottom: 12 }}>
                       CREATE PVP ROOM
@@ -2530,10 +2554,13 @@ export default function FlipperRooms() {
                       />
                       <button onClick={() => handleCreateRoom()} disabled={!connected} style={{
                         padding: "10px 24px", borderRadius: 8,
-                        background: connected ? "linear-gradient(135deg, #b8860b, #f7b32b)" : "#1c2430",
+                        background: connected ? "linear-gradient(135deg, #b8860b, #f7b32b, #daa520)" : "#1c2430",
+                        backgroundSize: "200% 200%",
+                        animation: connected ? "shimmer 2s ease infinite" : "none",
                         color: "#0b0e11", fontSize: 13, fontWeight: 800,
                         border: "none", cursor: connected ? "pointer" : "not-allowed",
                         fontFamily: "'Chakra Petch', sans-serif", whiteSpace: "nowrap",
+                        boxShadow: connected ? "0 0 16px #f7b32b25" : "none",
                       }}>
                         Create Room
                       </button>
@@ -2566,10 +2593,17 @@ export default function FlipperRooms() {
                     )}
                     {openRooms && openRooms.length === 0 && (
                       <div style={{
-                        padding: 24, textAlign: "center", color: "#475569", fontSize: 12,
-                        background: "#131820", borderRadius: 10, border: "1px solid #1c2430",
+                        padding: 32, textAlign: "center",
+                        background: "#131820", borderRadius: 12,
+                        border: "1px dashed #1c2430",
                       }}>
-                        No open rooms — create one!
+                        <div style={{ fontSize: 24, marginBottom: 8 }}>🪙</div>
+                        <div style={{ fontSize: 13, color: "#94a3b8", fontWeight: 600 }}>
+                          No rooms yet
+                        </div>
+                        <div style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>
+                          Create a room and be the first to flip!
+                        </div>
                       </div>
                     )}
                     {openRooms && openRooms.map(room => {
@@ -2579,7 +2613,9 @@ export default function FlipperRooms() {
                         <div key={room.id} style={{
                           display: "flex", alignItems: "center", justifyContent: "space-between",
                           padding: "12px 14px", marginBottom: 4, borderRadius: 10,
-                          background: "#131820", border: "1px solid " + (isMine ? "#f7b32b20" : "#1c2430"),
+                          background: "#131820",
+                          border: "1px solid " + (isMine ? "#f7b32b20" : "#22c55e20"),
+                          animation: isMine ? "none" : "roomPulse 2s ease infinite",
                         }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                             <div style={{
@@ -2621,8 +2657,11 @@ export default function FlipperRooms() {
                       <div key={flip.id + "-" + i} style={{
                         display: "flex", alignItems: "center", justifyContent: "space-between",
                         padding: "10px 14px", marginBottom: 2, borderRadius: 8,
-                        background: flip.isNew ? "#f7b32b08" : "#131820",
-                        border: "1px solid " + (flip.isNew ? "#f7b32b15" : "#0e1219"),
+                        background: isMyWin ? "#22c55e05" : isMyLoss ? "#ef444405" : (flip.isNew ? "#f7b32b08" : "#131820"),
+                        borderLeft: isMyWin ? "3px solid #22c55e30" : isMyLoss ? "3px solid #ef444430" : "3px solid transparent",
+                        border: "1px solid " + (isMyWin ? "#22c55e15" : isMyLoss ? "#ef444415" : (flip.isNew ? "#f7b32b15" : "#0e1219")),
+                        borderLeftWidth: 3,
+                        borderLeftColor: isMyWin ? "#22c55e30" : isMyLoss ? "#ef444430" : "transparent",
                       }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <div style={{
@@ -2643,10 +2682,10 @@ export default function FlipperRooms() {
                           {parseFloat(flip.amount).toFixed(4)} ETH
                         </div>
                         <div style={{
-                          padding: "3px 10px", borderRadius: 4, fontSize: 9, fontWeight: 800,
-                          background: isMyWin ? "#22c55e15" : isMyLoss ? "#ef444415" : "#1c243040",
-                          color: isMyWin ? "#22c55e" : isMyLoss ? "#ef4444" : "#94a3b8",
-                          border: "1px solid " + (isMyWin ? "#22c55e30" : isMyLoss ? "#ef444430" : "#1c2430"),
+                          padding: "4px 12px", borderRadius: 6, fontSize: 9, fontWeight: 800,
+                          background: isMyWin ? "#22c55e" : isMyLoss ? "#ef4444" : "#1c243040",
+                          color: isMyWin ? "#fff" : isMyLoss ? "#fff" : "#94a3b8",
+                          border: "none",
                         }}>
                           {isMyWin ? "WON" : isMyLoss ? "LOST" : "FLIP"}
                         </div>
@@ -2913,6 +2952,44 @@ export default function FlipperRooms() {
       {showHowItWorks && <HowItWorksModal onClose={() => setShowHowItWorks(false)} />}
 
       {/* MATCH FOUND OVERLAY */}
+      {vsFlash && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 2000,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: "rgba(0,0,0,0.92)",
+          animation: "fadeIn 0.15s ease",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 32, animation: "scaleIn 0.2s ease" }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: "50%",
+                background: "#f7b32b", display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 18, fontWeight: 800, color: "#0b0e11",
+                boxShadow: "0 0 20px #f7b32b40",
+              }}>{vsFlash.you?.slice(2,4).toUpperCase()}</div>
+              <div style={{ fontSize: 11, color: "#f7b32b", marginTop: 6, fontWeight: 700 }}>YOU</div>
+            </div>
+            <div style={{
+              fontSize: 28, fontWeight: 900, color: "#ef4444",
+              fontFamily: "'Orbitron', sans-serif",
+              textShadow: "0 0 20px #ef444440",
+              animation: "pulse 0.5s ease infinite",
+            }}>VS</div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: "50%",
+                background: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 18, fontWeight: 800, color: "#0b0e11",
+                boxShadow: "0 0 20px #94a3b840",
+              }}>{vsFlash.them?.slice(2,4).toUpperCase()}</div>
+              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6, fontWeight: 700 }}>
+                {vsFlash.them?.slice(0,6)}...
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {matchFoundAnim && (
         <div style={{
           position: "fixed", inset: 0, zIndex: 2000,
