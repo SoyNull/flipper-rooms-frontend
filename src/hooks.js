@@ -15,7 +15,7 @@ import {
   claimMockFlipper as claimMockFlipperFn,
   parseFlipResolved, decodeError, EXPLORER,
 } from "./contract.js";
-import { RPC_URL, SEATS_ADDRESS } from "./config.js";
+import { RPC_URL, HISTORY_RPC_URL, SEATS_ADDRESS } from "./config.js";
 
 // ═══════════════════════════════════════
 //             TOAST SYSTEM
@@ -63,6 +63,13 @@ const _readProvider = new JsonRpcProvider(RPC_URL);
 const _readSeats = getSeatsContract(_readProvider);
 const _readCoinflip = getCoinflipContract(_readProvider);
 const _readToken = getTokenContract(_readProvider);
+
+// Dedicated provider/contract used ONLY for historical event scans.
+// Points at the public Base RPC which accepts wide block ranges, so the
+// global feed can populate on first paint instead of hammering Alchemy
+// in 10-block windows.
+const _historyProvider = new JsonRpcProvider(HISTORY_RPC_URL);
+const _historyCoinflip = getCoinflipContract(_historyProvider);
 
 // ═══════════════════════════════════════
 //              useWallet (Privy)
@@ -407,10 +414,10 @@ export function useGlobalFeed(coinflipContract, readCoinflip) {
   const seenIdsRef = useRef(new Set());
   const historyLoadedRef = useRef(false);
 
-  // History ALWAYS uses the read-only contract so it doesn't wait for
-  // Privy/sign-in, and failures on the signer-backed contract can't
-  // block the initial fetch.
-  const historyContract = readCoinflip || _readCoinflip;
+  // History ALWAYS uses the PUBLIC Base RPC (wide block ranges).
+  // Alchemy's free tier caps eth_getLogs at 10 blocks per call, which
+  // made a cold-start scan impossible in reasonable time.
+  const historyContract = _historyCoinflip;
   // Live listening prefers the signer's contract (tight latency) but
   // falls back to read-only so pageloads without a wallet still tick.
   const liveContract = coinflipContract || readCoinflip || _readCoinflip;
@@ -419,11 +426,8 @@ export function useGlobalFeed(coinflipContract, readCoinflip) {
     if (!liveContract || !liveContract.runner?.provider) return;
 
     let cancelled = false;
-    // Walk backwards in 10-block windows (Alchemy free-tier cap) but
-    // STREAM events into the UI as soon as each pass returns anything.
-    // Retries on failure — any pass that fully errors doesn't mark the
-    // history as loaded, and the next render (or a fresh tick) will
-    // try again.
+    // sepolia.base.org accepts thousands of blocks per call, so we walk
+    // in 10k-block chunks. First-paint is O(seconds), not O(minutes).
     const loadHistory = async () => {
       if (historyLoadedRef.current) return;
       const provider = historyContract.runner.provider;
@@ -432,40 +436,29 @@ export function useGlobalFeed(coinflipContract, readCoinflip) {
       catch (e) { console.warn("[feed] head fetch failed:", e.message); return; }
 
       const WANT = 30;
-      // ~2s block time on Base Sepolia: 100k blocks ≈ 55h of history.
-      // Needed so flips from yesterday's testing still populate the feed.
-      const MAX_LOOKBACK = 100000;
-      const PARALLEL = 3; // gentler on the free-tier CU budget
-      const CHUNK = 10;
-      const collected = new Map(); // id -> event
+      // ~2s block time on Base Sepolia → 500k blocks ≈ 11 days.
+      const MAX_LOOKBACK = 500000;
+      const CHUNK = 9500; // slightly under 10k to stay clear of any node caps
+      const collected = new Map();
       let gotAny = false;
-      let consecFail = 0;
 
       for (let end = head; !cancelled && end > 0 && collected.size < WANT && (head - end) < MAX_LOOKBACK; ) {
-        const batch = [];
-        for (let i = 0; i < PARALLEL && end > 0; i++) {
-          const from = Math.max(0, end - (CHUNK - 1));
-          batch.push(
-            historyContract.queryFilter("FlipResolved", from, end)
-              .then(r => ({ ok: true, r }))
-              .catch(err => ({ ok: false, err }))
-          );
-          end -= CHUNK;
+        const from = Math.max(0, end - (CHUNK - 1));
+        let events = [];
+        try {
+          events = await historyContract.queryFilter("FlipResolved", from, end);
+        } catch (err) {
+          console.warn(`[feed] range ${from}-${end} failed:`, err?.message);
+          // Halve the window on failure and retry the same `end`.
+          end -= Math.max(500, Math.floor(CHUNK / 4));
+          continue;
         }
-        const results = await Promise.all(batch);
         if (cancelled) return;
-        const passOk = results.some(r => r.ok);
-        consecFail = passOk ? 0 : (consecFail + 1);
-        for (const { r } of results) {
-          if (!r) continue;
-          for (const ev of r) {
-            const id = Number(ev.args[0]);
-            if (!collected.has(id)) collected.set(id, ev);
-          }
+        for (const ev of events) {
+          const id = Number(ev.args[0]);
+          if (!collected.has(id)) collected.set(id, ev);
         }
-        // Stream partial results so the UI lights up during the scan
-        // rather than only at the end.
-        if (collected.size > 0 && passOk) {
+        if (collected.size > 0) {
           gotAny = true;
           const partial = [...collected.values()]
             .sort((a, b) => (b.blockNumber - a.blockNumber) || (b.transactionIndex - a.transactionIndex))
@@ -485,11 +478,8 @@ export function useGlobalFeed(coinflipContract, readCoinflip) {
             });
           setRecentFlips(partial);
         }
-        if (consecFail >= 10) break;
-        if (collected.size < WANT) await new Promise(r => setTimeout(r, 200));
+        end = from - 1;
       }
-      // Only mark history loaded if we actually got something. If every
-      // pass failed, a subsequent render can retry.
       if (gotAny) historyLoadedRef.current = true;
     };
 

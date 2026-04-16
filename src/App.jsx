@@ -865,10 +865,11 @@ function GameAvatar({ address, size = 40 }) {
 //  CHAT SIDEBAR
 // ═══════════════════════════════════════
 function LiveFeedSidebar({ recentFlips, address, drawerOpen }) {
-  // V8 BF6: hide micro-flips (<0.005 ETH testing noise) and format
-  // treasury-involved rows without showing the contract address or a
-  // misleading "+amount" for the treasury side.
-  const visibleFlips = recentFlips.filter(f => parseFloat(f.amount || 0) >= 0.005);
+  // Hide sub-0.0005 ETH dust (wallet-test noise) while still showing
+  // the lowest live tier (0.001). Treasury-involved rows are formatted
+  // without leaking the contract address or a misleading "+amount"
+  // on the house side.
+  const visibleFlips = recentFlips.filter(f => parseFloat(f.amount || 0) >= 0.0005);
   return (
     <div className={"chat-sidebar sidebar-texture" + (drawerOpen ? " drawer-open" : "")}>
       <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(247,179,43,0.15), transparent)" }} />
@@ -2642,7 +2643,7 @@ function AdminPanel({ contract, seatsContract, protocolStats, graduation, yieldP
 // ═══════════════════════════════════════
 function FlipTicker({ recentFlips }) {
   const treasuryLC = COINFLIP_ADDRESS.toLowerCase();
-  const flips = recentFlips.filter(f => parseFloat(f.amount || 0) >= 0.005).slice(0, 20);
+  const flips = recentFlips.filter(f => parseFloat(f.amount || 0) >= 0.0005).slice(0, 20);
   if (flips.length === 0) return null;
   return (
     <div style={{

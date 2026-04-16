@@ -7,6 +7,11 @@ export const MOCK_FLIPPER_ADDRESS = "0x755F4DbEB39f1EfaFd1088cF2EB9F8939d8473BA"
 export const CHAIN_ID = 84532;
 export const CHAIN_ID_HEX = "0x14a34";
 export const RPC_URL = "https://base-sepolia.g.alchemy.com/v2/alcht_fDA5dcNFaa5XDrG6gMz32UMHzIQPum";
+// Public RPC used ONLY for `eth_getLogs` history scans. Alchemy's free
+// tier caps log queries at 10 blocks per call, so a 100k-block lookback
+// would need 10k requests and time out. sepolia.base.org accepts much
+// wider ranges and is fine for read-only event scans.
+export const HISTORY_RPC_URL = "https://sepolia.base.org";
 export const CHAIN_NAME = "Base Sepolia";
 export const EXPLORER = "https://sepolia.basescan.org";
 
