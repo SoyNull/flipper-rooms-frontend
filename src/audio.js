@@ -66,6 +66,14 @@ class AudioEngine {
     } catch {}
   }
 
+  _playFile(audioEl) {
+    if (this.muted || !audioEl) return;
+    try {
+      audioEl.currentTime = 0;
+      audioEl.play().catch(e => console.warn('Audio play blocked:', e.message));
+    } catch {}
+  }
+
   playClick() {
     this.ensureRunning();
     this._tone(1000, 0.05, 'sine', 0.1);
@@ -94,12 +102,7 @@ class AudioEngine {
     this._tone(1047, 0.5, 'triangle', 0.25, 0.4);
 
     // Cash register MP3 on top
-    if (this.winCashAudio) {
-      try {
-        this.winCashAudio.currentTime = 0;
-        this.winCashAudio.play().catch(() => {});
-      } catch {}
-    }
+    this._playFile(this.winCashAudio);
   }
 
   playLoss() {
@@ -159,10 +162,7 @@ class AudioEngine {
     if (this.muted) return null;
     if (!this.spinStartAudio) return null;
 
-    try {
-      this.spinStartAudio.currentTime = 0;
-      this.spinStartAudio.play().catch(() => {});
-    } catch {}
+    this._playFile(this.spinStartAudio);
 
     return () => {
       try {

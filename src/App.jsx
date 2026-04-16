@@ -835,7 +835,7 @@ function LiveFeedSidebar({ recentFlips, address }) {
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 8px #22c55e", animation: "liveDot 1.5s ease infinite" }} />
-          <span style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>Live wins</span>
+          <span style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>Live activity</span>
         </div>
         <span style={{ fontSize: 9, color: "var(--text-faint)" }}>{recentFlips.length} recent</span>
       </div>
@@ -843,25 +843,35 @@ function LiveFeedSidebar({ recentFlips, address }) {
         {recentFlips.map((flip, i) => {
           const isMyWin = flip.winner?.toLowerCase() === address?.toLowerCase();
           const isMyLoss = flip.loser?.toLowerCase() === address?.toLowerCase();
-          const isTreasury = flip.loser?.toLowerCase() === CONTRACT_ADDRESS.toLowerCase() || flip.winner?.toLowerCase() === CONTRACT_ADDRESS.toLowerCase();
+          const isTrW = flip.winner?.toLowerCase() === CONTRACT_ADDRESS.toLowerCase();
+          const isTrL = flip.loser?.toLowerCase() === CONTRACT_ADDRESS.toLowerCase();
           return (
             <div key={flip.id + "-" + i} style={{
-              background: isMyWin ? "linear-gradient(90deg, rgba(247,179,43,0.08), transparent)" :
-                "linear-gradient(90deg, rgba(34,197,94,0.05), transparent)",
-              borderLeft: isMyWin ? "2px solid #f7b32b" : "2px solid rgba(34,197,94,0.4)",
+              background: isMyWin ? "linear-gradient(90deg, rgba(247,179,43,0.08), transparent)"
+                : isMyLoss ? "linear-gradient(90deg, rgba(239,68,68,0.06), transparent)"
+                : "linear-gradient(90deg, rgba(34,197,94,0.04), transparent)",
+              borderLeft: isMyWin ? "2px solid #f7b32b"
+                : isMyLoss ? "2px solid #ef4444"
+                : "2px solid rgba(34,197,94,0.3)",
               padding: "8px 10px 8px 12px", borderRadius: "0 8px 8px 0",
               marginBottom: 4, animation: flip.isNew ? "tickerChipEnter 0.4s ease" : "none",
             }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-                <span style={{ fontSize: 11, color: isMyWin ? "#f7b32b" : "var(--text)", fontWeight: isMyWin ? 700 : 600 }}>
-                  {isMyWin ? "You" : shortAddr(flip.winner)}
+                <span style={{ fontSize: 11, color: isMyWin ? "#f7b32b" : isMyLoss ? "#ef4444" : "var(--text)", fontWeight: isMyWin || isMyLoss ? 700 : 600 }}>
+                  {isMyWin ? "You won" : isMyLoss ? "You lost" : (isTrW ? "Treasury" : shortAddr(flip.winner)) + " won"}
                 </span>
-                <span style={{ fontSize: 13, color: "#22c55e", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
-                  +{parseFloat(flip.payout).toFixed(4)}
+                <span style={{
+                  fontSize: 13, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+                  color: isMyLoss ? "#ef4444" : "#22c55e",
+                }}>
+                  {isMyLoss ? "-" : "+"}{parseFloat(isMyLoss ? flip.amount : flip.payout).toFixed(4)}
                 </span>
               </div>
               <div style={{ fontSize: 9, color: "var(--text-faint)" }}>
-                vs {isMyLoss ? "You" : isTreasury ? "Treasury" : shortAddr(flip.loser)} {"\u00B7"} {parseFloat(flip.amount).toFixed(4)} ETH
+                {isMyWin ? "vs " + (isTrL ? "Treasury" : shortAddr(flip.loser))
+                  : isMyLoss ? "vs " + (isTrW ? "Treasury" : shortAddr(flip.winner))
+                  : shortAddr(flip.winner) + " vs " + (isTrL ? "Treasury" : shortAddr(flip.loser))}
+                {" \u00B7 "}{parseFloat(flip.amount).toFixed(4)} ETH
               </div>
             </div>
           );
