@@ -1873,6 +1873,9 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                     addToast("success", `Minted Seat #${selectedSeat.id}!`);
                     setSelectedSeat(null); setSeatBuyName("");
                     seatHook.refreshSeats(); refreshTokenBalance?.();
+                    // RPC indexers lag by a block or two — re-query after 2s
+                    // so the board shows the freshly minted seat.
+                    setTimeout(() => seatHook.refreshSeats(), 2000);
                   } catch (err) {
                     dismissToast(pendingId);
                     console.error(`[mintSeat #${selectedSeat.id}]`, err);
@@ -2085,6 +2088,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                       addToast("success", `Bought Seat #${selectedSeat.id}!`);
                       setSelectedSeat(null); seatHook.refreshSeats();
                       refreshBalance(); refreshTokenBalance?.();
+                      setTimeout(() => seatHook.refreshSeats(), 2000);
                     } catch (err) { addToast("error", decodeError(err)); }
                   }}>{seatHook.graduation?.graduated ? "Buy Seat" : "Locked (pre-graduation)"}</button>
                 <button className="modal-cancel-btn" onClick={() => setSelectedSeat(null)}>Cancel</button>
@@ -2307,8 +2311,8 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                     }
                   } catch {}
 
-                  // batchMint is capped at 64 per TX by the contract.
-                  const CHUNK = 64;
+                  // batchMint has no on-chain cap; 256 covers all seats in 1 TX.
+                  const CHUNK = 256;
                   let bought = 0;
                   const failedIds = [];
                   for (let i = 0; i < toBuy.length; i += CHUNK) {
@@ -2337,6 +2341,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 } finally {
                   setBulkBuying(false);
                   seatHook.refreshSeats(); refreshTokenBalance?.();
+                  setTimeout(() => seatHook.refreshSeats(), 2000);
                 }
               }} style={{
                 width: "100%", padding: 14, borderRadius: 10,
@@ -2463,6 +2468,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   await takeOverMultipleFn(seatsContract, tokenContract, ids, prices, deposits, totalApprove);
                   addToast("success", `Took over ${selected.length} seats`);
                   seatHook.refreshSeats(); refreshTokenBalance?.();
+                  setTimeout(() => seatHook.refreshSeats(), 2000);
                   setShowTakeOver(false);
                 } catch (err) {
                   addToast("error", decodeError(err));

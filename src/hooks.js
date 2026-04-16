@@ -407,11 +407,16 @@ export function useGlobalFeed(coinflipContract, readCoinflip) {
   const seenIdsRef = useRef(new Set());
   const historyLoadedRef = useRef(false);
 
-  // History loads even without a wallet — always prefer the read-only
-  // contract so the effect doesn't wait on Privy/sign-in.
-  const feedContract = coinflipContract || readCoinflip || _readCoinflip;
+  // History ALWAYS uses the read-only contract so it doesn't wait for
+  // Privy/sign-in, and failures on the signer-backed contract can't
+  // block the initial fetch.
+  const historyContract = readCoinflip || _readCoinflip;
+  // Live listening prefers the signer's contract (tight latency) but
+  // falls back to read-only so pageloads without a wallet still tick.
+  const liveContract = coinflipContract || readCoinflip || _readCoinflip;
   useEffect(() => {
-    if (!feedContract || !feedContract.runner?.provider) return;
+    if (!historyContract || !historyContract.runner?.provider) return;
+    if (!liveContract || !liveContract.runner?.provider) return;
 
     let cancelled = false;
     // Walk backwards in 10-block windows (Alchemy free-tier cap) but
@@ -421,13 +426,15 @@ export function useGlobalFeed(coinflipContract, readCoinflip) {
     // try again.
     const loadHistory = async () => {
       if (historyLoadedRef.current) return;
-      const provider = feedContract.runner.provider;
+      const provider = historyContract.runner.provider;
       let head;
       try { head = await provider.getBlockNumber(); }
       catch (e) { console.warn("[feed] head fetch failed:", e.message); return; }
 
       const WANT = 30;
-      const MAX_LOOKBACK = 20000;
+      // ~2s block time on Base Sepolia: 100k blocks ≈ 55h of history.
+      // Needed so flips from yesterday's testing still populate the feed.
+      const MAX_LOOKBACK = 100000;
       const PARALLEL = 3; // gentler on the free-tier CU budget
       const CHUNK = 10;
       const collected = new Map(); // id -> event
@@ -439,7 +446,7 @@ export function useGlobalFeed(coinflipContract, readCoinflip) {
         for (let i = 0; i < PARALLEL && end > 0; i++) {
           const from = Math.max(0, end - (CHUNK - 1));
           batch.push(
-            feedContract.queryFilter("FlipResolved", from, end)
+            historyContract.queryFilter("FlipResolved", from, end)
               .then(r => ({ ok: true, r }))
               .catch(err => ({ ok: false, err }))
           );
@@ -513,12 +520,12 @@ export function useGlobalFeed(coinflipContract, readCoinflip) {
       } catch {}
     };
 
-    feedContract.on("FlipResolved", onFlip);
+    liveContract.on("FlipResolved", onFlip);
     return () => {
       cancelled = true;
-      feedContract.off("FlipResolved", onFlip);
+      liveContract.off("FlipResolved", onFlip);
     };
-  }, [feedContract]);
+  }, [historyContract, liveContract]);
 
   return { recentFlips, liveFlip };
 }
