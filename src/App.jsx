@@ -2037,7 +2037,7 @@ export default function FlipperRooms() {
 
         // Room not in open list — could be stale RPC data
         roomMissCountRef.current += 1;
-        if (roomMissCountRef.current < 3) return;
+        if (roomMissCountRef.current < 1) return;
 
         // 3 consecutive misses — confirm with on-chain event query
         roomMissCountRef.current = 0;
@@ -2085,7 +2085,7 @@ export default function FlipperRooms() {
         }, 2000);
       } catch {}
     };
-    const iv = setInterval(checkRoom, 2000);
+    const iv = setInterval(checkRoom, 1500);
     return () => clearInterval(iv);
   }, [myRoomId, contract, address]);
 
