@@ -1123,16 +1123,16 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
       <div className="board-left">
         {/* Yield estimate - prominent */}
         <div style={{ padding: "14px 12px", background: "#22c55e08", borderRadius: 8, border: "1px solid #22c55e15", marginBottom: 12 }}>
-          <div style={{ fontSize: 9, color: "#22c55e80", fontWeight: 700, letterSpacing: 1 }}>EST. YIELD PER SEAT</div>
+          <div style={{ fontSize: 9, color: "#22c55e80", fontWeight: 700, letterSpacing: 1 }}>YOU COULD EARN</div>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#22c55e", fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>{estYieldPerSeat} ETH</div>
           <div style={{ fontSize: 9, color: "#475569" }}>per week based on current volume</div>
         </div>
 
-        <div className="board-label">BOARD STATS</div>
+        <div className="board-label">THE BOARD</div>
         <div className="board-stats-grid">
           <div className="board-stat-card">
             <div className="board-stat-value" style={{ color: "#f7b32b" }}>{ownedCount}</div>
-            <div className="board-stat-label">OWNED</div>
+            <div className="board-stat-label">TAKEN</div>
           </div>
           <div className="board-stat-card">
             <div className="board-stat-value" style={{ color: "#e2e8f0" }}>{256 - ownedCount}</div>
@@ -1141,11 +1141,11 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
         </div>
 
         {[
-          { l: "Floor Price", v: `${floorPrice} \u039E`, c: "#f7b32b" },
-          { l: "Total Value", v: `${totalValue} \u039E`, c: "#e2e8f0" },
-          { l: "Weekly Tax", v: "5%", c: "#e2e8f0" },
-          { l: "Your Seats", v: `${seatHook.mySeats.length}`, c: "#f7b32b" },
-          { l: "Yield Pool", v: `${protocolStats ? Number(protocolStats.seatPool).toFixed(4) : "0"} \u039E`, c: "#22c55e" },
+          { l: "Cheapest seat", v: `${floorPrice} \u039E`, c: "#f7b32b" },
+          { l: "Total locked", v: `${totalValue} \u039E`, c: "#e2e8f0" },
+          { l: "Rent per week", v: "5%", c: "#e2e8f0" },
+          { l: "You own", v: `${seatHook.mySeats.length}`, c: "#f7b32b" },
+          { l: "Ready to claim", v: `${protocolStats ? Number(protocolStats.seatPool).toFixed(4) : "0"} \u039E`, c: "#22c55e" },
         ].map((r, i) => (
           <div className="board-info-row" key={i}>
             <span className="board-info-label">{r.l}</span>
@@ -1169,7 +1169,7 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
             background: "transparent", border: "1px solid #f7b32b30",
             color: "#f7b32b80", fontSize: 10, fontWeight: 600,
             cursor: "pointer", fontFamily: "inherit",
-          }}>Buy Multiple Seats</button>
+          }}>Buy Several at Once</button>
           {seatHook.mySeats.length > 0 && (
             <button onClick={async () => {
               try {
@@ -1221,21 +1221,21 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, padding: "0 2px" }}>
           <div>
             <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 13, fontWeight: 700, color: "#e2e8f0", letterSpacing: 1, marginBottom: 4 }}>
-              256 REVENUE SEATS
+              256 Seats. Passive ETH.
             </div>
             <div style={{ fontSize: 10, color: "#475569", lineHeight: 1.5, maxWidth: 400 }}>
-              Buy a seat to earn ETH from every coinflip. Harberger tax keeps prices fair.
+              Own a seat. Earn from every flip. Others can buy yours for your listed price.
             </div>
           </div>
           <div style={{ display: "flex", gap: 4 }}>
-            {["All", "Owned", "Mine", "Empty"].map(f => (
-              <button key={f} onClick={() => setBoardFilter(f.toLowerCase())} style={{
+            {[{l:"All 256",v:"all"},{l:"Taken",v:"owned"},{l:"Yours",v:"mine"},{l:"Available",v:"empty"}].map(f => (
+              <button key={f.v} onClick={() => setBoardFilter(f.v)} style={{
                 padding: "4px 10px", borderRadius: 5, fontSize: 9, fontWeight: 600,
-                border: "1px solid " + (boardFilter === f.toLowerCase() ? "#f7b32b" : "#1c2430"),
-                background: boardFilter === f.toLowerCase() ? "#f7b32b08" : "#131820",
-                color: boardFilter === f.toLowerCase() ? "#f7b32b" : "#475569",
+                border: "1px solid " + (boardFilter === f.v ? "#f7b32b" : "#1c2430"),
+                background: boardFilter === f.v ? "#f7b32b08" : "#131820",
+                color: boardFilter === f.v ? "#f7b32b" : "#475569",
                 cursor: "pointer", fontFamily: "inherit",
-              }}>{f}</button>
+              }}>{f.l}</button>
             ))}
           </div>
         </div>
@@ -1257,6 +1257,7 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
             <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4, maxHeight: "calc(100vh - 200px)", overflowY: "auto", padding: "0 2px 2px" }}>
               {filteredSeats.map(seat => {
                 const isMine = seat.mine;
+                const isExpiring = seat.active && seat.daysLeft < 3 && !isMine;
                 return (
                   <div key={seat.id}
                     onClick={() => { setSelectedSeat(seat); setSelectedMult(0); setSelectedDuration(168); audio.playClick(); }}
@@ -1266,21 +1267,37 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
                       padding: 4, transition: "all 0.15s",
                       opacity: seat.hidden ? 0.1 : 1,
                       border: isMine ? "2px solid #f7b32b"
-                        : seat.active && seat.daysLeft < 3 ? "2px solid #ef4444"
+                        : isExpiring ? "2px solid #ef4444"
                         : seat.active ? "1px solid " + addrColor(seat.owner) + "50"
-                        : "1px solid #1a1f2e",
-                      animation: seat.active && seat.daysLeft < 3 && !isMine ? "roomPulse 1s ease infinite" : "none",
-                      background: seat.active
-                        ? "linear-gradient(135deg, " + addrColor(seat.owner) + "12, #0d1118)"
-                        : "#0c0f14",
+                        : "1px dashed rgba(255,255,255,0.08)",
+                      animation: isExpiring ? "roomPulse 1s ease infinite" : "none",
+                      boxShadow: isMine ? "0 0 16px rgba(247,179,43,0.3)" : "none",
+                      background: isMine
+                        ? "linear-gradient(135deg, rgba(247,179,43,0.15), rgba(247,179,43,0.05))"
+                        : seat.active
+                        ? "linear-gradient(135deg, " + addrColor(seat.owner) + "18, " + addrColor(seat.owner) + "08)"
+                        : "rgba(255,255,255,0.02)",
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.08)"; e.currentTarget.style.zIndex = "5"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.4)"; }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.zIndex = "1"; e.currentTarget.style.boxShadow = "none"; }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.transform = "scale(1.08)";
+                      e.currentTarget.style.zIndex = "5";
+                      e.currentTarget.style.boxShadow = isMine ? "0 0 20px rgba(247,179,43,0.5)" : seat.active ? "0 0 12px " + addrColor(seat.owner) + "40" : "0 0 10px rgba(247,179,43,0.15)";
+                      if (!seat.active) e.currentTarget.style.borderColor = "rgba(247,179,43,0.3)";
+                      if (!seat.active) e.currentTarget.style.background = "rgba(247,179,43,0.05)";
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.transform = "scale(1)";
+                      e.currentTarget.style.zIndex = "1";
+                      e.currentTarget.style.boxShadow = isMine ? "0 0 16px rgba(247,179,43,0.3)" : "none";
+                      if (!seat.active) e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+                      if (!seat.active) e.currentTarget.style.background = "rgba(255,255,255,0.02)";
+                    }}
                   >
                     {seat.active ? (
                       <>
                         <div style={{ fontSize: 8, color: "#475569", position: "absolute", top: 3, left: 4 }}>#{seat.id}</div>
-                        {isMine && <div style={{ position: "absolute", top: 3, right: 4, width: 6, height: 6, borderRadius: "50%", background: "#f7b32b", boxShadow: "0 0 4px #f7b32b" }} />}
+                        {isMine && <div style={{ position: "absolute", top: 2, right: 3, fontSize: 7, fontWeight: 800, color: "#f7b32b", letterSpacing: 0.5 }}>YOURS</div>}
+                        {isExpiring && <div style={{ position: "absolute", top: 2, right: 3, fontSize: 7, fontWeight: 800, color: "#ef4444", letterSpacing: 0.5 }}>{"\u26A0"} LOW</div>}
                         <div style={{
                           width: 28, height: 28, borderRadius: "50%",
                           background: addrColor(seat.owner),
@@ -1299,8 +1316,9 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
                       </>
                     ) : (
                       <>
-                        <div style={{ fontSize: 10, color: "#1c2430", fontWeight: 700 }}>#{seat.id}</div>
-                        <div style={{ fontSize: 8, color: "#1c2430", marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>0.001 {"\u039E"}</div>
+                        <div style={{ fontSize: 12, color: "#2a3040", fontWeight: 800 }}>#{seat.id}</div>
+                        <div style={{ fontSize: 8, color: "#2a3040", marginTop: 2, fontFamily: "'JetBrains Mono', monospace" }}>0.001 {"\u039E"}</div>
+                        <div style={{ fontSize: 7, color: "#1c2430", marginTop: 3, letterSpacing: 0.5, fontWeight: 600 }}>EMPTY</div>
                       </>
                     )}
                   </div>
@@ -1316,10 +1334,14 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
         <div className="board-label">RECENT ACTIVITY</div>
         {recentActivity.length === 0 && (
           <div style={{ padding: "12px 0", textAlign: "center" }}>
-            <div style={{ fontSize: 10, color: "#475569", marginBottom: 8 }}>No seat activity yet</div>
-            <div style={{ fontSize: 9, color: "#374151", lineHeight: 1.5 }}>
-              Activity appears here when seats are bought, sold, or taken over.
-            </div>
+            <div style={{ fontSize: 10, color: "#475569", marginBottom: 8 }}>Nothing yet.</div>
+            {connected && <button onClick={() => {
+              const firstEmpty = seatHook.seats.find(s => !s.active);
+              if (firstEmpty) { setSelectedSeat(firstEmpty); setSelectedMult(0); setSelectedDuration(168); }
+            }} style={{
+              fontSize: 10, color: "#f7b32b", background: "none", border: "none",
+              cursor: "pointer", fontFamily: "inherit", fontWeight: 600,
+            }}>Be the first to claim a seat {"\u2192"}</button>}
           </div>
         )}
         {recentActivity.map((a, i) => (
@@ -1374,7 +1396,7 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
                 <div className="mtc-note">ETH from wallet</div>
               </div>
               <div className="modal-top-card">
-                <div className="mtc-label">EST. YIELD</div>
+                <div className="mtc-label">YOU COULD EARN</div>
                 <div className="mtc-value" style={{ color: "#22c55e" }}>+{estYieldPerSeat}</div>
                 <div className="mtc-note">ETH / week</div>
               </div>
@@ -1655,7 +1677,7 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
         <div onClick={e => { if (e.target === e.currentTarget) setShowBulkBuy(false); }}
           style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div style={{ background: "#131820", border: "1px solid #1c2430", borderRadius: 14, padding: 24, width: 380 }}>
-            <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 16, fontWeight: 800, color: "#f7b32b", marginBottom: 16 }}>Buy Multiple Seats</div>
+            <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 16, fontWeight: 800, color: "#f7b32b", marginBottom: 16 }}>Buy Several at Once</div>
             <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>
               Buy {bulkCount} empty seats at base price (0.001 ETH + 0.002 deposit each)
             </div>
