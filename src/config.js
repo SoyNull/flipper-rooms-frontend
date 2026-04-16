@@ -11,11 +11,7 @@ export const CHAIN_NAME = "Base Sepolia";
 export const EXPLORER = "https://sepolia.basescan.org";
 
 // Off-chain profiles API (name/avatar/twitter per wallet).
-// Update to the VPS domain for production.
-export const PROFILES_API =
-  typeof window !== "undefined" && window.location.hostname !== "localhost"
-    ? "https://flipper-profiles.basedjaider.com"
-    : "http://localhost:3010";
+export const PROFILES_API = "http://89.167.8.19:3010";
 
 // External links
 export const FLAUNCH_URL = "https://flaunch.gg"; // placeholder for $FLIPPER token page

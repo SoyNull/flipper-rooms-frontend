@@ -2689,13 +2689,31 @@ function FlipTicker({ recentFlips }) {
 }
 
 // ═══════════════════════════════════════
-//  F1: PROFILE VIEW
+//  F1: PROFILE VIEW — takeover.fun-inspired layout
 // ═══════════════════════════════════════
+
+// XP thresholds mirror getLevelForXP() in FlipperSeats.sol.
+// Level 1 starts at 0 XP; Level 6 (Whale) is the cap.
+const XP_THRESHOLDS = [0, 500, 2000, 5000, 15000, 50000];
+
+function levelProgress(xp, level) {
+  // Contract returns levels 1..6. Map to name indices 0..5.
+  const lvl = Math.max(1, Math.min(6, level || 1));
+  const currentMin = XP_THRESHOLDS[lvl - 1];
+  const nextMin = lvl >= 6 ? currentMin : XP_THRESHOLDS[lvl];
+  const capped = lvl >= 6;
+  const progressPct = capped ? 100
+    : Math.max(0, Math.min(100, ((xp - currentMin) / (nextMin - currentMin)) * 100));
+  return { currentMin, nextMin, progressPct, capped };
+}
+
 function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance, playerStats, userProfile, linkTwitter, twitterUser, onBack }) {
   const [profileData, setProfileData] = useState({ name: "", avatar: "", twitter: "" });
   const [editing, setEditing] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState("seats");
+  const [seatsExpanded, setSeatsExpanded] = useState(false);
 
   const targetAddr = (address || "").toLowerCase();
 
@@ -2739,12 +2757,27 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
     return seats.filter(s => s.active && (s.owner || "").toLowerCase() === targetAddr);
   }, [seats, targetAddr]);
 
-  const totalSeatValue = mySeats.reduce((sum, s) => sum + (s.priceNum || 0), 0);
-  const netWeek = mySeats.reduce((sum, s) => sum + (s.priceNum * 0.05), 0); // 5% weekly tax = expected yield scale
-  const flipBal = tokenBalance ? parseFloat(formatUnits(tokenBalance, 18)) : 0;
-  const level = userProfile?.level ?? 0;
-  const levelName = LEVEL_NAMES[Math.min(level, LEVEL_NAMES.length - 1)];
-  const levelColor = LEVEL_COLORS[Math.min(level, 5)];
+  // ── derived stats ─────────────────────────────
+  const totalSeatValueFlip = mySeats.reduce((sum, s) => sum + (s.priceNum || 0), 0);
+  const totalDepositFlip = mySeats.reduce((sum, s) => sum + (s.depositNum || 0), 0);
+  const netWeekFlip = totalSeatValueFlip * 0.05; // rough: 5% weekly yield scale
+  const lowestPriceFlip = mySeats.length
+    ? Math.min(...mySeats.map(s => s.priceNum || Infinity))
+    : 0;
+
+  // PNL = coinflip winnings - wagered (in ETH). No stablecoin price on testnet,
+  // so keep PNL in the native unit and tag it "ETH".
+  const wageredEth = parseFloat(playerStats?.wagered || 0);
+  const wonEth     = parseFloat(playerStats?.won || 0);
+  const pnlEth = wonEth - wageredEth;
+  const pnlPositive = pnlEth >= 0;
+
+  // XP + level
+  const xp = userProfile?.xp ?? 0;
+  const level = userProfile?.level ?? 1;
+  const levelName = LEVEL_NAMES[Math.min(level - 1, LEVEL_NAMES.length - 1)] || LEVEL_NAMES[0];
+  const levelColor = LEVEL_COLORS[Math.min(level - 1, 5)] || LEVEL_COLORS[0];
+  const { currentMin, nextMin, progressPct, capped } = levelProgress(xp, level);
 
   const saveName = async () => {
     setSaving(true);
@@ -2764,7 +2797,17 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
   const avatarBg = profileData.avatar
     ? `url(${profileData.avatar}) center/cover`
     : `linear-gradient(135deg, ${addrColor(address)}, ${addrColor(address)}99)`;
-  const [tab, setTab] = useState("seats");
+
+  // Shared card style
+  const card = {
+    background: "#0b0e11",
+    border: "1px solid #1c2430",
+    borderRadius: 12,
+  };
+
+  const winRate = userProfile?.totalFlips > 0
+    ? (userProfile.wins / userProfile.totalFlips) * 100
+    : 0;
 
   return (
     <div style={{ maxWidth: 880, margin: "0 auto", padding: "24px 20px" }}>
@@ -2773,134 +2816,244 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
         fontSize: 12, marginBottom: 16, padding: "6px 0",
       }}>← Back</button>
 
-      {/* HEADER CARD */}
+      {/* ── HEADER ──────────────────────────────────── */}
       <div style={{
-        display: "flex", alignItems: "center", gap: 20, padding: 20,
-        background: "linear-gradient(135deg, rgba(247,179,43,0.04), transparent)",
-        border: "1px solid #1c2430", borderRadius: 16, marginBottom: 20,
+        ...card,
+        padding: 20, marginBottom: 16,
+        background: "linear-gradient(135deg, rgba(247,179,43,0.04), #0b0e11)",
       }}>
-        <div style={{
-          width: 80, height: 80, borderRadius: "50%", background: avatarBg,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 24, fontWeight: 800, color: "#0b0e11", flexShrink: 0,
-          border: "2px solid " + levelColor,
-        }}>
-          {!profileData.avatar && address?.slice(2, 4).toUpperCase()}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {editing ? (
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <input value={nameInput} onChange={e => setNameInput(e.target.value)} maxLength={32}
-                style={{ flex: 1, padding: "8px 10px", borderRadius: 6, background: "#0b0e11", border: "1px solid #1c2430", color: "#e2e8f0", fontSize: 14, fontFamily: "inherit" }}
-                placeholder="Display name" autoFocus />
-              <button onClick={saveName} disabled={saving} style={{ padding: "8px 14px", borderRadius: 6, background: "#f7b32b", color: "#0b0e11", border: "none", fontWeight: 800, cursor: "pointer" }}>
-                {saving ? "…" : "Save"}
-              </button>
-              <button onClick={() => { setEditing(false); setNameInput(profileData.name); }} style={{ padding: "8px 10px", borderRadius: 6, background: "transparent", color: "#94a3b8", border: "1px solid #1c2430", cursor: "pointer" }}>
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 22, fontWeight: 900, color: "#e2e8f0" }}>
-                {profileData.name || shortAddr(address)}
-              </div>
-              <span style={{
-                padding: "3px 8px", borderRadius: 10, background: levelColor + "22",
-                color: levelColor, fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
-              }}>Lv.{level} {levelName}</span>
-              {profileData.twitter && (
-                <a href={`https://x.com/${profileData.twitter}`} target="_blank" rel="noreferrer"
-                  style={{ fontSize: 11, color: "#1da1f2", textDecoration: "none" }}>@{profileData.twitter}</a>
-              )}
-              {isOwnProfile && (
-                <button onClick={() => setEditing(true)} style={{ fontSize: 11, background: "none", border: "1px solid #1c2430", color: "#94a3b8", padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>
-                  Edit
-                </button>
-              )}
-            </div>
-          )}
-          <div onClick={() => { navigator.clipboard.writeText(address); addToast("success", "Address copied"); }}
-            style={{ fontSize: 11, color: "#475569", marginTop: 6, cursor: "pointer", fontFamily: "'JetBrains Mono', monospace", wordBreak: "break-all" }}>
-            {address} {" "}<span style={{ color: "#f7b32b" }}>↗ copy</span>
-          </div>
-          {isOwnProfile && !profileData.twitter && linkTwitter && (
-            <button onClick={() => linkTwitter()} style={{
-              marginTop: 10, padding: "6px 14px", borderRadius: 6,
-              background: "#1da1f215", border: "1px solid #1da1f240",
-              color: "#1da1f2", fontSize: 11, fontWeight: 700, cursor: "pointer",
-            }}>Connect X</button>
-          )}
-        </div>
-      </div>
-
-      {/* STATS GRID */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 20 }}>
-        {[
-          { l: "Total Seat Value", v: fmtNum(totalSeatValue, 0) + " FLIP", c: "#f7b32b" },
-          { l: "Net / week (est.)", v: fmtNum(netWeek, 0) + " FLIP", c: "#22c55e" },
-          { l: "Seats Owned",      v: fmtNum(mySeats.length, 0),       c: "#e2e8f0" },
-          { l: "FLIPPER Balance",  v: fmtNum(flipBal, 0),              c: "#f7b32b" },
-          { l: "XP",               v: fmtNum(userProfile?.xp || 0, 0), c: "#3b82f6" },
-          { l: "Wins / Flips",     v: `${userProfile?.wins || 0}/${userProfile?.totalFlips || 0}`, c: "#e2e8f0" },
-        ].map((r, i) => (
-          <div key={i} style={{
-            padding: "14px 16px", background: "#0b0e11",
-            border: "1px solid #1c2430", borderRadius: 10,
+        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: "50%", background: avatarBg,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 22, fontWeight: 800, color: "#0b0e11", flexShrink: 0,
+            border: "2px solid " + levelColor,
           }}>
-            <div style={{ fontSize: 9, color: "#475569", letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>{r.l}</div>
-            <div style={{ fontSize: 20, color: r.c, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{r.v}</div>
+            {!profileData.avatar && address?.slice(2, 4).toUpperCase()}
           </div>
-        ))}
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {editing ? (
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input value={nameInput} onChange={e => setNameInput(e.target.value)} maxLength={32}
+                  style={{ flex: 1, padding: "8px 10px", borderRadius: 6, background: "#07090d", border: "1px solid #1c2430", color: "#e2e8f0", fontSize: 14, fontFamily: "inherit" }}
+                  placeholder="Display name" autoFocus />
+                <button onClick={saveName} disabled={saving} style={{ padding: "8px 14px", borderRadius: 6, background: "#f7b32b", color: "#0b0e11", border: "none", fontWeight: 800, cursor: "pointer" }}>
+                  {saving ? "…" : "Save"}
+                </button>
+                <button onClick={() => { setEditing(false); setNameInput(profileData.name); }} style={{ padding: "8px 10px", borderRadius: 6, background: "transparent", color: "#94a3b8", border: "1px solid #1c2430", cursor: "pointer" }}>
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 22, fontWeight: 900, color: "#e2e8f0" }}>
+                  {profileData.name || shortAddr(address)}
+                </div>
+                <span style={{
+                  padding: "3px 8px", borderRadius: 10, background: levelColor + "22",
+                  color: levelColor, fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
+                }}>Lv.{level} {levelName}</span>
+                {profileData.twitter && (
+                  <a href={`https://x.com/${profileData.twitter}`} target="_blank" rel="noreferrer"
+                    style={{ fontSize: 11, color: "#1da1f2", textDecoration: "none" }}>@{profileData.twitter}</a>
+                )}
+                {isOwnProfile && (
+                  <button onClick={() => setEditing(true)} style={{ fontSize: 11, background: "none", border: "1px solid #1c2430", color: "#94a3b8", padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>
+                    Edit
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Address + copy */}
+            <div onClick={() => { navigator.clipboard.writeText(address); addToast("success", "Address copied"); }}
+              style={{ fontSize: 11, color: "#475569", marginTop: 6, cursor: "pointer", fontFamily: "'JetBrains Mono', monospace", wordBreak: "break-all" }}>
+              {address} <span style={{ color: "#f7b32b" }}>↗ copy</span>
+            </div>
+
+            {/* Connect X */}
+            {isOwnProfile && !profileData.twitter && linkTwitter && (
+              <button onClick={() => linkTwitter()} style={{
+                marginTop: 10, padding: "6px 14px", borderRadius: 6,
+                background: "#1da1f215", border: "1px solid #1da1f240",
+                color: "#1da1f2", fontSize: 11, fontWeight: 700, cursor: "pointer",
+              }}>Connect X</button>
+            )}
+          </div>
+        </div>
+
+        {/* XP BAR */}
+        <div style={{ marginTop: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ fontSize: 9, color: "#94a3b8", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
+              XP · Level {level}
+            </span>
+            <span style={{ fontSize: 10, color: "#e2e8f0", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>
+              {capped ? `${fmtNum(xp, 0)} XP · MAX` : `${fmtNum(xp, 0)} / ${fmtNum(nextMin, 0)} XP`}
+            </span>
+          </div>
+          <div style={{ height: 6, background: "#07090d", border: "1px solid #1c2430", borderRadius: 3, overflow: "hidden" }}>
+            <div style={{
+              height: "100%", width: `${progressPct}%`,
+              background: `linear-gradient(90deg, ${levelColor}, ${levelColor}aa)`,
+              boxShadow: `0 0 8px ${levelColor}66`,
+              transition: "width 0.4s ease",
+            }} />
+          </div>
+        </div>
       </div>
 
-      {/* TABS */}
+      {/* ── 3 STAT CARDS ────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }}>
+        {/* PNL */}
+        <div style={{ ...card, padding: "14px 16px" }}>
+          <div style={{ fontSize: 9, color: "#475569", letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>PNL</div>
+          <div style={{
+            fontSize: 20, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 4,
+            color: pnlEth === 0 ? "#e2e8f0" : pnlPositive ? "#22c55e" : "#ef4444",
+          }}>
+            {pnlEth === 0 ? "0" : (pnlPositive ? "+" : "−") + fmtNum(Math.abs(pnlEth), 4)} ETH
+          </div>
+          <div style={{ fontSize: 9, color: "#475569", marginTop: 2 }}>
+            Coinflip wins − wagered
+          </div>
+        </div>
+
+        {/* Seats Held */}
+        <div style={{ ...card, padding: "14px 16px" }}>
+          <div style={{ fontSize: 9, color: "#475569", letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>Seats Held</div>
+          <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 4, color: "#e2e8f0" }}>
+            {fmtNum(mySeats.length, 0)}
+          </div>
+          <div style={{ fontSize: 9, color: "#475569", marginTop: 2 }}>
+            Active of {TOTAL_SEATS}
+          </div>
+        </div>
+
+        {/* Seat Value */}
+        <div style={{ ...card, padding: "14px 16px" }}>
+          <div style={{ fontSize: 9, color: "#475569", letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>Seat Value</div>
+          <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 4, color: "#f7b32b" }}>
+            {fmtNum(totalSeatValueFlip, 0)}
+          </div>
+          <div style={{ fontSize: 9, color: "#475569", marginTop: 2 }}>
+            FLIP listed
+          </div>
+        </div>
+      </div>
+
+      {/* ── TABS ────────────────────────────────────── */}
       <div style={{ display: "flex", gap: 0, borderBottom: "1px solid #1c2430", marginBottom: 16 }}>
-        {[{ k: "seats", l: "Seats" }, { k: "stats", l: "Stats" }].map(t => (
+        {[
+          { k: "seats", l: `Seats (${mySeats.length})` },
+          { k: "flips", l: "Flips" },
+        ].map(t => (
           <button key={t.k} onClick={() => setTab(t.k)} style={{
             padding: "10px 20px", background: "none", border: "none",
             color: tab === t.k ? "#f7b32b" : "#94a3b8",
             borderBottom: "2px solid " + (tab === t.k ? "#f7b32b" : "transparent"),
-            fontSize: 12, fontWeight: 700, cursor: "pointer",
+            fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
           }}>{t.l}</button>
         ))}
       </div>
 
+      {/* ── SEATS TAB ─────────────────────────────── */}
       {tab === "seats" && (
         mySeats.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", color: "#475569", fontSize: 12 }}>
             No seats owned yet.
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
-            {mySeats.map(s => (
-              <div key={s.id} style={{
-                padding: 12, background: "#0b0e11",
-                border: "1px solid #1c2430", borderRadius: 10,
+          <div>
+            {/* Summary card (always visible) */}
+            <div onClick={() => setSeatsExpanded(e => !e)}
+              style={{
+                ...card, padding: "16px 18px", cursor: "pointer",
+                transition: "border-color 0.2s",
               }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: "#f7b32b" }}>#{s.id}</span>
-                  {s.name && <span style={{ fontSize: 10, color: "#94a3b8" }}>"{s.name}"</span>}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 20 }}>🎰</span>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: "#e2e8f0", fontFamily: "'Orbitron', sans-serif" }}>
+                      FLIPPERROOMS
+                    </div>
+                    <div style={{ fontSize: 10, color: "#94a3b8" }}>
+                      {mySeats.length} seat{mySeats.length === 1 ? "" : "s"}
+                    </div>
+                  </div>
                 </div>
-                <div style={{ fontSize: 11, color: "#94a3b8" }}>Price: <span style={{ color: "#e2e8f0", fontFamily: "'JetBrains Mono', monospace" }}>{fmtNum(s.priceNum, 0)} FLIP</span></div>
-                <div style={{ fontSize: 11, color: "#94a3b8" }}>Deposit: <span style={{ color: "#e2e8f0", fontFamily: "'JetBrains Mono', monospace" }}>{fmtNum(s.depositNum, 0)} FLIP</span></div>
+                <span style={{ fontSize: 10, color: "#f7b32b", fontWeight: 700 }}>
+                  {seatsExpanded ? "− Collapse" : "+ Expand"}
+                </span>
               </div>
-            ))}
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+                {[
+                  { l: "$ Lowest",      v: fmtNum(lowestPriceFlip, 0), sub: "FLIP" },
+                  { l: "⏱ Min duration", v: "1d",                      sub: "default" },
+                  { l: "📈 Net / week",  v: "+" + fmtNum(netWeekFlip, 0), sub: "FLIP (est.)" },
+                  { l: "💰 Deposit",     v: fmtNum(totalDepositFlip, 0), sub: "FLIP locked" },
+                ].map((m, i) => (
+                  <div key={i} style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 9, color: "#475569", letterSpacing: 0.5, fontWeight: 700, marginBottom: 3 }}>{m.l}</div>
+                    <div style={{ fontSize: 14, color: "#e2e8f0", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.1 }}>
+                      {m.v}
+                    </div>
+                    <div style={{ fontSize: 9, color: "#475569", marginTop: 2 }}>{m.sub}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Expanded grid */}
+            {seatsExpanded && (
+              <div style={{
+                marginTop: 10,
+                display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+                gap: 8,
+              }}>
+                {mySeats.map(s => (
+                  <div key={s.id} style={{ ...card, padding: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: "#f7b32b" }}>#{s.id}</span>
+                      {s.name && <span style={{ fontSize: 10, color: "#94a3b8" }}>"{s.name}"</span>}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                      Price:{" "}
+                      <span style={{ color: "#e2e8f0", fontFamily: "'JetBrains Mono', monospace" }}>
+                        {fmtNum(s.priceNum, 0)} FLIP
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                      Deposit:{" "}
+                      <span style={{ color: "#e2e8f0", fontFamily: "'JetBrains Mono', monospace" }}>
+                        {fmtNum(s.depositNum, 0)} FLIP
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )
       )}
 
-      {tab === "stats" && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+      {/* ── FLIPS TAB ─────────────────────────────── */}
+      {tab === "flips" && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
           {[
-            { l: "Total wagered (ETH)", v: fmtNum(playerStats?.wagered || 0, 4) },
-            { l: "Total won (ETH)",     v: fmtNum(playerStats?.won || 0, 4) },
-            { l: "Streak",              v: `${playerStats?.streak || 0}` },
-            { l: "Best streak",         v: `${playerStats?.bestStreak || 0}` },
+            { l: "Total wagered", v: `${fmtNum(wageredEth, 4)} ETH`, c: "#e2e8f0" },
+            { l: "Total won",     v: `${fmtNum(wonEth, 4)} ETH`,     c: "#22c55e" },
+            { l: "Win rate",      v: `${fmtNum(winRate, 1)}%`,       c: "#e2e8f0" },
+            { l: "Flips",         v: `${userProfile?.wins || 0}/${userProfile?.totalFlips || 0}`, c: "#e2e8f0" },
+            { l: "Current streak", v: `${playerStats?.streak || 0}`,  c: "#f7b32b" },
+            { l: "Best streak",    v: `${playerStats?.bestStreak || 0}`, c: "#f7b32b" },
           ].map((r, i) => (
-            <div key={i} style={{ padding: "12px 14px", background: "#0b0e11", border: "1px solid #1c2430", borderRadius: 10 }}>
+            <div key={i} style={{ ...card, padding: "12px 14px" }}>
               <div style={{ fontSize: 9, color: "#475569", letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>{r.l}</div>
-              <div style={{ fontSize: 15, color: "#e2e8f0", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 3 }}>{r.v}</div>
+              <div style={{ fontSize: 16, color: r.c, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 3 }}>{r.v}</div>
             </div>
           ))}
         </div>
