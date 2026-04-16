@@ -601,18 +601,6 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
   background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
 }
 
-/* Flip modal */
-.flip-modal-overlay {
-  position: fixed; inset: 0; z-index: 1000;
-  background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
-  display: flex; align-items: center; justify-content: center;
-  animation: fadeIn 0.3s ease;
-}
-.flip-modal {
-  width: 600px; max-width: 95vw; background: var(--bg-deep);
-  border: 1px solid var(--border); border-radius: 20px; overflow: hidden;
-}
-
 /* ═══ BOARD ═══ */
 .board-container { display: flex; height: 100%; overflow: hidden; }
 .board-left { width: 200px; min-width: 200px; border-right: 1px solid #151b25; padding: 14px; overflow-y: auto; background: linear-gradient(180deg, #0d1118, #0a0d13); }
@@ -1616,7 +1604,6 @@ export default function FlipperRooms() {
   const [view, setView] = useState("flip");
   const [tier, setTier] = useState(1);
   const [playerStats, setPlayerStats] = useState(null);
-  const [flipModal, setFlipModal] = useState(null);
   const [treasuryMax, setTreasuryMax] = useState(null);
   const referral = useRef(getReferralFromUrl()).current;
 
@@ -1634,7 +1621,6 @@ export default function FlipperRooms() {
 
   // Global feeds
   const { recentFlips, liveFlip } = useGlobalFeed(contract, readContract);
-  const playerCache = useRef({});
 
   // Coin state
   const [coinState, setCoinState] = useState("idle");
@@ -1644,7 +1630,6 @@ export default function FlipperRooms() {
   const [waitingConfirm, setWaitingConfirm] = useState(false);
   const [flipHistory, setFlipHistory] = useState([]);
   const [lastPayout, setLastPayout] = useState("0");
-  const tierBarRef = useRef(null);
   const [borderState, setBorderState] = useState("idle");
   const spinStartRef = useRef(0);
   const [currentOpponent, setCurrentOpponent] = useState(null);
@@ -1658,6 +1643,8 @@ export default function FlipperRooms() {
   const processingFlipRef = useRef(false);
   const processedFlipsRef = useRef(new Set());
   const showCoinStageRef = useRef(false);
+  const roomGoneDetectedRef = useRef(false);
+  const fallbackTimeoutRef = useRef(null);
 
   // Keep refs in sync so timers/closures always see current values
   useEffect(() => { myRoomIdRef.current = myRoomId; }, [myRoomId]);
@@ -1692,10 +1679,6 @@ export default function FlipperRooms() {
     refreshBalance();
     flipHook.refreshHistory();
     getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
-
-    if (pending.flipModalUpdate) {
-      setFlipModal(prev => prev ? { ...prev, ...pending.flipModalUpdate } : null);
-    }
   }, [address, refreshBalance, contract]);
 
   // Data loading timeout — show error if nothing loads in 10s
@@ -1839,9 +1822,9 @@ export default function FlipperRooms() {
         // the receipt handler manages the result — skip to avoid duplicate sounds/alerts
         if (processingFlipRef.current) return;
 
-        // Only react if user has an active room waiting for opponent.
+        // Only react if user has an active room OR the poll already detected it gone.
         // Without this, stale/replayed events on page load trigger ghost animations.
-        if (!myRoomIdRef.current) return;
+        if (!myRoomIdRef.current && !roomGoneDetectedRef.current) return;
 
         // Mark as processed
         processedFlipsRef.current.add(challengeId);
@@ -1852,7 +1835,12 @@ export default function FlipperRooms() {
         const won = winner.toLowerCase() === myAddr;
         const opponent = won ? loser : winner;
 
-        // Clear room state
+        // Clear room state + cancel fallback timeout
+        roomGoneDetectedRef.current = false;
+        if (fallbackTimeoutRef.current) {
+          clearTimeout(fallbackTimeoutRef.current);
+          fallbackTimeoutRef.current = null;
+        }
         setMyRoomId(null);
         myRoomIdRef.current = null;
         setRoomCountdown(0);
@@ -1885,26 +1873,32 @@ export default function FlipperRooms() {
   }, [contract, address]);
 
   // Simple room status check — fast detection for creator
+  // Does NOT clear myRoomIdRef — leaves it for FlipResolved listener to handle
   useEffect(() => {
     if (!myRoomId || !contract) return;
+    roomGoneDetectedRef.current = false;
 
     const check = async () => {
       try {
+        if (roomGoneDetectedRef.current) return; // Already detected, waiting for listener
         const data = await contract.getAllOpenChallenges();
         const stillOpen = data.ids.some(id => Number(id) === myRoomIdRef.current);
 
         if (!stillOpen && myRoomIdRef.current) {
           // Room disappeared — someone accepted it
-          setMyRoomId(null);
-          myRoomIdRef.current = null;
-          setRoomCountdown(0);
+          roomGoneDetectedRef.current = true;
 
-          // Show MATCH FOUND overlay
+          // Show MATCH FOUND overlay immediately
           // The FlipResolved listener will handle the actual flip result
           setMatchFoundAnim(true);
-          setTimeout(() => {
-            // If after 8s the listener hasn't shown coin stage, close overlay
-            if (!showCoinStageRef.current) {
+
+          // Fallback: if listener doesn't act in 8s, clean up everything
+          fallbackTimeoutRef.current = setTimeout(() => {
+            if (myRoomIdRef.current) {
+              setMyRoomId(null);
+              myRoomIdRef.current = null;
+              setRoomCountdown(0);
+              roomGoneDetectedRef.current = false;
               setMatchFoundAnim(false);
               addToast("info", "Match completed. Check your balance.");
               refreshOpenRooms();
@@ -1916,7 +1910,13 @@ export default function FlipperRooms() {
     };
 
     const iv = setInterval(check, 2000);
-    return () => clearInterval(iv);
+    return () => {
+      clearInterval(iv);
+      if (fallbackTimeoutRef.current) {
+        clearTimeout(fallbackTimeoutRef.current);
+        fallbackTimeoutRef.current = null;
+      }
+    };
   }, [myRoomId, contract]);
 
 
@@ -2070,7 +2070,7 @@ export default function FlipperRooms() {
     }
     const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
     try {
-      const tx = await contract.createChallengeDirect(ref, { value: parseEther(betAmt) });
+      const tx = await contract.createChallengeDirect(ref, { value: parseEther(betAmt), gasLimit: 1000000n });
       const receipt = await tx.wait();
       let challengeId = null;
       for (const log of receipt.logs) {
@@ -2904,84 +2904,6 @@ export default function FlipperRooms() {
           isAdmin={isAdmin}
         />
       </div>
-
-      {/* FLIP MODAL (for joining others' challenges) */}
-      {flipModal && (
-        <div className="flip-modal-overlay">
-          <div className="flip-modal">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 24px", borderBottom: "1px solid var(--border)" }}>
-              <span style={{ fontSize: 16, fontWeight: 800, color: "var(--text)" }}>COINFLIP</span>
-              <button onClick={() => setFlipModal(null)} style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 20, cursor: "pointer" }}>{"\u2715"}</button>
-            </div>
-            <div style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "32px 28px", background: "radial-gradient(ellipse at 50% 50%, #1a1510, var(--bg-deep))",
-            }}>
-              {/* Player A */}
-              <div style={{ textAlign: "center", width: 140 }}>
-                <div style={{
-                  width: 72, height: 72, borderRadius: "50%", margin: "0 auto 10px",
-                  background: `linear-gradient(135deg, ${addrColor(flipModal.playerA)}, ${addrColor(flipModal.playerA)}88)`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 20, fontWeight: 700, color: "#fff",
-                  border: flipModal.state !== "spinning" && flipModal.winner === flipModal.playerA ? "3px solid var(--green)" : "3px solid var(--border)",
-                  boxShadow: flipModal.state !== "spinning" && flipModal.winner === flipModal.playerA ? "0 0 20px #22c55e40" : "none",
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}>{flipModal.playerA?.slice(2, 4).toUpperCase()}</div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>{flipModal.playerA === address ? "You" : shortAddr(flipModal.playerA)}</div>
-                <div style={{ display: "inline-block", padding: "4px 12px", borderRadius: 8, background: "var(--bg-card)", border: "1px solid var(--border)", fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, color: "var(--gold)" }}>{flipModal.amount} ETH</div>
-              </div>
-
-              {/* Center Coin */}
-              <div style={{ width: 180, height: 180, position: "relative" }}>
-                <Suspense fallback={<div style={{ width: "100%", height: "100%" }} />}>
-                  <Coin3D state={flipModal.state === "spinning" ? "spinning" : flipModal.state} onComplete={() => { setTimeout(() => setFlipModal(null), 3000); }} />
-                </Suspense>
-              </div>
-
-              {/* Player B */}
-              <div style={{ textAlign: "center", width: 140 }}>
-                <div style={{
-                  width: 72, height: 72, borderRadius: "50%", margin: "0 auto 10px",
-                  background: flipModal.playerB === "Treasury" ? "linear-gradient(135deg, var(--gold), var(--gold-dark))" : `linear-gradient(135deg, ${addrColor(flipModal.playerB)}, ${addrColor(flipModal.playerB)}88)`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: flipModal.playerB === "Treasury" ? 28 : 20, fontWeight: 700, color: "#fff",
-                  border: flipModal.state !== "spinning" && flipModal.winner !== flipModal.playerA ? "3px solid var(--green)" : "3px solid var(--border)",
-                  boxShadow: flipModal.state !== "spinning" && flipModal.winner !== flipModal.playerA ? "0 0 20px #22c55e40" : "none",
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}>{flipModal.playerB === "Treasury" ? "T" : flipModal.playerB?.slice(2, 4).toUpperCase() || "??"}</div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>{flipModal.playerB === "Treasury" ? "Treasury" : shortAddr(flipModal.playerB)}</div>
-                <div style={{ display: "inline-block", padding: "4px 12px", borderRadius: 8, background: "var(--bg-card)", border: "1px solid var(--border)", fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, color: flipModal.playerB === "Treasury" ? "var(--gold)" : "var(--green)" }}>{flipModal.amount} ETH</div>
-              </div>
-            </div>
-
-            {flipModal.state !== "spinning" && (
-              <div style={{
-                textAlign: "center", padding: "20px 24px",
-                background: flipModal.winner === flipModal.playerA ? "linear-gradient(180deg, #22c55e10, transparent)" : "linear-gradient(180deg, #ef444410, transparent)",
-              }}>
-                <div style={{
-                  fontSize: 14, fontWeight: 800, letterSpacing: 2,
-                  color: flipModal.winner === flipModal.playerA ? "var(--green)" : "var(--red)",
-                }}>
-                  {flipModal.winner === flipModal.playerA
-                    ? (flipModal.playerA === address ? "YOU WON!" : shortAddr(flipModal.playerA) + " WON")
-                    : (flipModal.playerB === "Treasury" ? "TREASURY WON" : shortAddr(flipModal.playerB) + " WON")}
-                </div>
-              </div>
-            )}
-
-            <div style={{ padding: "14px 24px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Provably Fair</div>
-              {flipModal.txHash && (
-                <a href={`${EXPLORER}/tx/${flipModal.txHash}`} target="_blank" rel="noreferrer" style={{ fontSize: 10, color: "var(--blue)", fontFamily: "'JetBrains Mono', monospace" }}>
-                  {flipModal.txHash.slice(0, 20)}...
-                </a>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* LIVE FLIP NOTIFICATION */}
       {liveFlip && liveFlip.winner?.toLowerCase() !== address?.toLowerCase() && (
