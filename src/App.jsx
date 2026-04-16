@@ -1109,6 +1109,16 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
 // ═══════════════════════════════════════
 //  BOARD TAB — TAKEOVER.FUN STYLE
 // ═══════════════════════════════════════
+// Accept "1000", "1,000", "0,001", "0.001", "1 000"; return a cleaned
+// decimal string that `parseUnits` can consume, or "" if unparseable.
+function sanitizeNum(raw) {
+  if (raw == null) return "";
+  const s = String(raw).replace(/\s+/g, "").replace(",", ".");
+  // strip anything other than digits and a single dot
+  const cleaned = s.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1");
+  return cleaned;
+}
+
 function BoardView({ seatHook, address, connected, seatsContract, tokenContract, readSeats, tokenBalance, refreshBalance, refreshTokenBalance, protocolStats }) {
   // V7 compatibility alias — BoardView's seat calls all go to FlipperSeats in V8.
   const contract = seatsContract || readSeats;
@@ -1116,7 +1126,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
   const [seatDetail, setSeatDetail] = useState(null);
   const [seatBuyName, setSeatBuyName] = useState("");
   const [seatBuyDeposit, setSeatBuyDeposit] = useState("0.002");
-  const [seatBuyPrice, setSeatBuyPrice] = useState("0.001");
+  const [seatBuyPrice, setSeatBuyPrice] = useState("1000");
   const [recentActivity, setRecentActivity] = useState([]);
   const [selectedDuration, setSelectedDuration] = useState(672); // hours; 672 = 4w = contract min
   const [selectedMult, setSelectedMult] = useState(0); // index into [1.1x, 1.2x, 2x, 5x]
@@ -1128,6 +1138,9 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
   const [bulkCount, setBulkCount] = useState(3);
   const [bulkBuying, setBulkBuying] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0, seatIds: [] });
+  const [bulkListPrice, setBulkListPrice] = useState("1000"); // FLIP per seat
+  const [bulkDepositWeeks, setBulkDepositWeeks] = useState(4);
+  const [onChainMintPriceWei, setOnChainMintPriceWei] = useState(null); // bigint
   const [showTakeOver, setShowTakeOver] = useState(false);
   const [takeOverSelected, setTakeOverSelected] = useState([]); // seat ids
   // Multiplier tenths: 11 = 1.1x (strictly > current), 12, 20, 50
@@ -1165,6 +1178,18 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
 
   // V8 has no on-chain price-change cooldown — keep slot so UI stays stable.
   useEffect(() => { setCooldownRemaining(0); }, [seatDetail]);
+
+  // Read calculateMintPrice() once so every modal displays the real
+  // on-chain number (was hardcoded 50K; actual is 50M).
+  useEffect(() => {
+    if (!contract || onChainMintPriceWei) return;
+    (async () => {
+      try {
+        const mp = await contract.calculateMintPrice();
+        setOnChainMintPriceWei(mp);
+      } catch {}
+    })();
+  }, [contract, onChainMintPriceWei]);
 
   // Fetch recent seat activity — V8 emits SeatMinted (new owner) + SeatBoughtOut (transfer).
   useEffect(() => {
@@ -1330,7 +1355,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
             return (
               <button
                 disabled={emptyCount === 0}
-                onClick={() => { setBulkCount(Math.min(emptyCount, 20)); setShowBulkBuy(true); }}
+                onClick={() => { setBulkCount(Math.min(emptyCount, 64)); setShowBulkBuy(true); }}
                 style={{
                   width: "100%", padding: 10, borderRadius: 8, marginTop: 6,
                   background: emptyCount > 0
@@ -1346,21 +1371,32 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
               </button>
             );
           })()}
-          <button
-            onClick={() => {
-              const occupied = seatHook.seats?.filter(s => s.active && s.owner?.toLowerCase() !== address?.toLowerCase()).map(s => s.id) || [];
-              if (occupied.length === 0) { addToast("info", "No seats to take over"); return; }
-              setTakeOverSelected(occupied.slice(0, 10));
-              setTakeOverMult(0);
-              setTakeOverDuration(168);
-              setShowTakeOver(true);
-            }}
-            style={{
-              width: "100%", padding: 8, borderRadius: 8, marginTop: 6,
-              background: "transparent", border: "1px dashed rgba(239,68,68,0.3)",
-              color: "#fca5a5", fontSize: 10, fontWeight: 600,
-              cursor: "pointer", fontFamily: "inherit",
-            }}>Take Over Multiple (buyout)</button>
+          {(() => {
+            const graduated = seatHook.graduation?.graduated;
+            return (
+              <button
+                disabled={!graduated}
+                title={graduated ? "Buy out other holders in one TX" : "Unlocks after all 256 seats minted"}
+                onClick={() => {
+                  if (!graduated) { addToast("info", "Buyouts unlock after graduation"); return; }
+                  const occupied = seatHook.seats?.filter(s => s.active && s.owner?.toLowerCase() !== address?.toLowerCase()).map(s => s.id) || [];
+                  if (occupied.length === 0) { addToast("info", "No seats to take over"); return; }
+                  setTakeOverSelected(occupied.slice(0, 10));
+                  setTakeOverMult(11);
+                  setTakeOverDuration(672);
+                  setShowTakeOver(true);
+                }}
+                style={{
+                  width: "100%", padding: 8, borderRadius: 8, marginTop: 6,
+                  background: "transparent", border: "1px dashed rgba(239,68,68,0.3)",
+                  color: graduated ? "#fca5a5" : "#475569", fontSize: 10, fontWeight: 600,
+                  cursor: graduated ? "pointer" : "not-allowed", opacity: graduated ? 1 : 0.5,
+                  fontFamily: "inherit",
+                }}>
+                Take Over Multiple {graduated ? "(buyout)" : "(locked)"}
+              </button>
+            );
+          })()}
           {seatHook.mySeats.length > 0 && (
             <button onClick={async () => {
               if (!seatsContract) { addToast("error", "Wallet not ready"); return; }
@@ -1612,9 +1648,12 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 <input className="seat-modal-input" placeholder="Seat name (optional)" maxLength={32}
                   value={seatBuyName} onChange={e => setSeatBuyName(e.target.value)} />
                 <div className="modal-section-label">LIST PRICE (FLIP)</div>
-                <input className="seat-modal-input" type="number" step="100" min="1"
-                  placeholder="Initial price in FLIPPER tokens" value={seatBuyPrice}
+                <input className="seat-modal-input" inputMode="decimal"
+                  placeholder="e.g. 1000" value={seatBuyPrice}
                   onChange={e => setSeatBuyPrice(e.target.value)} />
+                <div style={{ fontSize: 9, color: "#475569", marginTop: -6, marginBottom: 6 }}>
+                  Amount in whole FLIPPER tokens. Decimals allowed (dot or comma).
+                </div>
 
                 <div className="modal-section-label">DEPOSIT DURATION</div>
                 <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
@@ -1640,15 +1679,21 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
 
                 <div style={{ padding: 10, background: "#0b0e11", borderRadius: 8, marginBottom: 12, marginTop: 8 }}>
                   {(() => {
-                    const priceNum = parseFloat(seatBuyPrice || "0");
-                    const weeklyTax = priceNum * 0.05;
-                    const deposit = weeklyTax * mintDepositWeeks;
-                    const mintPriceFlip = 50_000_000;
+                    // All math in BigInt to avoid float scaling bugs; we only
+                    // convert to a decimal string for display at the end.
+                    const cleaned = sanitizeNum(seatBuyPrice);
+                    let listedWei = 0n;
+                    try { listedWei = cleaned ? parseUnits(cleaned, 18) : 0n; } catch { listedWei = 0n; }
+                    const weeklyTaxWei = listedWei * 500n / 10000n;
+                    const depositWei = weeklyTaxWei * BigInt(mintDepositWeeks);
+                    const mintWei = onChainMintPriceWei || 0n;
+                    const totalWei = mintWei + depositWei;
+                    const fmt = (w) => Number(formatUnits(w, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
                     return [
-                      { l: "Mint price",            v: mintPriceFlip.toLocaleString() + " FLIP", c: "#94a3b8" },
-                      { l: "Weekly tax",            v: weeklyTax.toFixed(2) + " FLIP/wk" },
-                      { l: `Deposit (${mintDepositWeeks}w)`, v: deposit.toFixed(2) + " FLIP" },
-                      { l: "Total approve",         v: (mintPriceFlip + deposit).toLocaleString(undefined, { maximumFractionDigits: 0 }) + " FLIP", c: "#f7b32b", bold: true },
+                      { l: "Mint price",            v: (onChainMintPriceWei ? fmt(mintWei) : "loading…") + " FLIP", c: "#94a3b8" },
+                      { l: "Weekly tax",            v: fmt(weeklyTaxWei) + " FLIP/wk" },
+                      { l: `Deposit (${mintDepositWeeks}w)`, v: fmt(depositWei) + " FLIP" },
+                      { l: "Total approve",         v: fmt(totalWei) + " FLIP", c: "#f7b32b", bold: true },
                     ];
                   })().map((r, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 10 }}>
@@ -1662,11 +1707,12 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 </div>
                 <button className="modal-buy-btn" onClick={async () => {
                   if (!tokenContract || !seatsContract) { addToast("error", "Wallet not ready"); return; }
-                  const priceNum = parseFloat(seatBuyPrice || "0");
-                  if (!priceNum || priceNum < 1) { addToast("error", "Price must be > 0"); return; }
-                  const pendingId = addToast("pending", "Approving FLIPPER...");
+                  const cleaned = sanitizeNum(seatBuyPrice);
+                  let initialPrice;
+                  try { initialPrice = parseUnits(cleaned, 18); } catch { addToast("error", "Invalid price"); return; }
+                  if (initialPrice <= 0n) { addToast("error", "Price must be > 0"); return; }
+                  addToast("pending", "Approving FLIPPER...");
                   try {
-                    const initialPrice = parseUnits(String(priceNum), 18);
                     const weeklyTax = initialPrice * 500n / 10000n;
                     const deposit = weeklyTax * BigInt(mintDepositWeeks);
                     // mintSeatFn reads calculateMintPrice() from-chain and approves
@@ -1860,17 +1906,23 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 )}
 
                 <div style={{ fontSize: 9, color: "#475569", margin: "4px 0 8px", textAlign: "center" }}>
-                  Two transactions: approve FLIPPER → buy out
+                  {seatHook.graduation?.graduated
+                    ? "Two transactions: approve FLIPPER → buy out"
+                    : "Buyouts unlock after all 256 seats are minted."}
                 </div>
-                <button className="modal-buy-btn" onClick={async () => {
-                  if (!buyoutCalc || !seatsContract || !tokenContract) return;
-                  try {
-                    await buyOutSeatFn(seatsContract, tokenContract, selectedSeat.id, buyoutCalc.newPrice, buyoutCalc.deposit);
-                    addToast("success", `Bought Seat #${selectedSeat.id}!`);
-                    setSelectedSeat(null); seatHook.refreshSeats();
-                    refreshBalance(); refreshTokenBalance?.();
-                  } catch (err) { addToast("error", decodeError(err)); }
-                }}>Buy Seat</button>
+                <button className="modal-buy-btn"
+                  disabled={!seatHook.graduation?.graduated}
+                  style={!seatHook.graduation?.graduated ? { opacity: 0.4, cursor: "not-allowed" } : {}}
+                  onClick={async () => {
+                    if (!seatHook.graduation?.graduated) { addToast("info", "Buyouts unlock after graduation"); return; }
+                    if (!buyoutCalc || !seatsContract || !tokenContract) return;
+                    try {
+                      await buyOutSeatFn(seatsContract, tokenContract, selectedSeat.id, buyoutCalc.newPrice, buyoutCalc.deposit);
+                      addToast("success", `Bought Seat #${selectedSeat.id}!`);
+                      setSelectedSeat(null); seatHook.refreshSeats();
+                      refreshBalance(); refreshTokenBalance?.();
+                    } catch (err) { addToast("error", decodeError(err)); }
+                  }}>{seatHook.graduation?.graduated ? "Buy Seat" : "Locked (pre-graduation)"}</button>
                 <button className="modal-cancel-btn" onClick={() => setSelectedSeat(null)}>Cancel</button>
               </div>
             )}
@@ -1880,67 +1932,111 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
 
       {/* BULK BUY MODAL — empty seats (mint) */}
       {showBulkBuy && (() => {
-        // Planning numbers — list price 1000 FLIP per seat, 4w min deposit.
-        const LIST_PER = 1000;
-        const WEEKLY_TAX_RATE = 0.05;
-        const MINT_APPROVE_PER = 50000; // safe upper bound for calculateMintPrice
-        const depositPer = LIST_PER * WEEKLY_TAX_RATE * 4; // 200 FLIP
-        const approvePer = MINT_APPROVE_PER + depositPer;  // 50,200 FLIP
-        const totalApprove = approvePer * bulkCount;
-        const totalDeposit = depositPer * bulkCount;
-        const usdPerSeat = 10; // mint price is the USD-equivalent in FLIP (~$10)
-        const totalUsd = usdPerSeat * bulkCount;
+        // BigInt math so the approve is correct regardless of locale/float.
         const emptyAll = seatHook.seats.filter(s => !s.active);
-        const plannedIds = (bulkProgress.total > 0 ? bulkProgress.seatIds : emptyAll.slice(0, bulkCount).map(s => s.id));
+        const maxQty = Math.max(1, emptyAll.length);
+        const qty = Math.min(Math.max(1, bulkCount), maxQty);
+
+        const cleanedPrice = sanitizeNum(bulkListPrice);
+        let listedWei = 0n;
+        try { listedWei = cleanedPrice ? parseUnits(cleanedPrice, 18) : 0n; } catch { listedWei = 0n; }
+        const weeklyTaxWei = listedWei * 500n / 10000n;
+        const depositPerWei = weeklyTaxWei * BigInt(bulkDepositWeeks);
+        const mintWei = onChainMintPriceWei || 0n;
+        const approvePerWei = mintWei + depositPerWei;
+        const grandTotalWei = approvePerWei * BigInt(qty);
+        const fmt = (w) => Number(formatUnits(w, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+        const plannedIds = (bulkProgress.total > 0 ? bulkProgress.seatIds : emptyAll.slice(0, qty).map(s => s.id));
         const progressPct = bulkProgress.total > 0 ? Math.round((bulkProgress.done / bulkProgress.total) * 100) : 0;
 
         return (
           <div onClick={e => { if (e.target === e.currentTarget && !bulkBuying) setShowBulkBuy(false); }}
             style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-            <div style={{ background: "#131820", border: "1px solid #1c2430", borderRadius: 14, padding: 24, width: 420, maxHeight: "85vh", overflowY: "auto" }}>
+            <div style={{ background: "#131820", border: "1px solid #1c2430", borderRadius: 14, padding: 24, width: 440, maxHeight: "85vh", overflowY: "auto" }}>
               <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 16, fontWeight: 800, color: "#f7b32b", marginBottom: 6 }}>
                 {bulkBuying ? "Minting…" : "Buy Several at Once"}
               </div>
               <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 14, lineHeight: 1.5 }}>
-                Each seat requires mint price (~${usdPerSeat} USD in FLIPPER) + a 4-week deposit at 5% weekly tax.
+                One approve for the grand total, then one mint per seat. Approve = (mint price + deposit) × qty.
               </div>
 
               {!bulkBuying && (<>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                  <span style={{ fontSize: 11, color: "#475569" }}>Qty:</span>
-                  {[1, 3, 5, 10, 20].filter(n => n <= Math.max(1, emptyAll.length)).map(n => (
-                    <button key={n} onClick={() => setBulkCount(n)} style={{
-                      padding: "6px 14px", borderRadius: 6,
-                      border: "1px solid " + (bulkCount === n ? "#f7b32b" : "#1c2430"),
-                      background: bulkCount === n ? "#f7b32b10" : "#0b0e11",
-                      color: bulkCount === n ? "#f7b32b" : "#475569",
-                      fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-                    }}>{n}</button>
-                  ))}
-                  {emptyAll.length > 0 && (
-                    <button onClick={() => setBulkCount(Math.min(emptyAll.length, 64))} style={{
-                      padding: "6px 12px", borderRadius: 6, marginLeft: 4,
+                {/* Quantity — numeric input + quick buttons */}
+                <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>QUANTITY (1–{maxQty})</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <input type="number" min={1} max={maxQty} step={1}
+                    value={bulkCount}
+                    onChange={e => {
+                      const v = parseInt(e.target.value, 10);
+                      if (!isNaN(v)) setBulkCount(Math.min(Math.max(1, v), maxQty));
+                      else if (e.target.value === "") setBulkCount(1);
+                    }}
+                    style={{
+                      width: 90, padding: "8px 10px", borderRadius: 6,
+                      border: "1px solid #1c2430", background: "#0b0e11",
+                      color: "#f7b32b", fontSize: 13, fontWeight: 700,
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }} />
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    {[1, 3, 5, 10, 20, 50].map(n => (
+                      <button key={n} disabled={n > maxQty} onClick={() => setBulkCount(Math.min(n, maxQty))} style={{
+                        padding: "6px 10px", borderRadius: 5,
+                        border: "1px solid " + (qty === n ? "#f7b32b" : "#1c2430"),
+                        background: qty === n ? "#f7b32b10" : "#0b0e11",
+                        color: qty === n ? "#f7b32b" : (n > maxQty ? "#2a3040" : "#94a3b8"),
+                        fontSize: 10, fontWeight: 700,
+                        cursor: n > maxQty ? "not-allowed" : "pointer", fontFamily: "inherit",
+                      }}>{n}</button>
+                    ))}
+                    <button onClick={() => setBulkCount(Math.min(maxQty, 64))} style={{
+                      padding: "6px 10px", borderRadius: 5,
                       border: "1px solid #f7b32b50", background: "transparent",
                       color: "#f7b32b", fontSize: 10, fontWeight: 700,
                       cursor: "pointer", fontFamily: "inherit",
-                    }}>All ({Math.min(emptyAll.length, 64)})</button>
-                  )}
+                    }}>All ({Math.min(maxQty, 64)})</button>
+                  </div>
+                </div>
+
+                {/* List price per seat */}
+                <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>LIST PRICE PER SEAT (FLIP)</div>
+                <input inputMode="decimal" value={bulkListPrice}
+                  onChange={e => setBulkListPrice(e.target.value)}
+                  placeholder="e.g. 1000"
+                  style={{
+                    width: "100%", padding: "8px 10px", borderRadius: 6,
+                    border: "1px solid #1c2430", background: "#0b0e11",
+                    color: "#e2e8f0", fontSize: 12, fontWeight: 600,
+                    fontFamily: "'JetBrains Mono', monospace", marginBottom: 10,
+                  }} />
+
+                {/* Deposit duration */}
+                <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>DEPOSIT DURATION (min 4w)</div>
+                <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+                  {[4, 8, 12, 26].map(w => (
+                    <button key={w} onClick={() => setBulkDepositWeeks(w)} style={{
+                      flex: 1, padding: "6px 0", borderRadius: 6,
+                      border: "1px solid " + (bulkDepositWeeks === w ? "#f7b32b" : "#1c2430"),
+                      background: bulkDepositWeeks === w ? "#f7b32b12" : "#0b0e11",
+                      color: bulkDepositWeeks === w ? "#f7b32b" : "#94a3b8",
+                      fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                    }}>{w}w</button>
+                  ))}
                 </div>
               </>)}
 
               <div style={{ padding: 12, background: "#0b0e11", borderRadius: 8, marginBottom: 12 }}>
                 {[
-                  { l: "Seats",               v: String(bulkCount) },
-                  { l: "List price each",     v: `${LIST_PER.toLocaleString()} FLIP` },
-                  { l: "Deposit each (4w)",   v: `${depositPer.toFixed(0)} FLIP` },
-                  { l: "Approve per seat",    v: `~${approvePer.toLocaleString()} FLIP`, c: "#94a3b8" },
-                  { l: "Total deposit",       v: `${totalDeposit.toLocaleString()} FLIP`, c: "#e2e8f0" },
-                  { l: "Total approve",       v: `~${totalApprove.toLocaleString()} FLIP`, c: "#f7b32b" },
-                  { l: "USD equivalent",      v: `~$${totalUsd.toFixed(0)}`, c: "#22c55e" },
+                  { l: "Seats",               v: String(qty) },
+                  { l: "Mint price (chain)",  v: (onChainMintPriceWei ? fmt(mintWei) : "loading…") + " FLIP", c: "#94a3b8" },
+                  { l: "List price / seat",   v: fmt(listedWei) + " FLIP" },
+                  { l: `Deposit / seat (${bulkDepositWeeks}w)`, v: fmt(depositPerWei) + " FLIP" },
+                  { l: "Approve / seat",      v: fmt(approvePerWei) + " FLIP", c: "#94a3b8" },
+                  { l: "Total approve",       v: fmt(grandTotalWei) + " FLIP", c: "#f7b32b", bold: true },
                 ].map((r, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11 }}>
                     <span style={{ color: "#475569" }}>{r.l}</span>
-                    <span style={{ color: r.c || "#e2e8f0", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{r.v}</span>
+                    <span style={{ color: r.c || "#e2e8f0", fontFamily: "'JetBrains Mono', monospace", fontWeight: r.bold ? 700 : 600 }}>{r.v}</span>
                   </div>
                 ))}
               </div>
@@ -1968,7 +2064,6 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 </div>
               )}
 
-              {/* Progress */}
               {bulkBuying && (
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>
@@ -1987,25 +2082,21 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 </div>
               )}
 
-              <button disabled={bulkBuying || bulkCount === 0 || emptyAll.length === 0} onClick={async () => {
+              <button disabled={bulkBuying || qty === 0 || emptyAll.length === 0 || listedWei <= 0n || !onChainMintPriceWei} onClick={async () => {
                 if (!seatsContract || !tokenContract) { addToast("error", "Wallet not ready"); return; }
-                const toBuy = emptyAll.slice(0, bulkCount);
+                const toBuy = emptyAll.slice(0, qty);
                 setBulkBuying(true);
                 setBulkProgress({ done: 0, total: toBuy.length, seatIds: toBuy.map(s => s.id) });
                 try {
-                  // 1) One approve for the grand total. Read real mint price from-chain
-                  //    so the allowance actually covers N mints.
-                  const onChainMintPrice = await seatsContract.calculateMintPrice();
-                  const initialPrice = parseUnits(String(LIST_PER), 18);
-                  const depositPerSeat = (initialPrice * 500n / 10000n) * 4n; // 4w min per seat
-                  const grandTotal = (onChainMintPrice + depositPerSeat) * BigInt(toBuy.length);
-                  addToast("pending", "Approving FLIPPER for " + toBuy.length + " seats...");
-                  await approveFlipperFn(tokenContract, grandTotal);
-                  // 2) Loop sequential mints — no re-approve.
+                  // Always read the on-chain mint price fresh at send time.
+                  const mpNow = await seatsContract.calculateMintPrice();
+                  const grand = (mpNow + depositPerWei) * BigInt(toBuy.length);
+                  addToast("pending", "Approving " + fmt(grand) + " FLIPPER for " + toBuy.length + " seats...");
+                  await approveFlipperFn(tokenContract, grand);
                   let bought = 0;
                   for (const seat of toBuy) {
                     try {
-                      await mintSeatNoApproveFn(seatsContract, seat.id, initialPrice, "");
+                      await mintSeatNoApproveFn(seatsContract, seat.id, listedWei, "");
                       bought++;
                       setBulkProgress(p => ({ ...p, done: bought }));
                       if (bought < toBuy.length) await new Promise(r => setTimeout(r, 400));
@@ -2030,9 +2121,9 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 color: "#0b0e11", fontSize: 14, fontWeight: 800, border: "none",
                 cursor: bulkBuying ? "wait" : "pointer", fontFamily: "'Chakra Petch', sans-serif",
               }}>
-                {bulkBuying ? `Minting ${bulkProgress.done + 1}/${bulkProgress.total}…` : `Mint ${bulkCount} Seat${bulkCount === 1 ? "" : "s"}`}
+                {bulkBuying ? `Minting ${bulkProgress.done + 1}/${bulkProgress.total}…` : `Mint ${qty} Seat${qty === 1 ? "" : "s"}`}
               </button>
-              <div style={{ fontSize: 9, color: "#475569", marginTop: 8, textAlign: "center" }}>Each seat = separate transaction (no batch mint on-chain)</div>
+              <div style={{ fontSize: 9, color: "#475569", marginTop: 8, textAlign: "center" }}>Each seat = separate mint transaction (no batch mint on-chain)</div>
             </div>
           </div>
         );
@@ -2609,29 +2700,102 @@ export default function FlipperRooms() {
     return () => { contract.off("FlipResolved", onFlipResolved); };
   }, [contract, address]);
 
-  // Simple room status check — fast detection for creator
-  // Does NOT clear myRoomIdRef — leaves it for FlipResolved listener to handle
+  // Host room monitor + belt-and-suspenders poll.
+  // Privy embedded wallets are unreliable with contract.on(), so the host
+  // can miss the FlipResolved event. This effect:
+  //   1) Polls getAllOpenChallenges() every 2s; when our room disappears,
+  //      fires the "MATCH FOUND" intro immediately.
+  //   2) THEN actively scans recent blocks for FlipResolved matching our
+  //      challengeId, and triggers the animation + pendingResultRef
+  //      directly — without waiting on the event-listener effect.
   useEffect(() => {
     if (!myRoomId || !contract) return;
     roomGoneDetectedRef.current = false;
 
+    const queryForMyFlip = async (challengeId) => {
+      const provider = contract.runner?.provider;
+      if (!provider) return null;
+      try {
+        const head = await provider.getBlockNumber();
+        // Alchemy free tier caps eth_getLogs at 10 blocks — walk recent windows.
+        for (let end = head, loops = 0; loops < 12; loops++, end -= 10) {
+          const from = Math.max(0, end - 9);
+          let evs;
+          try {
+            evs = await contract.queryFilter("FlipResolved", from, end);
+          } catch { continue; }
+          const mine = evs.find(e => Number(e.args[0]) === challengeId);
+          if (mine) return mine;
+          if (from === 0) break;
+        }
+      } catch {}
+      return null;
+    };
+
+    const playHostAnimation = (ev) => {
+      const myAddr = address.toLowerCase();
+      const winner = String(ev.args[1]);
+      const loser  = String(ev.args[2]);
+      const payout = ev.args[3];
+      const betAmount = ev.args[4];
+      const winnerLC = winner.toLowerCase();
+      const loserLC  = loser.toLowerCase();
+      const iAmWinner = winnerLC === myAddr && loserLC !== myAddr;
+      const iAmLoser  = loserLC  === myAddr && winnerLC !== myAddr;
+      if (!iAmWinner && !iAmLoser) return; // not ours (safety)
+
+      // Mark processed so the event listener doesn't double-fire.
+      processedFlipsRef.current.add(Number(ev.args[0]));
+
+      // Clear room state
+      if (fallbackTimeoutRef.current) { clearTimeout(fallbackTimeoutRef.current); fallbackTimeoutRef.current = null; }
+      roomGoneDetectedRef.current = false;
+      setMyRoomId(null);
+      myRoomIdRef.current = null;
+      setRoomCountdown(0);
+
+      const opponent = iAmWinner ? loser : winner;
+
+      setTimeout(() => {
+        setMatchFoundAnim(false);
+        setCurrentOpponent(opponent);
+        setCurrentBet(formatEther(betAmount));
+        setShowCoinStage(true);
+        setCoinState("spinning");
+        setBorderState("spinning");
+        spinStartRef.current = Date.now();
+        startSpinAudio();
+        audio.playFlip();
+
+        setTimeout(() => {
+          stopSpinAudio();
+          pendingResultRef.current = {
+            won: iAmWinner,
+            winner, loser,
+            payout: formatEther(payout),
+            amount: formatEther(betAmount),
+          };
+          setCoinState(iAmWinner ? "win" : "lose");
+          setTimeout(() => setBorderState(iAmWinner ? "win" : "lose"), 500);
+        }, 2500);
+      }, 2000);
+    };
+
     const check = async () => {
       try {
-        if (roomGoneDetectedRef.current) return; // Already detected, waiting for listener
+        if (!myRoomIdRef.current) return;
+        // 1) Still open?
         const data = await contract.getAllOpenChallenges();
         const stillOpen = data.ids.some(id => Number(id) === myRoomIdRef.current);
+        if (stillOpen) return;
 
-        if (!stillOpen && myRoomIdRef.current) {
-          // Room disappeared — someone accepted it
+        // Room disappeared — someone accepted.
+        if (!roomGoneDetectedRef.current) {
           roomGoneDetectedRef.current = true;
-
-          // Show MATCH FOUND overlay immediately
-          // The FlipResolved listener will handle the actual flip result
           setMatchFoundAnim(true);
           audio.playMatchFound();
           vibrate([50, 100, 50]);
 
-          // Fallback: if listener doesn't act in 8s, clean up everything
           fallbackTimeoutRef.current = setTimeout(() => {
             if (myRoomIdRef.current) {
               setMyRoomId(null);
@@ -2643,8 +2807,15 @@ export default function FlipperRooms() {
               refreshOpenRooms();
               refreshBalance();
             }
-          }, 8000);
+          }, 12000);
         }
+
+        // 2) Actively query for the FlipResolved — don't rely on contract.on().
+        const challengeId = myRoomIdRef.current;
+        const ev = await queryForMyFlip(challengeId);
+        if (!ev) return;
+        if (processedFlipsRef.current.has(challengeId)) return; // listener already handled
+        playHostAnimation(ev);
       } catch {}
     };
 
@@ -2656,7 +2827,7 @@ export default function FlipperRooms() {
         fallbackTimeoutRef.current = null;
       }
     };
-  }, [myRoomId, contract]);
+  }, [myRoomId, contract, address]);
 
 
   // ═══════════════════════════════════════

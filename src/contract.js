@@ -314,6 +314,7 @@ export function decodeError(err) {
     NameTooLong: "Seat name must be 32 characters or less.",
     "Token not set": "Token not configured yet.",
     "Already graduated": "Minting phase is over.",
+    "Not graduated yet": "Buyouts unlock after all 256 seats are minted.",
     "Seat taken": "This seat is already taken.",
     "ERC20: insufficient allowance": "Token approval failed. Try again.",
   };
