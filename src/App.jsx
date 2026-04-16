@@ -1649,11 +1649,9 @@ export default function FlipperRooms() {
   const [roomCountdown, setRoomCountdown] = useState(0);
   const [showWalletMenu, setShowWalletMenu] = useState(false);
   const [matchFoundAnim, setMatchFoundAnim] = useState(false);
-  const matchFoundAnimRef = useRef(false);
   const [vsFlash, setVsFlash] = useState(null);
   const processingFlipRef = useRef(false);
   const processedFlipsRef = useRef(new Set());
-  const roomMissCountRef = useRef(0);
 
   // Keep ref in sync so timers/closures always see current roomId
   useEffect(() => { myRoomIdRef.current = myRoomId; }, [myRoomId]);
@@ -1788,11 +1786,6 @@ export default function FlipperRooms() {
 
   // V7: Listen for FlipResolved where we are a participant
   // Uses refs to avoid stale closures — listener is stable, not recreated on state changes
-  const coinStateRef = useRef(coinState);
-  const showCoinStageRef = useRef(showCoinStage);
-  useEffect(() => { coinStateRef.current = coinState; }, [coinState]);
-  useEffect(() => { showCoinStageRef.current = showCoinStage; }, [showCoinStage]);
-  useEffect(() => { matchFoundAnimRef.current = matchFoundAnim; }, [matchFoundAnim]);
 
   useEffect(() => {
     if (!contract || !address) return;
@@ -1800,11 +1793,14 @@ export default function FlipperRooms() {
 
     const onFlipResolved = (...args) => {
       try {
-        const challengeId = Number(args[0] || args.args?.[0]);
-        const winner = args[1];
-        const loser = args[2];
+        const challengeId = Number(args[0]);
+        const winner = String(args[1]);
+        const loser = String(args[2]);
         const payout = args[3];
         const betAmount = args[4];
+
+        if (!winner || !loser) return;
+
         const isMyFlip = winner.toLowerCase() === myAddr || loser.toLowerCase() === myAddr;
 
         // Always refresh rooms when ANY flip resolves
@@ -1815,28 +1811,29 @@ export default function FlipperRooms() {
         // Skip if we already processed this challengeId (e.g. via receipt in executeFlip)
         if (processedFlipsRef.current.has(challengeId)) return;
 
-        // If we're already processing a flip (coin stage visible or executeFlip active),
+        // If we're already processing a flip (executeFlip active),
         // the receipt handler manages the result — skip to avoid duplicate sounds/alerts
         if (processingFlipRef.current) return;
 
-        // Mark this challengeId as processed
+        // Mark as processed
         processedFlipsRef.current.add(challengeId);
         if (processedFlipsRef.current.size > 50) {
-          const arr = [...processedFlipsRef.current];
-          processedFlipsRef.current = new Set(arr.slice(-20));
+          processedFlipsRef.current = new Set([...processedFlipsRef.current].slice(-20));
         }
 
         const won = winner.toLowerCase() === myAddr;
         const opponent = won ? loser : winner;
 
-        // Clear room state if we were waiting
-        if (myRoomIdRef.current) {
-          setMyRoomId(null);
-          myRoomIdRef.current = null;
-          setRoomCountdown(0);
-        }
+        // Clear room state
+        setMyRoomId(null);
+        myRoomIdRef.current = null;
+        setRoomCountdown(0);
 
-        const showFlipAnim = () => {
+        // Show MATCH FOUND → then flip animation
+        setMatchFoundAnim(true);
+
+        setTimeout(() => {
+          setMatchFoundAnim(false);
           setCurrentOpponent(opponent);
           setCurrentBet(formatEther(betAmount));
           setShowCoinStage(true);
@@ -1850,24 +1847,8 @@ export default function FlipperRooms() {
             setCoinState(won ? "win" : "lose");
             setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
           }, 2500);
-        };
+        }, 2000);
 
-        // If MATCH FOUND overlay is already showing (from polling), wait for it to finish
-        if (matchFoundAnimRef.current) {
-          setTimeout(() => {
-            setMatchFoundAnim(false);
-            showFlipAnim();
-          }, 2000);
-        } else if (!showCoinStageRef.current) {
-          // No overlay showing — show MATCH FOUND first, then flip
-          setMatchFoundAnim(true);
-          setTimeout(() => {
-            setMatchFoundAnim(false);
-            showFlipAnim();
-          }, 2000);
-        } else {
-          showFlipAnim();
-        }
       } catch {}
     };
 
@@ -1990,80 +1971,22 @@ export default function FlipperRooms() {
   const countdownBetRef = useRef(null);
   useEffect(() => {
     if (roomCountdown <= 0 || !myRoomId) return;
+
     const timer = setTimeout(() => {
       if (roomCountdown <= 1) {
         setRoomCountdown(0);
-        const roomId = myRoomIdRef.current;
-        if (!roomId || !contract) return;
-
-        // Check if room is still open before auto-matching
-        contract.getAllOpenChallenges().then(async (data) => {
-          const stillOpen = data.ids.some(id => Number(id) === roomId);
-          if (!stillOpen) {
-            // Room was accepted while we waited — let event listener handle it
-            setMyRoomId(null);
-            myRoomIdRef.current = null;
-            setMatchFoundAnim(true);
-            setTimeout(() => setMatchFoundAnim(false), 2000);
-            return;
-          }
-          // Room still open — auto-match vs treasury
+        // Auto-match vs treasury
+        if (autoMatchRef.current) {
           autoMatchRef.current(countdownBetRef.current);
-        }).catch(() => {
-          // If check fails, try auto-match anyway
-          autoMatchRef.current(countdownBetRef.current);
-        });
+        }
       } else {
         setRoomCountdown(prev => prev - 1);
       }
     }, 1000);
+
     return () => clearTimeout(timer);
-  }, [roomCountdown, myRoomId, contract]);
+  }, [roomCountdown, myRoomId]);
 
-  // ═══ Poll room status while waiting for opponent ═══
-  useEffect(() => {
-    if (!myRoomId || !contract || !address) return;
-    roomMissCountRef.current = 0;
-    const checkRoom = async () => {
-      try {
-        const data = await contract.getAllOpenChallenges();
-        const stillOpen = data.ids.some(id => Number(id) === myRoomId);
-
-        if (stillOpen) {
-          roomMissCountRef.current = 0;
-          return;
-        }
-
-        // Room not in open list — likely accepted by opponent
-        roomMissCountRef.current += 1;
-        if (roomMissCountRef.current < 1) return;
-
-        roomMissCountRef.current = 0;
-
-        // Room disappeared — show MATCH FOUND immediately
-        // The FlipResolved event listener will handle the actual result
-        setMyRoomId(null);
-        myRoomIdRef.current = null;
-        setRoomCountdown(0);
-
-        setMatchFoundAnim(true);
-
-        // Fallback: if FlipResolved event doesn't arrive within 5s, close overlay
-        setTimeout(() => {
-          setMatchFoundAnim(false);
-          setTimeout(() => {
-            if (!showCoinStageRef.current) {
-              addToast("info", "Match completed. Check your balance.");
-              refreshOpenRooms();
-              refreshBalance();
-            }
-          }, 3000);
-        }, 2000);
-      } catch {}
-    };
-    const iv = setInterval(checkRoom, 1500);
-    return () => clearInterval(iv);
-  }, [myRoomId, contract, address]);
 
   // ═══ Create PvP room ═══
   const handleCreateRoom = async (amount) => {
@@ -2090,7 +2013,6 @@ export default function FlipperRooms() {
       myRoomIdRef.current = challengeId;
       countdownBetRef.current = betAmt;
       setRoomCountdown(60);
-      roomMissCountRef.current = 0;
       await refreshOpenRooms();
     } catch (err) { addToast("error", decodeError(err)); }
   };
@@ -2419,6 +2341,10 @@ export default function FlipperRooms() {
                                     setBorderState("idle");
                                     setShowResult(false);
                                     setResult(null);
+                                    setCurrentOpponent(null);
+                                    setCurrentBet("");
+                                    setMatchFoundAnim(false);
+                                    setVsFlash(null);
                                   }} style={{
                                     padding: "12px 40px", borderRadius: 10, marginTop: 8,
                                     background: "linear-gradient(135deg, #b8860b, #f7b32b)",
