@@ -1817,6 +1817,10 @@ export default function FlipperRooms() {
         // the receipt handler manages the result — skip to avoid duplicate sounds/alerts
         if (processingFlipRef.current) return;
 
+        // Only react if user has an active room waiting for opponent.
+        // Without this, stale/replayed events on page load trigger ghost animations.
+        if (!myRoomIdRef.current) return;
+
         // Mark as processed
         processedFlipsRef.current.add(challengeId);
         if (processedFlipsRef.current.size > 50) {
