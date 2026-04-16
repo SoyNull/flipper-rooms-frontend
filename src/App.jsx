@@ -879,6 +879,7 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
   const [selectedMult, setSelectedMult] = useState(0);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [boardFilter, setBoardFilter] = useState("all");
+  const [newPriceInput, setNewPriceInput] = useState("");
   const [showBulkBuy, setShowBulkBuy] = useState(false);
   const [bulkCount, setBulkCount] = useState(3);
   const [bulkBuying, setBulkBuying] = useState(false);
@@ -1134,8 +1135,10 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
                       padding: 4, transition: "all 0.15s",
                       opacity: seat.hidden ? 0.1 : 1,
                       border: isMine ? "2px solid #f7b32b"
+                        : seat.active && seat.daysLeft < 3 ? "2px solid #ef4444"
                         : seat.active ? "1px solid " + addrColor(seat.owner) + "50"
                         : "1px solid #1a1f2e",
+                      animation: seat.active && seat.daysLeft < 3 && !isMine ? "roomPulse 1s ease infinite" : "none",
                       background: seat.active
                         ? "linear-gradient(135deg, " + addrColor(seat.owner) + "12, #0d1118)"
                         : "#0c0f14",
@@ -1409,6 +1412,30 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
                     </span>
                   </button>
                 )}
+
+                {/* Update Price */}
+                <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                  <input type="number" step="0.001" min="0.001" placeholder="New price ETH"
+                    value={newPriceInput} onChange={e => setNewPriceInput(e.target.value)}
+                    className="seat-modal-input" style={{ marginBottom: 0, flex: 1, fontSize: 10 }} />
+                  <button className="modal-action-btn" disabled={cooldownRemaining > 0}
+                    style={{
+                      background: "#3b82f608", border: "1px solid #3b82f620", color: "#3b82f6",
+                      fontSize: 10, padding: "8px 14px", width: "auto", marginTop: 0,
+                      opacity: cooldownRemaining > 0 ? 0.4 : 1, cursor: cooldownRemaining > 0 ? "not-allowed" : "pointer",
+                    }}
+                    onClick={async () => {
+                      const price = parseFloat(newPriceInput);
+                      if (!price || price < 0.001) { addToast("error", "Price must be at least 0.001 ETH"); return; }
+                      try {
+                        const tx = await contract.updateSeatPrice(selectedSeat.id, parseEther(newPriceInput));
+                        await tx.wait();
+                        addToast("success", "Price updated to " + newPriceInput + " ETH");
+                        setNewPriceInput(""); seatHook.refreshSeats();
+                        getSeatInfo(contract, selectedSeat.id).then(setSeatDetail).catch(() => {});
+                      } catch (err) { addToast("error", decodeError(err)); }
+                    }}>Update Price</button>
+                </div>
 
                 <button className="modal-action-btn" style={{ background: "#f7b32b10", border: "1px solid #f7b32b30", color: "#f7b32b" }}
                   onClick={() => {

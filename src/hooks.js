@@ -318,6 +318,10 @@ export function useSeats(contract, address, refreshBalance, readContract) {
         const owner = data.owners[i];
         const isOwned = owner !== ZERO;
         const isMine = isOwned && address && owner.toLowerCase() === address.toLowerCase();
+        const priceEth = parseFloat(formatEther(data.prices[i]));
+        const depositEth = parseFloat(formatEther(data.deposits[i]));
+        const dailyTax = priceEth * 0.05 / 7;
+        const daysLeft = isOwned && dailyTax > 0 ? Math.floor(depositEth / dailyTax) : 999;
         const seat = {
           id: i + 1,
           owner: isOwned ? owner : ZERO,
@@ -327,6 +331,7 @@ export function useSeats(contract, address, refreshBalance, readContract) {
           name: data.names[i] || "",
           active: isOwned,
           mine: isMine,
+          daysLeft,
         };
         parsed.push(seat);
         if (isMine) mine.push(i + 1);
