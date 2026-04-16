@@ -2618,26 +2618,32 @@ export default function FlipperRooms() {
               }}>
                 {[...recentFlips, ...recentFlips].slice(0, 40).map((h, i) => {
                   const isWin = address && h.winner?.toLowerCase() === address.toLowerCase();
+                  const isLoss = address && h.loser?.toLowerCase() === address.toLowerCase();
+                  const color = isWin ? "#22c55e" : isLoss ? "#ef4444" : "#888";
+                  const label = isWin ? "W" : isLoss ? "L" : "\u2022";
+                  const mult = isWin ? "2x" : isLoss ? "0x" : "";
                   return (
                     <div key={i} style={{
                       display: "inline-flex", alignItems: "center", gap: 6,
                       padding: "4px 12px", borderRadius: 6,
-                      background: isWin ? "#22c55e08" : "#ef444408",
-                      border: "1px solid " + (isWin ? "#22c55e25" : "#ef444425"),
-                      color: isWin ? "#22c55e" : "#ef4444",
+                      background: color + "08",
+                      border: "1px solid " + color + "25",
+                      color,
                       whiteSpace: "nowrap", flexShrink: 0,
                       fontFamily: "'JetBrains Mono', monospace",
-                      boxShadow: isWin ? "0 0 8px #22c55e15" : "0 0 8px #ef444415",
+                      boxShadow: "0 0 8px " + color + "15",
                     }}>
-                      <span style={{ fontSize: 10, fontWeight: 800, color: isWin ? "#22c55e" : "#ef4444", fontFamily: "'JetBrains Mono', monospace" }}>
-                        {isWin ? "W" : "L"}
+                      <span style={{ fontSize: 10, fontWeight: 800, color, fontFamily: "'JetBrains Mono', monospace" }}>
+                        {label}
                       </span>
                       <span style={{ fontSize: 10, color: "var(--text-dim)", fontFamily: "'JetBrains Mono', monospace" }}>
                         {h.amount} ETH
                       </span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: isWin ? "#22c55e" : "#ef4444", fontFamily: "'JetBrains Mono', monospace" }}>
-                        {isWin ? "2x" : "0x"}
-                      </span>
+                      {mult && (
+                        <span style={{ fontSize: 10, fontWeight: 700, color, fontFamily: "'JetBrains Mono', monospace" }}>
+                          {mult}
+                        </span>
+                      )}
                     </div>
                   );
                 })}
