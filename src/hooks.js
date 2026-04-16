@@ -410,62 +410,83 @@ export function useGlobalFeed(coinflipContract, readCoinflip) {
   const seenIdsRef = useRef(new Set());
   const historyLoadedRef = useRef(false);
 
-  const feedContract = coinflipContract || readCoinflip;
+  // History loads even without a wallet — always prefer the read-only
+  // contract so the effect doesn't wait on Privy/sign-in.
+  const feedContract = coinflipContract || readCoinflip || _readCoinflip;
   useEffect(() => {
     if (!feedContract || !feedContract.runner?.provider) return;
 
-    // Load recent flip history. Alchemy free-tier caps eth_getLogs at a
-    // 10-block range, so we fire 5 chunk queries in parallel per "pass"
-    // (50 blocks / pass) and pause 150ms between passes to stay under
-    // the per-second compute-unit ceiling. Stops early once we have
-    // enough events or run 8 consecutive failing passes.
+    let cancelled = false;
+    // Walk backwards in 10-block windows (Alchemy free-tier cap) but
+    // STREAM events into the UI as soon as each pass returns anything.
+    // Retries on failure — any pass that fully errors doesn't mark the
+    // history as loaded, and the next render (or a fresh tick) will
+    // try again.
     const loadHistory = async () => {
       if (historyLoadedRef.current) return;
-      historyLoadedRef.current = true;
-      const events = [];
-      try {
-        const head = await feedContract.runner.provider.getBlockNumber();
-        const WANT = 30;
-        const MAX_LOOKBACK = 20000; // ~11h on Base Sepolia 2s/block
-        const PARALLEL = 5;
-        const CHUNK = 10;
-        let consecFail = 0;
-        for (let end = head; end > 0 && events.length < WANT && (head - end) < MAX_LOOKBACK; ) {
-          const batch = [];
-          for (let i = 0; i < PARALLEL && end > 0; i++) {
-            const from = Math.max(0, end - (CHUNK - 1));
-            batch.push(
-              feedContract.queryFilter("FlipResolved", from, end)
-                .then(r => ({ ok: true, r }))
-                .catch(() => ({ ok: false, r: [] }))
-            );
-            end -= CHUNK;
-          }
-          const results = await Promise.all(batch);
-          const passOk = results.some(r => r.ok);
-          consecFail = passOk ? 0 : (consecFail + 1);
-          for (const { r } of results) for (const ev of r) events.push(ev);
-          if (consecFail >= 8) break;
-          if (events.length < WANT) await new Promise(r => setTimeout(r, 150));
+      const provider = feedContract.runner.provider;
+      let head;
+      try { head = await provider.getBlockNumber(); }
+      catch (e) { console.warn("[feed] head fetch failed:", e.message); return; }
+
+      const WANT = 30;
+      const MAX_LOOKBACK = 20000;
+      const PARALLEL = 3; // gentler on the free-tier CU budget
+      const CHUNK = 10;
+      const collected = new Map(); // id -> event
+      let gotAny = false;
+      let consecFail = 0;
+
+      for (let end = head; !cancelled && end > 0 && collected.size < WANT && (head - end) < MAX_LOOKBACK; ) {
+        const batch = [];
+        for (let i = 0; i < PARALLEL && end > 0; i++) {
+          const from = Math.max(0, end - (CHUNK - 1));
+          batch.push(
+            feedContract.queryFilter("FlipResolved", from, end)
+              .then(r => ({ ok: true, r }))
+              .catch(err => ({ ok: false, err }))
+          );
+          end -= CHUNK;
         }
-      } catch (e) { console.warn("Global feed load failed:", e); }
-      const sorted = events
-        .sort((a, b) => (b.blockNumber - a.blockNumber) || (b.transactionIndex - a.transactionIndex))
-        .slice(0, 30);
-      const flips = sorted.map(e => {
-        const id = Number(e.args[0]);
-        seenIdsRef.current.add(id);
-        return {
-          id,
-          winner: e.args[1],
-          loser: e.args[2],
-          payout: formatEther(e.args[3]),
-          amount: formatEther(e.args[4]),
-          txHash: e.transactionHash,
-          block: e.blockNumber,
-        };
-      });
-      if (flips.length > 0) setRecentFlips(flips);
+        const results = await Promise.all(batch);
+        if (cancelled) return;
+        const passOk = results.some(r => r.ok);
+        consecFail = passOk ? 0 : (consecFail + 1);
+        for (const { r } of results) {
+          if (!r) continue;
+          for (const ev of r) {
+            const id = Number(ev.args[0]);
+            if (!collected.has(id)) collected.set(id, ev);
+          }
+        }
+        // Stream partial results so the UI lights up during the scan
+        // rather than only at the end.
+        if (collected.size > 0 && passOk) {
+          gotAny = true;
+          const partial = [...collected.values()]
+            .sort((a, b) => (b.blockNumber - a.blockNumber) || (b.transactionIndex - a.transactionIndex))
+            .slice(0, 30)
+            .map(e => {
+              const id = Number(e.args[0]);
+              seenIdsRef.current.add(id);
+              return {
+                id,
+                winner: e.args[1],
+                loser: e.args[2],
+                payout: formatEther(e.args[3]),
+                amount: formatEther(e.args[4]),
+                txHash: e.transactionHash,
+                block: e.blockNumber,
+              };
+            });
+          setRecentFlips(partial);
+        }
+        if (consecFail >= 10) break;
+        if (collected.size < WANT) await new Promise(r => setTimeout(r, 200));
+      }
+      // Only mark history loaded if we actually got something. If every
+      // pass failed, a subsequent render can retry.
+      if (gotAny) historyLoadedRef.current = true;
     };
 
     loadHistory();
@@ -496,7 +517,10 @@ export function useGlobalFeed(coinflipContract, readCoinflip) {
     };
 
     feedContract.on("FlipResolved", onFlip);
-    return () => { feedContract.off("FlipResolved", onFlip); };
+    return () => {
+      cancelled = true;
+      feedContract.off("FlipResolved", onFlip);
+    };
   }, [feedContract]);
 
   return { recentFlips, liveFlip };

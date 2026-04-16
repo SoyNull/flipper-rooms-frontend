@@ -2238,20 +2238,27 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                     }
                   } catch {}
 
-                  // 5) Sequential mints — no approve between them.
+                  // 5) Parallel mints — fire up to 5 concurrent txs per wave.
+                  //    Failures don't abort the run; they're skipped and
+                  //    listed in a single summary toast at the end.
+                  const PARALLEL = 5;
                   let bought = 0;
-                  for (const seat of toBuy) {
-                    try {
-                      await mintSeatNoApproveFn(seatsContract, seat.id, listedWei, "");
-                      bought++;
-                      setBulkProgress(p => ({ ...p, done: bought }));
-                      if (bought < toBuy.length) await new Promise(r => setTimeout(r, 400));
-                    } catch (err) {
-                      addToast("error", "Seat #" + seat.id + ": " + decodeError(err));
-                      break;
+                  const failed = [];
+                  for (let i = 0; i < toBuy.length; i += PARALLEL) {
+                    const wave = toBuy.slice(i, i + PARALLEL);
+                    const outcomes = await Promise.all(wave.map(seat =>
+                      mintSeatNoApproveFn(seatsContract, seat.id, listedWei, "")
+                        .then(() => ({ id: seat.id, ok: true }))
+                        .catch(err => { console.error(`[bulkMint #${seat.id}]`, err); return { id: seat.id, ok: false, err }; })
+                    ));
+                    for (const o of outcomes) {
+                      if (o.ok) bought++;
+                      else failed.push(o.id);
                     }
+                    setBulkProgress(p => ({ ...p, done: bought }));
                   }
                   if (bought > 0) addToast("success", `Minted ${bought}/${toBuy.length} seats`);
+                  if (failed.length > 0) addToast("error", `Skipped seats: ${failed.slice(0, 8).map(id => "#" + id).join(", ")}${failed.length > 8 ? "…" : ""}`);
                   if (bought === toBuy.length) {
                     setTimeout(() => { setShowBulkBuy(false); setBulkProgress({ done: 0, total: 0, seatIds: [] }); }, 800);
                   }

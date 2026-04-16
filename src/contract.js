@@ -306,7 +306,19 @@ export function parseFlipResolved(receipt, coinflipContract) {
 }
 
 export function decodeError(err) {
-  const msg = err?.reason || err?.message || "Transaction failed";
+  // Detect wallet-level rejections FIRST — these have a stable ethers
+  // code/shortMessage that beats any text matching.
+  if (err?.code === "ACTION_REJECTED"
+    || err?.code === 4001
+    || err?.info?.error?.code === 4001) return "Wallet rejected the transaction";
+
+  const msg = err?.reason || err?.shortMessage || err?.message || "Transaction failed";
+  const lc = msg.toLowerCase();
+  if (lc.includes("user rejected")
+    || lc.includes("user denied")
+    || lc.includes("action_rejected")
+    || lc.includes("rejected by user")) return "Wallet rejected the transaction";
+
   const errorMap = {
     InsufficientBalance: "Not enough balance. Deposit more ETH first.",
     InvalidTier: "This bet amount is not available.",
@@ -331,8 +343,7 @@ export function decodeError(err) {
   for (const [key, val] of Object.entries(errorMap)) {
     if (msg.includes(key)) return val;
   }
-  if (msg.includes("user rejected") || msg.includes("User denied")) return "Transaction cancelled.";
-  if (msg.includes("insufficient funds")) return "Not enough ETH in wallet for gas.";
+  if (lc.includes("insufficient funds")) return "Not enough ETH in wallet for gas.";
   return msg.length > 120 ? msg.slice(0, 120) + "..." : msg;
 }
 
