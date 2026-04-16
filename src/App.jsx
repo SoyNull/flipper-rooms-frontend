@@ -1347,6 +1347,69 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
                   Claim Rewards {seatDetail?.rewards && parseFloat(seatDetail.rewards) > 0 ? `(${parseFloat(seatDetail.rewards).toFixed(4)} ETH)` : ""}
                 </button>
                 <div style={{ fontSize: 9, color: "#475569", marginTop: -2, marginBottom: 4, textAlign: "center" }}>Rewards sent directly to your wallet</div>
+
+                {/* Top Up Deposit */}
+                <div style={{ marginTop: 4 }}>
+                  <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>Add deposit to extend seat life</div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {[
+                      { label: "+1d", hours: 24 },
+                      { label: "+7d", hours: 168 },
+                      { label: "+30d", hours: 720 },
+                    ].map(d => {
+                      const seatPrice = parseFloat(selectedSeat?.price || "0.001");
+                      const weeklyTax = seatPrice * 0.05;
+                      const depositAmt = (weeklyTax * d.hours / 168).toFixed(6);
+                      return (
+                        <button key={d.hours} onClick={async () => {
+                          try {
+                            const tx = await contract.addSeatDeposit(selectedSeat.id, { value: parseEther(depositAmt) });
+                            await tx.wait();
+                            addToast("success", "Deposit added! " + d.label);
+                            seatHook.refreshSeats();
+                            getSeatInfo(contract, selectedSeat.id).then(setSeatDetail).catch(() => {});
+                          } catch (err) { addToast("error", decodeError(err)); }
+                        }} className="modal-action-btn" style={{
+                          flex: 1, padding: "8px 4px",
+                          background: "#22c55e08", border: "1px solid #22c55e20",
+                          color: "#22c55e", fontSize: 10, textAlign: "center",
+                        }}>
+                          <div>{d.label}</div>
+                          <div style={{ fontSize: 8, color: "#475569", marginTop: 2 }}>{depositAmt} ETH</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Withdraw Excess Deposit */}
+                {seatDetail && parseFloat(seatDetail.deposit) > 0 && (
+                  <button className="modal-action-btn" style={{
+                    background: "#f7b32b08", border: "1px solid #f7b32b20", color: "#f7b32b", fontSize: 10, marginTop: 4,
+                  }} onClick={async () => {
+                    try {
+                      const currentDeposit = parseFloat(seatDetail.deposit);
+                      const seatPrice = parseFloat(selectedSeat?.price || "0.001");
+                      const minDeposit = seatPrice * 0.05 / 7;
+                      const withdrawable = currentDeposit - minDeposit;
+                      if (withdrawable <= 0.000001) {
+                        addToast("error", "No excess deposit to withdraw");
+                        return;
+                      }
+                      const tx = await contract.withdrawSeatDeposit(selectedSeat.id, parseEther(withdrawable.toFixed(6)));
+                      await tx.wait();
+                      addToast("success", "Withdrew " + withdrawable.toFixed(4) + " ETH");
+                      seatHook.refreshSeats(); refreshBalance();
+                      getSeatInfo(contract, selectedSeat.id).then(setSeatDetail).catch(() => {});
+                    } catch (err) { addToast("error", decodeError(err)); }
+                  }}>
+                    Withdraw Excess Deposit
+                    <span style={{ fontSize: 8, color: "#475569", marginLeft: 4 }}>
+                      ({parseFloat(seatDetail.deposit).toFixed(4)} ETH)
+                    </span>
+                  </button>
+                )}
+
                 <button className="modal-action-btn" style={{ background: "#f7b32b10", border: "1px solid #f7b32b30", color: "#f7b32b" }}
                   onClick={() => {
                     navigator.clipboard.writeText(`${window.location.origin}?ref=${selectedSeat.id}`);
@@ -1358,10 +1421,11 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
                     opacity: cooldownRemaining > 0 ? 0.4 : 1, cursor: cooldownRemaining > 0 ? "not-allowed" : "pointer",
                   }}
                   onClick={async () => {
+                    if (!confirm("Are you sure? You will lose your seat position. Pending rewards will be auto-claimed.")) return;
                     try {
                       const tx = await contract.abandonSeat(selectedSeat.id);
                       await tx.wait();
-                      addToast("success", "Seat abandoned");
+                      addToast("success", "Seat #" + selectedSeat.id + " abandoned");
                       setSelectedSeat(null); seatHook.refreshSeats(); refreshBalance();
                     } catch (err) { addToast("error", decodeError(err)); }
                   }}>Abandon Seat</button>
@@ -1544,7 +1608,7 @@ function HowItWorksModal({ onClose }) {
 
         {[
           { n: "1", title: "Flip coins, win ETH", color: "#f7b32b",
-            text: "Create a room with any amount (0.0005 - 1 ETH) or join an existing one. 50/50 coinflip \u2014 winner takes 95% of the pot. No deposit needed, play directly from your wallet." },
+            text: "Create a room with any amount (0.0005 - 1 ETH) or join an existing one. 50/50 coinflip \u2014 winner takes 96% of the pot. No deposit needed, play directly from your wallet." },
           { n: "2", title: "Own a seat, earn yield", color: "#22c55e",
             text: "256 revenue seats on the board. Buy one and earn ETH from every coinflip. More volume = more yield. Harberger tax keeps prices fair \u2014 anyone can buy out your seat." },
           { n: "3", title: "Refer and earn more", color: "#3b82f6",
@@ -1562,12 +1626,11 @@ function HowItWorksModal({ onClose }) {
         ))}
 
         <div style={{ padding: 14, background: "#0b0e11", borderRadius: 10, border: "1px solid #1c2430", marginBottom: 20 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: 1.5, marginBottom: 8 }}>FEE BREAKDOWN (5% of pot)</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: 1.5, marginBottom: 8 }}>FEE BREAKDOWN (4% of pot)</div>
           {[
-            { label: "Seat holders", pct: "2.5%", color: "#f7b32b" },
-            { label: "Protocol", pct: "0.75%", color: "#94a3b8" },
-            { label: "Referral", pct: "1.0%", color: "#3b82f6" },
-            { label: "Token buyback", pct: "0.5%", color: "#22c55e" },
+            { label: "Seat holders", pct: "1.25%", color: "#f7b32b" },
+            { label: "Protocol", pct: "2.0%", color: "#94a3b8" },
+            { label: "Referral", pct: "0.5%", color: "#3b82f6" },
             { label: "Jackpot pool", pct: "0.25%", color: "#ef4444" },
           ].map((item, i) => (
             <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11 }}>
@@ -1577,7 +1640,7 @@ function HowItWorksModal({ onClose }) {
           ))}
           <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0 0", borderTop: "1px solid #1c2430", marginTop: 4, fontSize: 11 }}>
             <span style={{ color: "#e2e8f0", fontWeight: 700 }}>Winner receives</span>
-            <span style={{ color: "#22c55e", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>95%</span>
+            <span style={{ color: "#22c55e", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>96%</span>
           </div>
         </div>
 
@@ -1640,6 +1703,7 @@ export default function FlipperRooms() {
   const [showWalletMenu, setShowWalletMenu] = useState(false);
   const [matchFoundAnim, setMatchFoundAnim] = useState(false);
   const [vsFlash, setVsFlash] = useState(null);
+  const [jackpotWin, setJackpotWin] = useState(null);
   const processingFlipRef = useRef(false);
   const processedFlipsRef = useRef(new Set());
   const showCoinStageRef = useRef(false);
@@ -1924,8 +1988,10 @@ export default function FlipperRooms() {
   //  UNIFIED FLIP EXECUTION
   // ═══════════════════════════════════════
 
-  // Parse FlipResolved from a receipt
+  // Parse FlipResolved + JackpotWon from a receipt
   const parseFlipResult = (receipt) => {
+    let result = null;
+    let jackpot = null;
     for (const log of receipt.logs) {
       try {
         const parsed = contract.interface.parseLog({ topics: log.topics, data: log.data });
@@ -1933,18 +1999,26 @@ export default function FlipperRooms() {
           const challengeId = Number(parsed.args[0]);
           processedFlipsRef.current.add(challengeId);
           if (processedFlipsRef.current.size > 50) {
-            const arr = [...processedFlipsRef.current];
-            processedFlipsRef.current = new Set(arr.slice(-20));
+            processedFlipsRef.current = new Set([...processedFlipsRef.current].slice(-20));
           }
-          return {
+          result = {
             won: parsed.args.winner?.toLowerCase() === address?.toLowerCase(),
             payout: formatEther(parsed.args.payout),
             amount: formatEther(parsed.args.betAmount),
           };
         }
+        if (parsed?.name === "JackpotWon") {
+          jackpot = {
+            winner: String(parsed.args.winner || parsed.args[0]),
+            amount: formatEther(parsed.args.amount || parsed.args[1]),
+          };
+        }
       } catch {}
     }
-    return { won: false, payout: "0", amount: "0" };
+    if (jackpot && jackpot.winner?.toLowerCase() === address?.toLowerCase()) {
+      setJackpotWin(jackpot);
+    }
+    return result || { won: false, payout: "0", amount: "0" };
   };
 
   // Core: send a flip TX, show coin animation, display result
@@ -2857,12 +2931,11 @@ export default function FlipperRooms() {
                 </div>
 
                 <div style={{ padding: 14, background: "#131820", borderRadius: 10, border: "1px solid #1c2430" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: 1.5, marginBottom: 8 }}>FEE BREAKDOWN (5% of pot)</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: 1.5, marginBottom: 8 }}>FEE BREAKDOWN (4% of pot)</div>
                   {[
-                    { label: "Seat holders", pct: "2.5%", color: "#f7b32b" },
-                    { label: "Referral", pct: "1.0%", color: "#3b82f6" },
-                    { label: "Protocol", pct: "0.75%", color: "#94a3b8" },
-                    { label: "Token buyback", pct: "0.5%", color: "#22c55e" },
+                    { label: "Seat holders", pct: "1.25%", color: "#f7b32b" },
+                    { label: "Protocol", pct: "2.0%", color: "#94a3b8" },
+                    { label: "Referral", pct: "0.5%", color: "#3b82f6" },
                     { label: "Jackpot pool", pct: "0.25%", color: "#ef4444" },
                   ].map((item, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11 }}>
@@ -2872,7 +2945,7 @@ export default function FlipperRooms() {
                   ))}
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0 0", borderTop: "1px solid #1c2430", marginTop: 4, fontSize: 11 }}>
                     <span style={{ color: "#e2e8f0", fontWeight: 700 }}>Winner receives</span>
-                    <span style={{ color: "#22c55e", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>95%</span>
+                    <span style={{ color: "#22c55e", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>96%</span>
                   </div>
                 </div>
               </div>
@@ -2975,6 +3048,40 @@ export default function FlipperRooms() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {jackpotWin && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 3000,
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          background: "rgba(0,0,0,0.95)",
+          animation: "scaleIn 0.3s ease",
+        }}>
+          <div style={{ fontSize: 64, marginBottom: 16, animation: "pulse 0.5s ease infinite" }}>
+            {"\uD83D\uDCB0"}
+          </div>
+          <div style={{
+            fontSize: 36, fontWeight: 900, color: "#f7b32b",
+            fontFamily: "'Orbitron', sans-serif",
+            letterSpacing: 6, textShadow: "0 0 40px #f7b32b60",
+            marginBottom: 8,
+          }}>JACKPOT!</div>
+          <div style={{
+            fontSize: 28, fontWeight: 700, color: "#22c55e",
+            fontFamily: "'JetBrains Mono', monospace",
+            marginBottom: 24,
+          }}>+{jackpotWin.amount} ETH</div>
+          <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 24 }}>
+            You hit the jackpot! ETH sent to your wallet.
+          </div>
+          <button onClick={() => setJackpotWin(null)} style={{
+            padding: "12px 40px", borderRadius: 10,
+            background: "linear-gradient(135deg, #b8860b, #f7b32b)",
+            color: "#0b0e11", fontSize: 14, fontWeight: 800,
+            border: "none", cursor: "pointer",
+          }}>Collect</button>
         </div>
       )}
 
