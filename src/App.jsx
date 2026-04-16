@@ -1651,6 +1651,7 @@ export default function FlipperRooms() {
   const [matchFoundAnim, setMatchFoundAnim] = useState(false);
   const [vsFlash, setVsFlash] = useState(null);
   const processingFlipRef = useRef(false);
+  const processedFlipsRef = useRef(new Set());
   const roomMissCountRef = useRef(0);
 
   // Keep ref in sync so timers/closures always see current roomId
@@ -1797,6 +1798,7 @@ export default function FlipperRooms() {
 
     const onFlipResolved = (...args) => {
       try {
+        const challengeId = Number(args[0] || args.args?.[0]);
         const winner = args[1];
         const loser = args[2];
         const payout = args[3];
@@ -1808,9 +1810,19 @@ export default function FlipperRooms() {
 
         if (!isMyFlip) return;
 
+        // Skip if we already processed this challengeId (e.g. via receipt in executeFlip)
+        if (processedFlipsRef.current.has(challengeId)) return;
+
         // If we're already processing a flip (coin stage visible or executeFlip active),
         // the receipt handler manages the result — skip to avoid duplicate sounds/alerts
         if (showCoinStageRef.current || processingFlipRef.current) return;
+
+        // Mark this challengeId as processed
+        processedFlipsRef.current.add(challengeId);
+        if (processedFlipsRef.current.size > 50) {
+          const arr = [...processedFlipsRef.current];
+          processedFlipsRef.current = new Set(arr.slice(-20));
+        }
 
         const wasWaitingForRoom = !!myRoomIdRef.current;
 
@@ -1866,6 +1878,12 @@ export default function FlipperRooms() {
       try {
         const parsed = contract.interface.parseLog({ topics: log.topics, data: log.data });
         if (parsed?.name === "FlipResolved") {
+          const challengeId = Number(parsed.args[0]);
+          processedFlipsRef.current.add(challengeId);
+          if (processedFlipsRef.current.size > 50) {
+            const arr = [...processedFlipsRef.current];
+            processedFlipsRef.current = new Set(arr.slice(-20));
+          }
           return {
             won: parsed.args.winner?.toLowerCase() === address?.toLowerCase(),
             payout: formatEther(parsed.args.payout),
@@ -1892,7 +1910,12 @@ export default function FlipperRooms() {
       setWaitingConfirm(false);
       if (opponent) {
         setVsFlash({ you: address, them: opponent, amount: betAmount });
-        await new Promise(r => setTimeout(r, 800));
+      }
+
+      // Delay before spin to show VS flash
+      await new Promise(r => setTimeout(r, opponent ? 1000 : 0));
+
+      if (opponent) {
         setVsFlash(null);
       }
 
@@ -2024,7 +2047,10 @@ export default function FlipperRooms() {
         let foundEvent = null;
         for (const ev of events) {
           try {
-            if (Number(ev.args[0]) === roomId) {
+            const id = Number(ev.args[0]);
+            if (id === roomId) {
+              if (processedFlipsRef.current.has(id)) return;
+              processedFlipsRef.current.add(id);
               foundEvent = { winner: ev.args[1], loser: ev.args[2], payout: ev.args[3], betAmount: ev.args[4] };
               break;
             }
