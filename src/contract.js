@@ -1,135 +1,27 @@
-import { Contract, parseEther, formatEther } from "ethers";
-import ABI from "./abi.json";
-import { CONTRACT_ADDRESS, EXPLORER } from "./config.js";
+import { Contract, formatEther, formatUnits } from "ethers";
+import { flipperSeatsAbi } from "./abis/flipperSeatsAbi.js";
+import { flipperCoinflipAbi } from "./abis/flipperCoinflipAbi.js";
+import { mockFlipperAbi } from "./abis/mockFlipperAbi.js";
+import { SEATS_ADDRESS, COINFLIP_ADDRESS, MOCK_FLIPPER_ADDRESS, EXPLORER } from "./config.js";
 
-export function getContract(signer) {
-  return new Contract(CONTRACT_ADDRESS, ABI, signer);
+// ═══════════════════════════════════════
+//          CONTRACT FACTORIES
+// ═══════════════════════════════════════
+
+export function getSeatsContract(signerOrProvider) {
+  return new Contract(SEATS_ADDRESS, flipperSeatsAbi, signerOrProvider);
+}
+
+export function getCoinflipContract(signerOrProvider) {
+  return new Contract(COINFLIP_ADDRESS, flipperCoinflipAbi, signerOrProvider);
+}
+
+export function getTokenContract(signerOrProvider) {
+  return new Contract(MOCK_FLIPPER_ADDRESS, mockFlipperAbi, signerOrProvider);
 }
 
 // ═══════════════════════════════════════
-//          READ FUNCTIONS
-// ═══════════════════════════════════════
-
-export async function getSessionBalance(contract, address) {
-  const bal = await contract.sessionBalance(address);
-  return formatEther(bal);
-}
-
-export async function getPlayerInfo(contract, address) {
-  const r = await contract.getPlayerInfo(address);
-  return {
-    balance: formatEther(r.balance_),
-    wins: Number(r.wins_),
-    losses: Number(r.losses_),
-    streak: Number(r.currentStreak_),
-    bestStreak: Number(r.bestStreak_),
-    wagered: formatEther(r.totalWagered_),
-    won: formatEther(r.totalWon_),
-    referralSeat: Number(r.referredBySeat_),
-  };
-}
-
-export async function getProtocolStats(contract) {
-  const r = await contract.getProtocolStats();
-  return {
-    totalFlips: Number(r.totalFlips_),
-    totalVolume: formatEther(r.totalVolume_),
-    jackpot: formatEther(r.jackpotPool_),
-    treasury: formatEther(r.treasuryBalance_),
-    seatPool: formatEther(r.seatRewardPool_),
-    protocol: formatEther(r.protocolBalance_),
-    buyback: formatEther(r.buybackTreasury_),
-    lastJackpotWinner: r.lastJackpotWinner_,
-    lastJackpotAmount: formatEther(r.lastJackpotAmount_),
-  };
-}
-
-export async function getSeatInfo(contract, seatId) {
-  const [r, raw] = await Promise.all([
-    contract.getSeatInfo(seatId),
-    contract.seats(seatId),
-  ]);
-  return {
-    owner: r.owner_,
-    price: formatEther(r.listedPrice_),
-    priceWei: r.listedPrice_,
-    deposit: formatEther(r.deposit_),
-    depositWei: r.deposit_,
-    pendingTax: formatEther(r.pendingTax_),
-    rewards: formatEther(r.pendingRewards_),
-    earned: formatEther(r.totalEarned_),
-    runway: Number(r.depositRunway_),
-    forfeitable: r.isForfeitable_,
-    name: r.name_,
-    lastPriceChangeTime: Number(raw.lastPriceChangeTime),
-  };
-}
-
-export async function getAllSeats(contract) {
-  const ZERO = "0x0000000000000000000000000000000000000000";
-  const results = [];
-  // Batch in groups of 16 to avoid rate limits on public RPC
-  for (let batch = 0; batch < 16; batch++) {
-    const promises = [];
-    for (let j = 0; j < 16; j++) {
-      const i = batch * 16 + j + 1;
-      promises.push(
-        contract.seats(i).then(s => ({
-          id: i,
-          owner: s.owner,
-          price: formatEther(s.listedPrice),
-          priceWei: s.listedPrice,
-          deposit: formatEther(s.deposit),
-          name: s.name,
-          active: s.owner !== ZERO,
-        })).catch(() => ({
-          id: i, owner: ZERO, price: "0.001", priceWei: 0n,
-          deposit: "0", name: "", active: false,
-        }))
-      );
-    }
-    const batchResults = await Promise.all(promises);
-    results.push(...batchResults);
-  }
-  return results;
-}
-
-export async function getAllOpenChallenges(contract) {
-  const r = await contract.getAllOpenChallenges();
-  const results = [];
-  for (let i = 0; i < r.ids.length; i++) {
-    results.push({
-      id: Number(r.ids[i]),
-      creator: r.creators[i],
-      amount: formatEther(r.amounts[i]),
-      amountWei: r.amounts[i],
-      createdAt: Number(r.createdAts[i]),
-      status: 0,
-    });
-  }
-  return results;
-}
-
-export async function getChallengeInfo(contract, id) {
-  const r = await contract.getChallengeInfo(id);
-  return {
-    creator: r.creator_,
-    opponent: r.opponent_,
-    amount: formatEther(r.amount_),
-    amountWei: r.amount_,
-    createdAt: Number(r.createdAt_),
-    status: Number(r.status_),
-    isDirect: r.isDirect_,
-  };
-}
-
-export async function getTreasuryMaxBet(contract) {
-  const r = await contract.getTreasuryMaxBet();
-  return formatEther(r);
-}
-
-// ═══════════════════════════════════════
-//         WRITE FUNCTIONS
+//          HELPER
 // ═══════════════════════════════════════
 
 async function sendTx(txPromise) {
@@ -138,56 +30,225 @@ async function sendTx(txPromise) {
   return receipt;
 }
 
-export async function deposit(contract, amountEth) {
-  return sendTx(contract.deposit({ value: parseEther(amountEth) }));
+export function fmtTokens(wei) {
+  const n = parseFloat(formatUnits(wei, 18));
+  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1) + "B";
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
+  return n.toFixed(0);
 }
 
-export async function withdraw(contract, amountEth) {
-  return sendTx(contract.withdraw(parseEther(amountEth)));
+// ═══════════════════════════════════════
+//        SEATS — READ
+// ═══════════════════════════════════════
+
+export async function getAllSeatsBasic(seatsContract) {
+  const data = await seatsContract.getAllSeatsBasic();
+  const ZERO = "0x0000000000000000000000000000000000000000";
+  const seats = [];
+  for (let i = 0; i < 256; i++) {
+    const owner = data.owners[i];
+    const isOwned = owner !== ZERO;
+    const priceRaw = data.prices[i];
+    const depositRaw = data.deposits[i];
+    const priceNum = parseFloat(formatUnits(priceRaw, 18));
+    const depositNum = parseFloat(formatUnits(depositRaw, 18));
+    const weeklyTax = priceNum * 0.05;
+    const dailyTax = weeklyTax / 7;
+    const daysLeft = isOwned && dailyTax > 0 ? Math.floor(depositNum / dailyTax) : 999;
+    seats.push({
+      id: i + 1,
+      owner: isOwned ? owner : ZERO,
+      price: priceRaw,
+      priceNum,
+      deposit: depositRaw,
+      depositNum,
+      name: data.names[i] || "",
+      active: isOwned,
+      daysLeft,
+    });
+  }
+  return seats;
 }
 
-export async function createChallenge(contract, betAmountWei, referralSeatId = 0) {
-  return sendTx(contract.createChallengeDirect(referralSeatId, { value: betAmountWei }));
+export async function getSeatInfo(seatsContract, seatId) {
+  const r = await seatsContract.getSeatInfo(seatId);
+  return {
+    owner: r[0],
+    price: r[1],
+    deposit: r[2],
+    pendingTax: r[3],
+    pendingRewards: r[4],
+    totalEarned: r[5],
+    depositRunway: Number(r[6]),
+    forfeitable: r[7],
+    name: r[8],
+  };
 }
 
-export async function acceptChallenge(contract, challengeId, betAmountWei, referralSeatId = 0) {
-  return sendTx(contract.acceptChallengeDirect(challengeId, referralSeatId, { value: betAmountWei }));
+export async function getUserProfile(seatsContract, address) {
+  const r = await seatsContract.getUserProfile(address);
+  return {
+    xp: Number(r[0]),
+    level: Number(r[1]),
+    totalFlips: Number(r[2]),
+    wins: Number(r[3]),
+    seatsOwned: Number(r[4]),
+    totalEarned: r[5],
+    yieldMultiplier: Number(r[6]),
+  };
 }
 
-export async function cancelChallenge(contract, challengeId) {
-  return sendTx(contract.cancelChallengeDirect(challengeId));
+export async function getGraduationInfo(seatsContract) {
+  const [graduated, totalMinted, graduationStart, activeCount] = await Promise.all([
+    seatsContract.graduated(),
+    seatsContract.totalMinted(),
+    seatsContract.graduationStart(),
+    seatsContract.activeSeatsCount(),
+  ]);
+  return {
+    graduated,
+    totalMinted: Number(totalMinted),
+    graduationStart: Number(graduationStart),
+    activeCount: Number(activeCount),
+  };
 }
 
-export async function buySeat(contract, seatId, newPriceWei, name, maxPriceWei, totalValue) {
-  return sendTx(contract.buySeat(seatId, newPriceWei, name, maxPriceWei, { value: totalValue }));
+// ═══════════════════════════════════════
+//        COINFLIP — READ
+// ═══════════════════════════════════════
+
+export async function getProtocolStats(coinflipContract) {
+  const r = await coinflipContract.getProtocolStats();
+  return {
+    totalFlips: Number(r[0]),
+    totalVolume: formatEther(r[1]),
+    jackpotPool: formatEther(r[2]),
+    treasuryBalance: formatEther(r[3]),
+    protocolBalance: formatEther(r[5]),
+    lastJackpotWinner: r[6],
+    lastJackpotAmount: formatEther(r[7]),
+  };
 }
 
-export async function updateSeatPrice(contract, seatId, newPriceWei) {
-  return sendTx(contract.updateSeatPrice(seatId, newPriceWei));
+export async function getPlayerInfo(coinflipContract, address) {
+  const r = await coinflipContract.getPlayerInfo(address);
+  return {
+    balance: formatEther(r[0]),
+    wins: Number(r[1]),
+    losses: Number(r[2]),
+    streak: Number(r[3]),
+    bestStreak: Number(r[4]),
+    wagered: formatEther(r[5]),
+    won: formatEther(r[6]),
+    referralSeat: Number(r[7]),
+  };
 }
 
-export async function addSeatDeposit(contract, seatId, amountWei) {
-  return sendTx(contract.addSeatDeposit(seatId, { value: amountWei }));
+export async function getAllOpenChallenges(coinflipContract) {
+  const r = await coinflipContract.getAllOpenChallenges();
+  const results = [];
+  for (let i = 0; i < r.ids.length; i++) {
+    results.push({
+      id: Number(r.ids[i]),
+      creator: r.creators[i],
+      amount: formatEther(r.amounts[i]),
+      amountWei: r.amounts[i],
+      createdAt: Number(r.createdAts[i]),
+    });
+  }
+  return results;
 }
 
-export async function abandonSeat(contract, seatId) {
-  return sendTx(contract.abandonSeat(seatId));
+export async function getTreasuryMaxBet(coinflipContract) {
+  const r = await coinflipContract.getTreasuryMaxBet();
+  return formatEther(r);
 }
 
-export async function claimSeatRewards(contract, seatId) {
-  return sendTx(contract.claimSeatRewards(seatId));
+// ═══════════════════════════════════════
+//        SEATS — WRITE
+// ═══════════════════════════════════════
+
+export async function mintSeat(seatsContract, tokenContract, seatId, initialPrice, name, mintPrice, deposit) {
+  const totalApproval = mintPrice + deposit;
+  await sendTx(tokenContract.approve(SEATS_ADDRESS, totalApproval));
+  return sendTx(seatsContract.mintSeat(seatId, initialPrice, name));
 }
 
-export async function distributeRewards(contract) {
-  return sendTx(contract.distributeRewards());
+export async function buyOutSeat(seatsContract, tokenContract, seatId, newPrice, newDeposit) {
+  const totalApproval = newPrice + newDeposit;
+  await sendTx(tokenContract.approve(SEATS_ADDRESS, totalApproval));
+  return sendTx(seatsContract.buyOutSeat(seatId, newPrice));
+}
+
+export async function addDeposit(seatsContract, tokenContract, seatId, amount) {
+  await sendTx(tokenContract.approve(SEATS_ADDRESS, amount));
+  return sendTx(seatsContract.addDeposit(seatId, amount));
+}
+
+export async function updateSeatPrice(seatsContract, seatId, newPrice) {
+  return sendTx(seatsContract.updateSeatPrice(seatId, newPrice));
+}
+
+export async function abandonSeat(seatsContract, seatId) {
+  return sendTx(seatsContract.abandonSeat(seatId));
+}
+
+export async function claimRewards(seatsContract, seatId) {
+  return sendTx(seatsContract.claimRewards(seatId));
+}
+
+export async function claimMultipleRewards(seatsContract, seatIds) {
+  return sendTx(seatsContract.claimMultipleRewards(seatIds));
+}
+
+export async function withdrawDeposit(seatsContract, seatId, amount) {
+  return sendTx(seatsContract.withdrawDeposit(seatId, amount));
+}
+
+export async function distributeYield(seatsContract) {
+  return sendTx(seatsContract.distributeYield());
+}
+
+// ═══════════════════════════════════════
+//        COINFLIP — WRITE
+// ═══════════════════════════════════════
+
+export async function flipDirect(coinflipContract, referralSeat, value) {
+  return sendTx(coinflipContract.flipDirect(referralSeat, { value }));
+}
+
+export async function createChallenge(coinflipContract, referralSeat, value) {
+  return sendTx(coinflipContract.createChallengeDirect(referralSeat, { value }));
+}
+
+export async function acceptChallenge(coinflipContract, challengeId, referralSeat, value) {
+  return sendTx(coinflipContract.acceptChallengeDirect(challengeId, referralSeat, { value }));
+}
+
+export async function cancelChallenge(coinflipContract, challengeId) {
+  return sendTx(coinflipContract.cancelChallengeDirect(challengeId));
+}
+
+export async function deposit(coinflipContract, value) {
+  return sendTx(coinflipContract.deposit({ value }));
+}
+
+export async function withdraw(coinflipContract, amount) {
+  return sendTx(coinflipContract.withdraw(amount));
+}
+
+// Token
+export async function claimMockFlipper(tokenContract) {
+  return sendTx(tokenContract.claim());
 }
 
 // ═══════════════════════════════════════
 //           EVENT PARSING
 // ═══════════════════════════════════════
 
-export function parseFlipResolved(receipt, contract) {
-  const iface = contract.interface;
+export function parseFlipResolved(receipt, coinflipContract) {
+  const iface = coinflipContract.interface;
   let flip = null;
   let jackpotAmount = null;
   for (const log of receipt.logs) {
@@ -220,25 +281,25 @@ export function decodeError(err) {
     CannotPlaySelf: "You can't play against yourself.",
     SeatNotActive: "This seat is not active.",
     NotSeatOwner: "You don't own this seat.",
-    PriceBelowMinimum: "Price must be at least 0.001 ETH.",
+    PriceBelowMinimum: "Price is below minimum.",
     InvalidSeatId: "Invalid seat ID.",
     NothingToClaim: "No rewards to claim yet.",
-    TreasuryBetTooHigh: "Treasury can't cover this bet. Try a smaller tier.",
+    TreasuryBetTooHigh: "Treasury can't cover this bet.",
     NoTreasuryAvailable: "Treasury is empty. Try PvP instead.",
-    DepositRequired: "Send more ETH than the seat price (excess = deposit).",
-    PriceExceedsMax: "Price changed since you loaded. Refresh and retry.",
-    CooldownActive: "Wait 1 hour after buying/repricing.",
+    CooldownActive: "Wait for cooldown to expire.",
     NotChallengeCreator: "Not your challenge to cancel.",
     NameTooLong: "Seat name must be 32 characters or less.",
-    ReferralSeatInactive: "Referral seat has no owner.",
-    AlreadyInitialized: "Seats already initialized.",
+    "Token not set": "Token not configured yet.",
+    "Already graduated": "Minting phase is over.",
+    "Seat taken": "This seat is already taken.",
+    "ERC20: insufficient allowance": "Token approval failed. Try again.",
   };
   for (const [key, val] of Object.entries(errorMap)) {
     if (msg.includes(key)) return val;
   }
   if (msg.includes("user rejected") || msg.includes("User denied")) return "Transaction cancelled.";
   if (msg.includes("insufficient funds")) return "Not enough ETH in wallet for gas.";
-  return msg.length > 100 ? msg.slice(0, 100) + "..." : msg;
+  return msg.length > 120 ? msg.slice(0, 120) + "..." : msg;
 }
 
 export { EXPLORER };
