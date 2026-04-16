@@ -11,7 +11,9 @@ export const CHAIN_NAME = "Base Sepolia";
 export const EXPLORER = "https://sepolia.basescan.org";
 
 // Off-chain profiles API (name/avatar/twitter per wallet).
-export const PROFILES_API = "http://89.167.8.19:3010";
+// HTTPS via nginx on api.aitrencher.xyz → localhost:3010 so the Vercel
+// (HTTPS) build isn't blocked by mixed-content when POSTing saves.
+export const PROFILES_API = "https://api.aitrencher.xyz/flipper-profiles";
 
 // External links
 export const FLAUNCH_URL = "https://flaunch.gg"; // placeholder for $FLIPPER token page

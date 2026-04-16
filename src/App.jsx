@@ -2782,15 +2782,21 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
   const saveName = async () => {
     setSaving(true);
     try {
-      await fetch(`${PROFILES_API}/api/profiles`, {
+      const res = await fetch(`${PROFILES_API}/api/profiles`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ wallet: targetAddr, name: nameInput }),
       });
+      // `fetch` only rejects on network errors, not on HTTP 4xx/5xx. Surface
+      // the status code so a bad request doesn't silently look like success.
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setProfileData(p => ({ ...p, name: nameInput }));
       setEditing(false);
       addToast("success", "Profile saved");
-    } catch { addToast("error", "Failed to save"); }
+    } catch (err) {
+      console.error("[profile save]", err);
+      addToast("error", `Save failed: ${err?.message || "network error"}`);
+    }
     setSaving(false);
   };
 
