@@ -3153,32 +3153,31 @@ export default function FlipperRooms() {
                   Provably Fair
                 </div>
                 <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", marginBottom: 32 }}>
-                  How we ensure every flip is fair
+                  Every flip is on-chain and verifiable
                 </div>
 
                 <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0", marginBottom: 8 }}>Randomness source</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0", marginBottom: 8 }}>How we pick the winner</div>
                   <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.6 }}>
-                    Each flip uses <code style={{ background: "#131820", padding: "2px 6px", borderRadius: 4 }}>block.prevrandao</code> combined with player addresses, timestamps,
-                    and challenge IDs. The outcome is determined on-chain in the same transaction — no server, no oracle, no delay.
+                    Every flip uses randomness from the Ethereum network itself (<code style={{ background: "#131820", padding: "2px 6px", borderRadius: 4 }}>block.prevrandao</code>) mixed with player addresses and timestamps. The result is decided on-chain instantly. No server. No oracle. No delay.
                   </div>
                 </div>
 
                 <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0", marginBottom: 8 }}>Verify any flip</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0", marginBottom: 8 }}>Check any flip yourself</div>
                   <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.6 }}>
-                    Every flip emits a FlipResolved event on Base. You can verify any result by checking the transaction hash on BaseScan.
+                    Every flip creates a public record on Base. Copy any transaction hash into BaseScan and see exactly what happened. Nothing is hidden.
                   </div>
                 </div>
 
                 <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0", marginBottom: 8 }}>Open source</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0", marginBottom: 8 }}>The contract is public</div>
                   <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.6 }}>
-                    The smart contract is verified and open source.
+                    Read the contract yourself. Every line of code is public and verified on BaseScan. What you see is what runs.
                   </div>
                   <a href={`${EXPLORER}/address/${CONTRACT_ADDRESS}#code`} target="_blank" rel="noreferrer"
                     style={{ fontSize: 11, color: "#f7b32b", marginTop: 8, display: "inline-block" }}>
-                    View contract on BaseScan {"->"}
+                    View contract on BaseScan {"\u2192"}
                   </a>
                 </div>
 
@@ -3211,6 +3210,21 @@ export default function FlipperRooms() {
                     <span style={{ color: "#e2e8f0", fontWeight: 700 }}>Winner receives</span>
                     <span style={{ color: "#22c55e", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>96%</span>
                   </div>
+                </div>
+
+                <div style={{
+                  marginTop: 32, padding: 20,
+                  background: "linear-gradient(135deg, rgba(247,179,43,0.08), rgba(247,179,43,0.02))",
+                  border: "1px solid rgba(247,179,43,0.2)", borderRadius: 12, textAlign: "center",
+                }}>
+                  <div style={{ fontSize: 14, color: "#f7b32b", fontWeight: 700, marginBottom: 8 }}>Ready to flip?</div>
+                  <div style={{ fontSize: 12, color: "#8b94a3", marginBottom: 16 }}>No tricks. Just ETH, coinflip, and Base.</div>
+                  <button onClick={() => setView("coinflip")} style={{
+                    padding: "12px 32px", background: "linear-gradient(135deg, #f7b32b, #d4a020)",
+                    border: "none", borderRadius: 8, color: "#07090d", fontSize: 13,
+                    fontWeight: 800, cursor: "pointer", letterSpacing: 1,
+                    fontFamily: "'Chakra Petch', sans-serif",
+                  }}>START PLAYING {"\u2192"}</button>
                 </div>
               </div>
             )}
