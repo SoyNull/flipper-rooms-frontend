@@ -89,3 +89,13 @@ export function playStreakSound(count) {
     playTone(400 + i * 80, 0.15, "sawtooth", 0.05 + i * 0.02, i * 0.04);
   }
 }
+
+export function playMatchFoundSound() {
+  playTone(600, 0.12, "sine", 0.12, 0);
+  playTone(900, 0.15, "sine", 0.14, 0.1);
+}
+
+// Haptics helper — calls navigator.vibrate if available
+export function vibrate(pattern) {
+  try { if ('vibrate' in navigator) navigator.vibrate(pattern); } catch {}
+}
