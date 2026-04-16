@@ -918,7 +918,16 @@ function LiveFeedSidebar({ recentFlips, address, drawerOpen }) {
 function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, protocolStats, treasuryMax, contract, address, isAdmin, drawerOpen, onCloseDrawer, tokenBalance, mySeats, seats, graduation, userProfile, seatsContract, refreshSeats }) {
   const jackpotPercent = protocolStats ? Math.min(100, (parseFloat(protocolStats.jackpotPool || 0) / 0.05) * 100) : 0;
   const flipBal = tokenBalance ? parseFloat(formatUnits(tokenBalance, 18)) : 0;
-  const mySeatsCount = mySeats?.length || 0;
+  // Derive from `seats` as a fallback — if the hook's mySeats is ever
+  // stale (e.g. refresh raced ahead of the address being set), this
+  // pulls the truth from the same seat array the board shows.
+  const derivedMySeats = useMemo(() => {
+    if (!address || !Array.isArray(seats)) return [];
+    const lc = address.toLowerCase();
+    return seats.filter(s => s.active && s.owner?.toLowerCase() === lc).map(s => s.id);
+  }, [address, seats]);
+  const effectiveMySeats = (mySeats && mySeats.length > 0) ? mySeats : derivedMySeats;
+  const mySeatsCount = effectiveMySeats.length;
 
   return (
     <div className={"stats-sidebar sidebar-texture" + (drawerOpen ? " drawer-open" : "")}>
@@ -1096,7 +1105,7 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
             ) : (
               <>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
-                  {mySeats.slice(0, 12).map(id => (
+                  {effectiveMySeats.slice(0, 12).map(id => (
                     <span key={id} style={{
                       fontSize: 10, padding: "3px 8px", background: "rgba(247,179,43,0.08)",
                       border: "1px solid rgba(247,179,43,0.25)", borderRadius: 4,
@@ -1110,7 +1119,7 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
                 <button onClick={async () => {
                   if (!seatsContract) return;
                   try {
-                    await claimMultipleRewardsFn(seatsContract, mySeats);
+                    await claimMultipleRewardsFn(seatsContract, effectiveMySeats);
                     addToast("success", `Claimed rewards from ${mySeatsCount} seats`);
                     refreshSeats?.();
                   } catch (e) { addToast("error", decodeError(e)); }
@@ -1294,21 +1303,27 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
       .slice(0, 10);
   }, [seatHook.seats]);
 
+  // Prefer the contract's own activeSeatsCount (via graduation info) —
+  // resilient to partial seat-array hydration races.
   const ownedCount = useMemo(() => {
-    return seatHook.seats?.filter(s => s.active).length || 0;
-  }, [seatHook.seats]);
+    const fromArray = seatHook.seats?.filter(s => s.active).length || 0;
+    const fromChain = seatHook.graduation?.activeCount;
+    return (fromChain != null && fromChain > fromArray) ? fromChain : fromArray;
+  }, [seatHook.seats, seatHook.graduation]);
 
   const floorPrice = useMemo(() => {
     const active = seatHook.seats?.filter(s => s.active);
     if (!active || active.length === 0) return "0";
     const prices = active.map(s => s.priceNum).filter(p => p > 0);
-    return prices.length > 0 ? Math.min(...prices).toFixed(2) : "0";
+    return prices.length > 0 ? Math.min(...prices).toFixed(0) : "0";
   }, [seatHook.seats]);
 
+  // "Total locked" = sum of active seat DEPOSITS (FLIPPER sitting in
+  // the contract as tax runway), not listing prices.
   const totalValue = useMemo(() => {
     const active = seatHook.seats?.filter(s => s.active);
     if (!active || active.length === 0) return "0";
-    return active.reduce((sum, s) => sum + (s.priceNum || 0), 0).toFixed(0);
+    return active.reduce((sum, s) => sum + (s.depositNum || 0), 0).toFixed(0);
   }, [seatHook.seats]);
 
   const estYieldPerSeat = useMemo(() => {
@@ -1525,17 +1540,20 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                       padding: 4, transition: "all 0.15s",
                       opacity: seat.hidden ? 0.1 : 1,
-                      border: isMine ? "2px solid #f7b32b"
+                      // Three clear states: mine (gold), occupied-other (teal/blue),
+                      // empty (dashed gray). No per-owner hue so occupied seats
+                      // actually pop against the empty grid.
+                      border: isMine ? "1px solid #f7b32b"
                         : isExpiring ? "2px solid #ef4444"
-                        : seat.active ? "1px solid " + addrColor(seat.owner) + "50"
-                        : "1px dashed rgba(255,255,255,0.08)",
+                        : seat.active ? "1px solid #1e5064"
+                        : "1px dashed #1c2430",
                       animation: isExpiring ? "roomPulse 1s ease infinite" : "none",
-                      boxShadow: isMine ? "0 0 16px rgba(247,179,43,0.3)" : "none",
+                      boxShadow: isMine ? "0 0 12px rgba(247,179,43,0.35)" : "none",
                       background: isMine
-                        ? "linear-gradient(135deg, rgba(247,179,43,0.15), rgba(247,179,43,0.05))"
+                        ? "rgba(180,130,20,0.3)"
                         : seat.active
-                        ? "linear-gradient(135deg, " + addrColor(seat.owner) + "18, " + addrColor(seat.owner) + "08)"
-                        : "rgba(255,255,255,0.02)",
+                        ? "rgba(30,80,100,0.4)"
+                        : "rgba(20,25,35,0.5)",
                     }}
                     onMouseEnter={e => {
                       e.currentTarget.style.transform = "scale(1.08)";
@@ -2578,6 +2596,10 @@ export default function FlipperRooms() {
     }
     refreshBalance();
     getPlayerInfo(contract, address).then(setPlayerStats).catch(() => {});
+    // Chain needs a beat to commit the transfer, then pull the new ETH
+    // balance so the sidebar reflects the win/loss immediately.
+    setTimeout(() => refreshWalletBalanceRef.current?.(), 2000);
+    setTimeout(() => refreshWalletBalanceRef.current?.(), 6000);
   }, [address, refreshBalance, contract]);
 
   // Data loading timeout — show error if nothing loads in 10s
@@ -2664,15 +2686,21 @@ export default function FlipperRooms() {
     };
   }, [refreshOpenRooms, contract, readContract]);
 
-  // V7: Wallet native balance
+  // V7: Wallet native balance — exposed via a ref so onFlipDone can
+  // trigger an immediate refresh after a flip resolves.
+  const refreshWalletBalanceRef = useRef(null);
   useEffect(() => {
-    if (!contract?.runner?.provider || !address) return;
+    if (!contract?.runner?.provider || !address) {
+      refreshWalletBalanceRef.current = null;
+      return;
+    }
     const fetch = async () => {
       try {
         const bal = await contract.runner.provider.getBalance(address);
         setWalletBalance(parseFloat(formatEther(bal)).toFixed(4));
       } catch {}
     };
+    refreshWalletBalanceRef.current = fetch;
     fetch();
     const iv = setInterval(fetch, 10000);
     return () => clearInterval(iv);
@@ -3254,15 +3282,15 @@ export default function FlipperRooms() {
             </div>
 
             <div className="header-right">
-              {/* Online users badge */}
+              {/* Network badge — static, no fake user count */}
               <div className="header-stats" style={{
                 display: "flex", alignItems: "center", gap: 6,
-                padding: "5px 10px", background: "rgba(34,197,94,0.08)",
-                border: "1px solid rgba(34,197,94,0.2)", borderRadius: 6,
+                padding: "5px 10px", background: "rgba(247,179,43,0.08)",
+                border: "1px solid rgba(247,179,43,0.25)", borderRadius: 6,
               }}>
-                <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e", animation: "liveDot 1.5s ease infinite" }} />
-                <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 700, letterSpacing: 0.5 }}>
-                  {(() => { const h = new Date().getHours(); return (h >= 18 && h <= 23 ? 2400 : h >= 9 && h <= 17 ? 1500 : 600) + Math.floor(Math.random() * 200); })().toLocaleString()} ONLINE
+                <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#f7b32b", animation: "liveDot 1.5s ease infinite" }} />
+                <span style={{ fontSize: 10, color: "#f7b32b", fontWeight: 700, letterSpacing: 0.5 }}>
+                  SEPOLIA TESTNET
                 </span>
               </div>
               <button onClick={() => setShowChatDrawer(p => !p)} className="chat-drawer-toggle" title="Live activity"

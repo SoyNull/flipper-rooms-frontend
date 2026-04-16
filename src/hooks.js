@@ -409,28 +409,43 @@ export function useGlobalFeed(coinflipContract, readCoinflip) {
   useEffect(() => {
     if (!feedContract || !feedContract.runner?.provider) return;
 
+    // Load recent flip history in 10-block windows (Alchemy free-tier
+    // eth_getLogs cap). Walk backwards from head until we've collected
+    // ~30 events or scanned far enough.
     const loadHistory = async () => {
       if (historyLoadedRef.current) return;
       historyLoadedRef.current = true;
+      const events = [];
       try {
-        const block = await feedContract.runner.provider.getBlockNumber();
-        const from = Math.max(0, block - 5000);
-        const events = await feedContract.queryFilter("FlipResolved", from, block);
-        const flips = events.slice(-30).reverse().map(e => {
-          const id = Number(e.args[0]);
-          seenIdsRef.current.add(id);
-          return {
-            id,
-            winner: e.args[1],
-            loser: e.args[2],
-            payout: formatEther(e.args[3]),
-            amount: formatEther(e.args[4]),
-            txHash: e.transactionHash,
-            block: e.blockNumber,
-          };
-        });
-        setRecentFlips(flips);
+        const head = await feedContract.runner.provider.getBlockNumber();
+        const WANT = 30;
+        const MAX_LOOKBACK = 10000; // ~5h on Base Sepolia 2s/block
+        for (let end = head; end > 0 && events.length < WANT && (head - end) < MAX_LOOKBACK; end -= 10) {
+          const from = Math.max(0, end - 9);
+          try {
+            const chunk = await feedContract.queryFilter("FlipResolved", from, end);
+            for (const ev of chunk) events.push(ev);
+          } catch { /* skip windows that 429 or revert */ }
+          if (from === 0) break;
+        }
       } catch (e) { console.warn("Global feed load failed:", e); }
+      const sorted = events
+        .sort((a, b) => (b.blockNumber - a.blockNumber) || (b.transactionIndex - a.transactionIndex))
+        .slice(0, 30);
+      const flips = sorted.map(e => {
+        const id = Number(e.args[0]);
+        seenIdsRef.current.add(id);
+        return {
+          id,
+          winner: e.args[1],
+          loser: e.args[2],
+          payout: formatEther(e.args[3]),
+          amount: formatEther(e.args[4]),
+          txHash: e.transactionHash,
+          block: e.blockNumber,
+        };
+      });
+      if (flips.length > 0) setRecentFlips(flips);
     };
 
     loadHistory();
