@@ -150,22 +150,22 @@ class AudioEngine {
       // Two slightly detuned freqs for beating texture
       osc1.frequency.value = 110;
       osc2.frequency.value = 116;
-      osc1.type = 'sawtooth';
+      osc1.type = 'sine';
       osc2.type = 'sine';
 
       filter.type = 'lowpass';
       filter.frequency.value = 800;
-      filter.Q.value = 5;
+      filter.Q.value = 1;
 
       const durSec = duration / 1000;
       gain.gain.setValueAtTime(0, c.currentTime);
-      gain.gain.linearRampToValueAtTime(0.08, c.currentTime + 0.2);
+      gain.gain.linearRampToValueAtTime(0.05, c.currentTime + 0.2);
       gain.gain.linearRampToValueAtTime(0.14, c.currentTime + durSec - 0.2);
       gain.gain.linearRampToValueAtTime(0, c.currentTime + durSec);
 
       // Filter sweep rising for tension
       filter.frequency.setValueAtTime(400, c.currentTime);
-      filter.frequency.linearRampToValueAtTime(1600, c.currentTime + durSec);
+      filter.frequency.linearRampToValueAtTime(900, c.currentTime + durSec);
 
       osc1.start();
       osc2.start();
