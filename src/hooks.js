@@ -475,6 +475,8 @@ export function useProtocol(contract, readContract) {
 export function useGlobalFeed(contract, readContract) {
   const [recentFlips, setRecentFlips] = useState([]);
   const [liveFlip, setLiveFlip] = useState(null);
+  const seenIdsRef = useRef(new Set());
+  const historyLoadedRef = useRef(false);
 
   // Load history — works with readContract even without wallet
   const feedContract = contract || readContract;
@@ -482,19 +484,26 @@ export function useGlobalFeed(contract, readContract) {
     if (!feedContract || !feedContract.runner?.provider) return;
 
     const loadHistory = async () => {
+      // Only load history once — switching from readContract→contract should not re-fetch
+      if (historyLoadedRef.current) return;
+      historyLoadedRef.current = true;
       try {
         const block = await feedContract.runner.provider.getBlockNumber();
         const from = Math.max(0, block - 5000);
         const events = await feedContract.queryFilter("FlipResolved", from, block);
-        const flips = events.slice(-30).reverse().map(e => ({
-          id: Number(e.args[0]),
-          winner: e.args[1],
-          loser: e.args[2],
-          payout: formatEther(e.args[3]),
-          amount: formatEther(e.args[4]),
-          txHash: e.transactionHash,
-          block: e.blockNumber,
-        }));
+        const flips = events.slice(-30).reverse().map(e => {
+          const id = Number(e.args[0]);
+          seenIdsRef.current.add(id);
+          return {
+            id,
+            winner: e.args[1],
+            loser: e.args[2],
+            payout: formatEther(e.args[3]),
+            amount: formatEther(e.args[4]),
+            txHash: e.transactionHash,
+            block: e.blockNumber,
+          };
+        });
         setRecentFlips(flips);
       } catch (e) { console.warn("Global feed load failed:", e); }
     };
@@ -503,9 +512,18 @@ export function useGlobalFeed(contract, readContract) {
 
     const onFlip = (...args) => {
       try {
+        const id = Number(args[0]);
+        // Deduplicate — skip if already in feed from history or prior event
+        if (seenIdsRef.current.has(id)) return;
+        seenIdsRef.current.add(id);
+        // Prune seen set
+        if (seenIdsRef.current.size > 100) {
+          seenIdsRef.current = new Set([...seenIdsRef.current].slice(-50));
+        }
+
         const event = args[args.length - 1];
         const flip = {
-          id: Number(args[0]),
+          id,
           winner: args[1],
           loser: args[2],
           payout: formatEther(args[3]),
@@ -515,7 +533,7 @@ export function useGlobalFeed(contract, readContract) {
           isNew: true,
         };
         setLiveFlip(flip);
-        setRecentFlips(prev => [flip, ...prev].slice(0, 30));
+        setRecentFlips(prev => [flip, ...prev.filter(f => f.id !== id)].slice(0, 30));
         setTimeout(() => setLiveFlip(null), 4000);
       } catch {}
     };

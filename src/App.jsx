@@ -1868,10 +1868,28 @@ export default function FlipperRooms() {
   const showCoinStageRef = useRef(false);
   const roomGoneDetectedRef = useRef(false);
   const fallbackTimeoutRef = useRef(null);
+  const droneCleanupRef = useRef(null);
+  const tickIntervalRef = useRef(null);
 
   // Keep refs in sync so timers/closures always see current values
   useEffect(() => { myRoomIdRef.current = myRoomId; }, [myRoomId]);
   useEffect(() => { showCoinStageRef.current = showCoinStage; }, [showCoinStage]);
+
+  const startSpinAudio = useCallback(() => {
+    // Clean up any prior drone
+    if (droneCleanupRef.current) { droneCleanupRef.current(); droneCleanupRef.current = null; }
+    if (tickIntervalRef.current) { clearInterval(tickIntervalRef.current); tickIntervalRef.current = null; }
+    // Start drone
+    droneCleanupRef.current = audio.playSpinDrone(2500);
+    // Tick clicks for countdown feel
+    tickIntervalRef.current = setInterval(() => audio.playTickClick(), 120);
+    setTimeout(() => { if (tickIntervalRef.current) { clearInterval(tickIntervalRef.current); tickIntervalRef.current = null; } }, 2400);
+  }, []);
+
+  const stopSpinAudio = useCallback(() => {
+    if (droneCleanupRef.current) { droneCleanupRef.current(); droneCleanupRef.current = null; }
+    if (tickIntervalRef.current) { clearInterval(tickIntervalRef.current); tickIntervalRef.current = null; }
+  }, []);
 
   const resetFlip = useCallback(() => {
     setCoinState("idle");
@@ -2083,9 +2101,11 @@ export default function FlipperRooms() {
           setCoinState("spinning");
           setBorderState("spinning");
           spinStartRef.current = Date.now();
+          startSpinAudio();
           audio.playFlip();
 
           setTimeout(() => {
+            stopSpinAudio();
             pendingResultRef.current = { won, payout: formatEther(payout), amount: formatEther(betAmount) };
             setCoinState(won ? "win" : "lose");
             setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
@@ -2214,7 +2234,7 @@ export default function FlipperRooms() {
       }
 
       // Start spinning
-      audio.playAnticipation();
+      startSpinAudio();
       setCoinState("spinning");
       setBorderState("spinning");
       spinStartRef.current = Date.now();
@@ -2225,6 +2245,7 @@ export default function FlipperRooms() {
 
       const elapsed = Date.now() - spinStartRef.current;
       setTimeout(() => {
+        stopSpinAudio();
         pendingResultRef.current = { won, payout, amount };
         setCoinState(won ? "win" : "lose");
         setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
@@ -2233,6 +2254,7 @@ export default function FlipperRooms() {
       refreshOpenRooms();
       return { won, payout };
     } catch (err) {
+      stopSpinAudio();
       setCoinState("idle");
       setBorderState("idle");
       setShowCoinStage(false);

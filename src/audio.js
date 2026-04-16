@@ -129,13 +129,78 @@ class AudioEngine {
     }
   }
 
-  // Dramatic anticipation sound before coin spin
-  playAnticipation() {
+  // Sustained tension drone during coin spin — returns cleanup function
+  playSpinDrone(duration = 2500) {
+    if (this.muted) return null;
     this.ensureRunning();
-    this._tone(200, 0.6, 'sine', 0.08, 0);
-    this._tone(250, 0.5, 'sine', 0.1, 0.15);
-    this._tone(300, 0.4, 'sine', 0.12, 0.3);
-    this._tone(400, 0.3, 'sine', 0.15, 0.45);
+    if (!this.context) return null;
+
+    try {
+      const c = this.context;
+      const osc1 = c.createOscillator();
+      const osc2 = c.createOscillator();
+      const gain = c.createGain();
+      const filter = c.createBiquadFilter();
+
+      osc1.connect(filter);
+      osc2.connect(filter);
+      filter.connect(gain);
+      gain.connect(c.destination);
+
+      // Two slightly detuned freqs for beating texture
+      osc1.frequency.value = 110;
+      osc2.frequency.value = 116;
+      osc1.type = 'sawtooth';
+      osc2.type = 'sine';
+
+      filter.type = 'lowpass';
+      filter.frequency.value = 800;
+      filter.Q.value = 5;
+
+      const durSec = duration / 1000;
+      gain.gain.setValueAtTime(0, c.currentTime);
+      gain.gain.linearRampToValueAtTime(0.08, c.currentTime + 0.2);
+      gain.gain.linearRampToValueAtTime(0.14, c.currentTime + durSec - 0.2);
+      gain.gain.linearRampToValueAtTime(0, c.currentTime + durSec);
+
+      // Filter sweep rising for tension
+      filter.frequency.setValueAtTime(400, c.currentTime);
+      filter.frequency.linearRampToValueAtTime(1600, c.currentTime + durSec);
+
+      osc1.start();
+      osc2.start();
+      osc1.stop(c.currentTime + durSec);
+      osc2.stop(c.currentTime + durSec);
+
+      return () => {
+        try {
+          gain.gain.cancelScheduledValues(c.currentTime);
+          gain.gain.linearRampToValueAtTime(0, c.currentTime + 0.05);
+          setTimeout(() => { try { osc1.stop(); osc2.stop(); } catch {} }, 100);
+        } catch {}
+      };
+    } catch {}
+    return null;
+  }
+
+  // Subtle tick click for countdown feel
+  playTickClick() {
+    if (this.muted) return;
+    this.ensureRunning();
+    if (!this.context) return;
+    try {
+      const c = this.context;
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.frequency.value = 1200;
+      osc.type = 'square';
+      g.gain.setValueAtTime(0.04, c.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.02);
+      osc.start();
+      osc.stop(c.currentTime + 0.02);
+    } catch {}
   }
 }
 
