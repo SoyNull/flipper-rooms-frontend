@@ -5,7 +5,8 @@ const Coin3D = lazy(() => import("./Coin3D.jsx"));
 import { getPlayerInfo, getTreasuryMaxBet, getSeatInfo, decodeError } from "./contract.js";
 import { CONTRACT_ADDRESS, TIERS, CHAIN_ID, CHAIN_ID_HEX } from "./config.js";
 import { parseEther, formatEther } from "ethers";
-import { playClickSound, playFlipSound, playWinSound, playLoseSound, playStreakSound, playMatchFoundSound, playJackpotSound, vibrate } from "./sounds.js";
+import { audio, vibrate } from "./audio.js";
+import confetti from "canvas-confetti";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -737,8 +738,80 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
   .modal-action-btn { min-height: 44px; }
   .modal-buy-btn { min-height: 48px; }
 }
+
+@keyframes tickerChipEnter {
+  from { transform: translateX(20px) scale(0.8); opacity: 0; }
+  to { transform: translateX(0) scale(1); opacity: 1; }
+}
+@keyframes dramaFlash {
+  0% { opacity: 0; } 50% { opacity: 0.3; } 100% { opacity: 0; }
+}
+@keyframes dramaPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(247,179,43,0.1); }
+  50% { box-shadow: 0 0 40px rgba(247,179,43,0.4), 0 0 80px rgba(247,179,43,0.15); }
+}
+.coin-wrapper.spinning .coin-stage-inner {
+  animation: dramaPulse 1.2s ease infinite;
+}
+.coin-wrapper.spinning::before {
+  content: ''; position: absolute; inset: 0; z-index: 0; border-radius: 14px;
+  background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.6));
+  pointer-events: none; animation: dramaFlash 1.5s ease infinite;
+}
 `;
 
+
+// ═══ Animated Number Counter ═══
+function AnimatedNumber({ value, duration = 500, decimals = 4 }) {
+  const [displayValue, setDisplayValue] = useState(parseFloat(value) || 0);
+  const previousValue = useRef(displayValue);
+
+  useEffect(() => {
+    const startValue = previousValue.current;
+    const targetValue = parseFloat(value) || 0;
+    if (startValue === targetValue) return;
+    const startTime = Date.now();
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const currentValue = startValue + (targetValue - startValue) * eased;
+      setDisplayValue(currentValue);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        previousValue.current = targetValue;
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }, [value, duration]);
+
+  return <>{displayValue.toFixed(decimals)}</>;
+}
+
+// ═══ Confetti Helpers ═══
+function triggerWinConfetti() {
+  confetti({
+    particleCount: 50,
+    spread: 60,
+    origin: { y: 0.6 },
+    colors: ['#f7b32b', '#ffc94a', '#d4a020'],
+    zIndex: 9999,
+  });
+}
+
+function triggerJackpotConfetti() {
+  const end = Date.now() + 2000;
+  const frame = () => {
+    confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0, y: 0.8 }, colors: ['#f7b32b', '#ffc94a'], zIndex: 9999 });
+    confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1, y: 0.8 }, colors: ['#f7b32b', '#ffc94a'], zIndex: 9999 });
+    if (Date.now() < end) requestAnimationFrame(frame);
+  };
+  frame();
+}
 
 function GameAvatar({ address, size = 40 }) {
   const color = addrColor(address);
@@ -777,7 +850,7 @@ function LiveFeedSidebar({ recentFlips, address }) {
                 "linear-gradient(90deg, rgba(34,197,94,0.05), transparent)",
               borderLeft: isMyWin ? "2px solid #f7b32b" : "2px solid rgba(34,197,94,0.4)",
               padding: "8px 10px 8px 12px", borderRadius: "0 8px 8px 0",
-              marginBottom: 4, animation: flip.isNew ? "feedSlide 0.5s ease" : "none",
+              marginBottom: 4, animation: flip.isNew ? "tickerChipEnter 0.4s ease" : "none",
             }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
                 <span style={{ fontSize: 11, color: isMyWin ? "#f7b32b" : "var(--text)", fontWeight: isMyWin ? 700 : 600 }}>
@@ -823,7 +896,7 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(247,179,43,0.5), transparent)" }} />
           <div style={{ fontSize: 9, color: "#d4a020", fontWeight: 700, letterSpacing: 2, marginBottom: 4 }}>YOUR BALANCE</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1, marginBottom: 4, textShadow: "0 0 20px rgba(247,179,43,0.3)" }}>
-            {walletBalance ? parseFloat(walletBalance).toFixed(4) : "0.0000"}
+            <AnimatedNumber value={walletBalance || 0} />
           </div>
           <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
             {"\u2248"} ${(parseFloat(walletBalance || 0) * 2500).toFixed(2)} USD
@@ -836,11 +909,11 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <div style={{ padding: 12, background: "linear-gradient(135deg, rgba(34,197,94,0.06), rgba(34,197,94,0.01))", border: "1px solid rgba(34,197,94,0.15)", borderRadius: 8 }}>
                 <div style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 600, letterSpacing: 1, marginBottom: 2 }}>WINS</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: "#22c55e", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>{playerStats.wins}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#22c55e", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}><AnimatedNumber value={playerStats.wins} decimals={0} duration={300} /></div>
               </div>
               <div style={{ padding: 12, background: "linear-gradient(135deg, rgba(239,68,68,0.06), rgba(239,68,68,0.01))", border: "1px solid rgba(239,68,68,0.15)", borderRadius: 8 }}>
                 <div style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 600, letterSpacing: 1, marginBottom: 2 }}>LOSSES</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: "#ef4444", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>{playerStats.losses}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#ef4444", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}><AnimatedNumber value={playerStats.losses} decimals={0} duration={300} /></div>
               </div>
             </div>
 
@@ -1186,7 +1259,7 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
                 const isMine = seat.mine;
                 return (
                   <div key={seat.id}
-                    onClick={() => { setSelectedSeat(seat); setSelectedMult(0); setSelectedDuration(168); playClickSound(); }}
+                    onClick={() => { setSelectedSeat(seat); setSelectedMult(0); setSelectedDuration(168); audio.playClick(); }}
                     style={{
                       aspectRatio: "1", borderRadius: 6, cursor: "pointer", position: "relative",
                       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
@@ -1269,7 +1342,7 @@ function BoardView({ seatHook, address, connected, contract, refreshBalance, pro
               const seat = seatHook.seats.find(s => s.id === seatId);
               if (!seat) return null;
               return (
-                <div key={seatId} className="my-seat-card" onClick={() => { setSelectedSeat(seat); playClickSound(); }}>
+                <div key={seatId} className="my-seat-card" onClick={() => { setSelectedSeat(seat); audio.playClick(); }}>
                   <span style={{ fontSize: 10, fontWeight: 700, color: "#f7b32b" }}>#{seatId}</span>
                   <span style={{ fontSize: 10, color: "#e2e8f0" }}>{seat.name || `Seat #${seatId}`}</span>
                   <span style={{ fontSize: 9, color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace" }}>{parseFloat(seat.price).toFixed(3)}</span>
@@ -1820,11 +1893,11 @@ export default function FlipperRooms() {
     setFlipHistory(prev => [{ won: pending.won }, ...prev].slice(0, 12));
 
     if (pending.won) {
-      playWinSound();
+      audio.playWin(); triggerWinConfetti();
       vibrate([30, 50, 30, 50, 30]);
       addToast("success", "Won " + pending.payout + " ETH!");
     } else {
-      playLoseSound();
+      audio.playLoss();
       vibrate(20);
       addToast("error", "Lost " + pending.amount + " ETH");
     }
@@ -1999,7 +2072,7 @@ export default function FlipperRooms() {
 
         // Show MATCH FOUND → then flip animation
         setMatchFoundAnim(true);
-        playMatchFoundSound();
+        audio.playMatchFound();
         vibrate([50, 100, 50]);
 
         setTimeout(() => {
@@ -2010,7 +2083,7 @@ export default function FlipperRooms() {
           setCoinState("spinning");
           setBorderState("spinning");
           spinStartRef.current = Date.now();
-          playFlipSound();
+          audio.playFlip();
 
           setTimeout(() => {
             pendingResultRef.current = { won, payout: formatEther(payout), amount: formatEther(betAmount) };
@@ -2045,7 +2118,7 @@ export default function FlipperRooms() {
           // Show MATCH FOUND overlay immediately
           // The FlipResolved listener will handle the actual flip result
           setMatchFoundAnim(true);
-          playMatchFoundSound();
+          audio.playMatchFound();
           vibrate([50, 100, 50]);
 
           // Fallback: if listener doesn't act in 8s, clean up everything
@@ -2109,7 +2182,7 @@ export default function FlipperRooms() {
     }
     if (jackpot && jackpot.winner?.toLowerCase() === address?.toLowerCase()) {
       setJackpotWin(jackpot);
-      playJackpotSound();
+      audio.playJackpot(); triggerJackpotConfetti();
       vibrate([100, 50, 100, 50, 100, 50, 200]);
     }
     return result || { won: false, payout: "0", amount: "0" };
@@ -2141,10 +2214,11 @@ export default function FlipperRooms() {
       }
 
       // Start spinning
+      audio.playAnticipation();
       setCoinState("spinning");
       setBorderState("spinning");
       spinStartRef.current = Date.now();
-      playFlipSound();
+      audio.playFlip();
 
       const receipt = await tx.wait();
       const { won, payout, amount } = parseFlipResult(receipt);
@@ -2176,7 +2250,7 @@ export default function FlipperRooms() {
       addToast("error", "You need ETH on Base to play. Bridge at bridge.base.org");
       return;
     }
-    playClickSound();
+    audio.playClick();
     const ref = parseInt(localStorage.getItem('flipper_ref')) || referral;
     await executeFlip(
       contract.flipDirect(ref, { value: TIERS[tier].wei, gasLimit: 1000000n }),
@@ -2230,7 +2304,7 @@ export default function FlipperRooms() {
       addToast("error", "You need ETH on Base to play. Bridge at bridge.base.org");
       return;
     }
-    playClickSound();
+    audio.playClick();
     const betAmt = (amount || customBet).replace(",", ".");
     if (isNaN(parseFloat(betAmt)) || parseFloat(betAmt) <= 0) {
       addToast("error", "Invalid bet amount");
@@ -2258,7 +2332,7 @@ export default function FlipperRooms() {
 
   // ═══ Cancel room ═══
   const handleCancelRoom = async (id) => {
-    playClickSound();
+    audio.playClick();
     setMyRoomId(null);
     myRoomIdRef.current = null;
     setRoomCountdown(0);
@@ -2277,7 +2351,7 @@ export default function FlipperRooms() {
       addToast("error", "You need ETH on Base to play. Bridge at bridge.base.org");
       return;
     }
-    playClickSound();
+    audio.playClick();
     const c = (openRooms || []).find(ch => ch.id === challengeId) || flipHook.challenges.find(ch => ch.id === challengeId);
     const amt = c ? c.amount : "?";
     const amtWei = c?.amountWei || 0;
@@ -2361,14 +2435,14 @@ export default function FlipperRooms() {
             <div className="nav">
               {["flip", "board", "fair"].map(v => (
                 <button key={v} className={`nav-btn ${view === v ? "active" : ""}`} onClick={() => {
-                  setView(v); playClickSound();
+                  setView(v); audio.playClick();
                   if (v === "board" && seatHook.seats.length === 0) seatHook.refreshSeats();
                 }}>
                   {v === "flip" ? "Coinflip" : v === "board" ? "Board" : "Fair"}
                 </button>
               ))}
               {isAdmin && (
-                <button className={`nav-btn ${view === "admin" ? "active" : ""}`} onClick={() => { setView("admin"); playClickSound(); }}
+                <button className={`nav-btn ${view === "admin" ? "active" : ""}`} onClick={() => { setView("admin"); audio.playClick(); }}
                   style={view === "admin" ? { color: "#ef4444", background: "#ef444410" } : {}}>
                   Admin
                 </button>
@@ -2944,7 +3018,7 @@ export default function FlipperRooms() {
                           "rgba(255,255,255,0.015)",
                         borderLeft: "3px solid " + (isMyWin ? "#22c55e" : isMyLoss ? "#ef4444" : "transparent"),
                         borderRadius: "0 8px 8px 0",
-                        animation: flip.isNew ? "feedSlide 0.5s ease" : "none",
+                        animation: flip.isNew ? "tickerChipEnter 0.4s ease" : "none",
                       }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                           <div style={{
