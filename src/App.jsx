@@ -1229,11 +1229,17 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
   const myAddrLower = address?.toLowerCase();
   const isMineSeat = useCallback((seat) => !!(seat?.active && myAddrLower && seat.owner?.toLowerCase() === myAddrLower), [myAddrLower]);
 
+  // Always materialise 256 rows so the grid is visible even before
+  // getAllSeatsBasic() resolves. Cells merge any real data as it arrives.
   const filteredSeats = useMemo(() => {
-    const s = seatHook.seats;
-    if (!s || s.length === 0) return [];
-    if (boardFilter === "all") return s;
-    return s.map(seat => {
+    const real = seatHook.seats || [];
+    const byId = new Map(real.map(s => [s.id, s]));
+    const full = [];
+    for (let i = 1; i <= 256; i++) {
+      full.push(byId.get(i) || { id: i, owner: ZERO_ADDRESS, active: false, priceNum: 0, name: "", daysLeft: 999 });
+    }
+    if (boardFilter === "all") return full;
+    return full.map(seat => {
       if (boardFilter === "owned" && !seat.active) return { ...seat, hidden: true };
       if (boardFilter === "mine" && !isMineSeat(seat)) return { ...seat, hidden: true };
       if (boardFilter === "empty" && seat.active) return { ...seat, hidden: true };
@@ -1364,21 +1370,10 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
           </div>
         </div>
 
-        {/* 8x8 Scrollable Grid */}
-        {seatHook.loading ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4 }}>
-            {Array(64).fill(0).map((_, i) => (
-              <div key={i} style={{
-                aspectRatio: "1", borderRadius: 6,
-                background: "#0d1118", border: "1px solid #151b25",
-                animation: "blink 1.5s ease infinite",
-                animationDelay: (i % 8) * 0.03 + "s",
-              }} />
-            ))}
-          </div>
-        ) : (
+        {/* 16x16 Scrollable Grid — always renders 256 cells */}
+        {(
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4, maxHeight: "calc(100vh - 200px)", overflowY: "auto", padding: "0 2px 2px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(16, 1fr)", gap: 3, maxHeight: "calc(100vh - 200px)", overflowY: "auto", padding: "0 2px 2px" }}>
               {filteredSeats.map(seat => {
                 const isMine = isMineSeat(seat);
                 const isExpiring = seat.active && seat.daysLeft < 3 && !isMine;
@@ -1419,31 +1414,23 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   >
                     {seat.active ? (
                       <>
-                        <div style={{ fontSize: 8, color: "#475569", position: "absolute", top: 3, left: 4 }}>#{seat.id}</div>
-                        {isMine && <div style={{ position: "absolute", top: 2, right: 3, fontSize: 7, fontWeight: 800, color: "#f7b32b", letterSpacing: 0.5 }}>YOURS</div>}
-                        {isExpiring && <div style={{ position: "absolute", top: 2, right: 3, fontSize: 7, fontWeight: 800, color: "#ef4444", letterSpacing: 0.5 }}>{"\u26A0"} LOW</div>}
+                        {isMine && <div style={{ position: "absolute", top: 1, right: 2, width: 5, height: 5, borderRadius: "50%", background: "#f7b32b", boxShadow: "0 0 4px #f7b32b" }} />}
+                        {isExpiring && <div style={{ position: "absolute", top: 1, right: 2, width: 5, height: 5, borderRadius: "50%", background: "#ef4444", boxShadow: "0 0 4px #ef4444" }} />}
                         <div style={{
-                          width: 28, height: 28, borderRadius: "50%",
+                          width: "70%", aspectRatio: "1", borderRadius: "50%",
                           background: addrColor(seat.owner),
                           display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: 9, fontWeight: 800, color: "#fff", marginBottom: 3,
+                          fontSize: 8, fontWeight: 800, color: "#fff",
                         }}>{seat.owner?.slice(2, 4).toUpperCase()}</div>
                         <div style={{
-                          fontSize: 8, color: "#94a3b8", fontWeight: 600,
-                          overflow: "hidden", textOverflow: "ellipsis",
-                          whiteSpace: "nowrap", maxWidth: "90%", textAlign: "center",
-                        }}>{seat.name || shortAddr(seat.owner)}</div>
-                        <div style={{
-                          fontSize: 9, fontWeight: 700, color: "#f7b32b",
-                          fontFamily: "'JetBrains Mono', monospace", marginTop: 2,
-                        }}>{(seat.priceNum || 0).toFixed(0)} FLIP</div>
+                          position: "absolute", bottom: 1, left: 2,
+                          fontSize: 7, color: "#475569", fontFamily: "'JetBrains Mono', monospace",
+                        }}>#{seat.id}</div>
                       </>
                     ) : (
-                      <>
-                        <div style={{ fontSize: 12, color: "#2a3040", fontWeight: 800 }}>#{seat.id}</div>
-                        <div style={{ fontSize: 8, color: "#2a3040", marginTop: 2, fontFamily: "'JetBrains Mono', monospace" }}>MINT</div>
-                        <div style={{ fontSize: 7, color: "#1c2430", marginTop: 3, letterSpacing: 0.5, fontWeight: 600 }}>EMPTY</div>
-                      </>
+                      <div style={{ fontSize: 9, color: "#3d4756", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+                        {seat.id}
+                      </div>
                     )}
                   </div>
                 );
@@ -2088,12 +2075,16 @@ export default function FlipperRooms() {
     pendingResultRef.current = null;
     processingFlipRef.current = false;
 
-    setShowResult(true);
-    setResult(pending.won ? "win" : "lose");
-    setLastPayout(pending.payout);
-    setFlipHistory(prev => [{ won: pending.won }, ...prev].slice(0, 12));
+    // Defense: a `won: true` with zero payout is nonsense — treat as noop
+    // so we never show a phantom "Won 0 ETH!" toast.
+    const won = !!pending.won && parseFloat(pending.payout) > 0;
 
-    if (pending.won) {
+    setShowResult(true);
+    setResult(won ? "win" : "lose");
+    setLastPayout(pending.payout);
+    setFlipHistory(prev => [{ won }, ...prev].slice(0, 12));
+
+    if (won) {
       audio.playWin(); triggerWinConfetti();
       vibrate([30, 50, 30, 50, 30]);
       addToast("success", "Won " + pending.payout + " ETH!");
@@ -2255,7 +2246,10 @@ export default function FlipperRooms() {
           processedFlipsRef.current = new Set([...processedFlipsRef.current].slice(-20));
         }
 
-        const won = winner.toLowerCase() === myAddr;
+        const winnerLC = winner.toLowerCase();
+        const loserLC = loser.toLowerCase();
+        // Explicit XOR — refuse to show a win unless we're the winner AND not the loser.
+        const won = winnerLC === myAddr && loserLC !== myAddr;
         const opponent = won ? loser : winner;
 
         // Clear room state + cancel fallback timeout
@@ -2353,21 +2347,30 @@ export default function FlipperRooms() {
   //  UNIFIED FLIP EXECUTION
   // ═══════════════════════════════════════
 
-  // Parse FlipResolved + JackpotWon from a receipt
+  // Parse FlipResolved + JackpotWon from a receipt.
+  // Only accepts a FlipResolved where the current user is a participant
+  // (winner OR loser) — guards against stale receipts or unrelated logs
+  // leaking the previous flip's result into the next one.
   const parseFlipResult = (receipt) => {
     let result = null;
     let jackpot = null;
+    const myAddr = address?.toLowerCase();
     for (const log of receipt.logs) {
       try {
         const parsed = contract.interface.parseLog({ topics: log.topics, data: log.data });
         if (parsed?.name === "FlipResolved") {
+          const winnerAddr = String(parsed.args.winner || "").toLowerCase();
+          const loserAddr = String(parsed.args.loser || "").toLowerCase();
+          const iAmWinner = !!myAddr && winnerAddr === myAddr;
+          const iAmLoser  = !!myAddr && loserAddr  === myAddr;
+          if (!iAmWinner && !iAmLoser) continue; // not my flip — ignore log
           const challengeId = Number(parsed.args[0]);
           processedFlipsRef.current.add(challengeId);
           if (processedFlipsRef.current.size > 50) {
             processedFlipsRef.current = new Set([...processedFlipsRef.current].slice(-20));
           }
           result = {
-            won: parsed.args.winner?.toLowerCase() === address?.toLowerCase(),
+            won: iAmWinner,
             payout: formatEther(parsed.args.payout),
             amount: formatEther(parsed.args.betAmount),
           };
@@ -2380,7 +2383,7 @@ export default function FlipperRooms() {
         }
       } catch {}
     }
-    if (jackpot && jackpot.winner?.toLowerCase() === address?.toLowerCase()) {
+    if (jackpot && jackpot.winner?.toLowerCase() === myAddr) {
       setJackpotWin(jackpot);
       audio.playJackpot(); triggerJackpotConfetti();
       vibrate([100, 50, 100, 50, 100, 50, 200]);
@@ -2391,6 +2394,7 @@ export default function FlipperRooms() {
   // Core: send a flip TX, show coin animation, display result
   const executeFlip = async (txPromise, opponent, betAmount, isPvP) => {
     processingFlipRef.current = true;
+    pendingResultRef.current = null; // clear any stale result from a previous flip
     setCurrentOpponent(opponent);
     setCurrentBet(betAmount);
     setShowCoinStage(true);
@@ -3442,7 +3446,7 @@ export default function FlipperRooms() {
                 }}>
                   <div style={{ fontSize: 14, color: "#f7b32b", fontWeight: 700, marginBottom: 8 }}>Ready to flip?</div>
                   <div style={{ fontSize: 12, color: "#8b94a3", marginBottom: 16 }}>No tricks. Just ETH, coinflip, and Base.</div>
-                  <button onClick={() => setView("coinflip")} style={{
+                  <button onClick={() => { setView("flip"); audio.playClick(); }} style={{
                     padding: "12px 32px", background: "linear-gradient(135deg, #f7b32b, #d4a020)",
                     border: "none", borderRadius: 8, color: "#07090d", fontSize: 13,
                     fontWeight: 800, cursor: "pointer", letterSpacing: 1,
