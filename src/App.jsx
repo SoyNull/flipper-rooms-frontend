@@ -1649,6 +1649,7 @@ export default function FlipperRooms() {
   const [roomCountdown, setRoomCountdown] = useState(0);
   const [showWalletMenu, setShowWalletMenu] = useState(false);
   const [matchFoundAnim, setMatchFoundAnim] = useState(false);
+  const matchFoundAnimRef = useRef(false);
   const [vsFlash, setVsFlash] = useState(null);
   const processingFlipRef = useRef(false);
   const processedFlipsRef = useRef(new Set());
@@ -1791,6 +1792,7 @@ export default function FlipperRooms() {
   const showCoinStageRef = useRef(showCoinStage);
   useEffect(() => { coinStateRef.current = coinState; }, [coinState]);
   useEffect(() => { showCoinStageRef.current = showCoinStage; }, [showCoinStage]);
+  useEffect(() => { matchFoundAnimRef.current = matchFoundAnim; }, [matchFoundAnim]);
 
   useEffect(() => {
     if (!contract || !address) return;
@@ -1815,7 +1817,7 @@ export default function FlipperRooms() {
 
         // If we're already processing a flip (coin stage visible or executeFlip active),
         // the receipt handler manages the result — skip to avoid duplicate sounds/alerts
-        if (showCoinStageRef.current || processingFlipRef.current) return;
+        if (processingFlipRef.current) return;
 
         // Mark this challengeId as processed
         processedFlipsRef.current.add(challengeId);
@@ -1824,17 +1826,15 @@ export default function FlipperRooms() {
           processedFlipsRef.current = new Set(arr.slice(-20));
         }
 
-        const wasWaitingForRoom = !!myRoomIdRef.current;
+        const won = winner.toLowerCase() === myAddr;
+        const opponent = won ? loser : winner;
 
-        // Clear auto-match timer if our room was accepted by someone
+        // Clear room state if we were waiting
         if (myRoomIdRef.current) {
           setMyRoomId(null);
           myRoomIdRef.current = null;
           setRoomCountdown(0);
         }
-
-        const won = winner.toLowerCase() === myAddr;
-        const opponent = won ? loser : winner;
 
         const showFlipAnim = () => {
           setCurrentOpponent(opponent);
@@ -1843,6 +1843,7 @@ export default function FlipperRooms() {
           setCoinState("spinning");
           setBorderState("spinning");
           spinStartRef.current = Date.now();
+          playFlipSound();
 
           setTimeout(() => {
             pendingResultRef.current = { won, payout: formatEther(payout), amount: formatEther(betAmount) };
@@ -1851,7 +1852,14 @@ export default function FlipperRooms() {
           }, 2500);
         };
 
-        if (wasWaitingForRoom) {
+        // If MATCH FOUND overlay is already showing (from polling), wait for it to finish
+        if (matchFoundAnimRef.current) {
+          setTimeout(() => {
+            setMatchFoundAnim(false);
+            showFlipAnim();
+          }, 2000);
+        } else if (!showCoinStageRef.current) {
+          // No overlay showing — show MATCH FOUND first, then flip
           setMatchFoundAnim(true);
           setTimeout(() => {
             setMatchFoundAnim(false);
@@ -1985,31 +1993,22 @@ export default function FlipperRooms() {
     const timer = setTimeout(() => {
       if (roomCountdown <= 1) {
         setRoomCountdown(0);
-        // Check if room is still open before auto-matching
         const roomId = myRoomIdRef.current;
         if (!roomId || !contract) return;
+
+        // Check if room is still open before auto-matching
         contract.getAllOpenChallenges().then(async (data) => {
           const stillOpen = data.ids.some(id => Number(id) === roomId);
           if (!stillOpen) {
-            // Verify with event query before declaring match found
-            try {
-              const block = await contract.runner.provider.getBlockNumber();
-              const events = await contract.queryFilter("FlipResolved", Math.max(0, block - 50), block);
-              for (const ev of events) {
-                if (Number(ev.args[0]) === roomId) {
-                  // Confirmed — room was accepted, event listener will handle animation
-                  setMyRoomId(null);
-                  myRoomIdRef.current = null;
-                  addToast("info", "Opponent found! Loading result...");
-                  return;
-                }
-              }
-            } catch {}
-            // No event found — room might still be open (stale RPC), auto-match
-            autoMatchRef.current(countdownBetRef.current);
-          } else {
-            autoMatchRef.current(countdownBetRef.current);
+            // Room was accepted while we waited — let event listener handle it
+            setMyRoomId(null);
+            myRoomIdRef.current = null;
+            setMatchFoundAnim(true);
+            setTimeout(() => setMatchFoundAnim(false), 2000);
+            return;
           }
+          // Room still open — auto-match vs treasury
+          autoMatchRef.current(countdownBetRef.current);
         }).catch(() => {
           // If check fails, try auto-match anyway
           autoMatchRef.current(countdownBetRef.current);
@@ -2035,53 +2034,30 @@ export default function FlipperRooms() {
           return;
         }
 
-        // Room not in open list — could be stale RPC data
+        // Room not in open list — likely accepted by opponent
         roomMissCountRef.current += 1;
         if (roomMissCountRef.current < 1) return;
 
-        // 3 consecutive misses — confirm with on-chain event query
         roomMissCountRef.current = 0;
-        const roomId = myRoomId;
 
-        const block = await contract.runner.provider.getBlockNumber();
-        const events = await contract.queryFilter("FlipResolved", Math.max(0, block - 50), block);
-        let foundEvent = null;
-        for (const ev of events) {
-          try {
-            const id = Number(ev.args[0]);
-            if (id === roomId) {
-              if (processedFlipsRef.current.has(id)) return;
-              processedFlipsRef.current.add(id);
-              foundEvent = { winner: ev.args[1], loser: ev.args[2], payout: ev.args[3], betAmount: ev.args[4] };
-              break;
-            }
-          } catch {}
-        }
-
-        if (!foundEvent) return; // No event found — false positive, keep waiting
-
-        // CONFIRMED: someone accepted the room
-        const won = foundEvent.winner.toLowerCase() === address.toLowerCase();
-        const opponent = won ? foundEvent.loser : foundEvent.winner;
-
+        // Room disappeared — show MATCH FOUND immediately
+        // The FlipResolved event listener will handle the actual result
         setMyRoomId(null);
         myRoomIdRef.current = null;
         setRoomCountdown(0);
 
         setMatchFoundAnim(true);
+
+        // Fallback: if FlipResolved event doesn't arrive within 5s, close overlay
         setTimeout(() => {
           setMatchFoundAnim(false);
-          setCurrentOpponent(opponent);
-          setCurrentBet(formatEther(foundEvent.betAmount));
-          setShowCoinStage(true);
-          setCoinState("spinning");
-          setBorderState("spinning");
-
           setTimeout(() => {
-            pendingResultRef.current = { won, payout: formatEther(foundEvent.payout), amount: formatEther(foundEvent.betAmount) };
-            setCoinState(won ? "win" : "lose");
-            setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
-          }, 1500);
+            if (!showCoinStageRef.current) {
+              addToast("info", "Match completed. Check your balance.");
+              refreshOpenRooms();
+              refreshBalance();
+            }
+          }, 3000);
         }, 2000);
       } catch {}
     };
