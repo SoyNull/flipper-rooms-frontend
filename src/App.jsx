@@ -96,6 +96,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 @keyframes roomPulse { 0%, 100% { border-color: #22c55e15; } 50% { border-color: #22c55e35; } }
 @keyframes liveDot { 0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--gold); } 50% { opacity: 0.4; box-shadow: 0 0 4px var(--gold); } }
 @keyframes cardTopGlow { 0%, 100% { box-shadow: 0 0 30px rgba(247,179,43,0.08); } 50% { box-shadow: 0 0 50px rgba(247,179,43,0.18); } }
+@keyframes feedSlide { from { transform: translateX(-20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
 /* ═══ COIN STAGE — DUEL LAYOUT ═══ */
 .coin-wrapper {
@@ -753,51 +754,46 @@ function GameAvatar({ address, size = 40 }) {
 function LiveFeedSidebar({ recentFlips, address }) {
   return (
     <div className="chat-sidebar sidebar-texture">
-      <div style={{ height: 2, background: "linear-gradient(90deg, transparent, #f7b32b15, transparent)" }} />
+      <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(247,179,43,0.15), transparent)" }} />
       <div style={{
-        padding: "14px 18px", borderBottom: "1px solid #151b25", background: "#0c1019",
+        padding: "14px 16px", borderBottom: "1px solid var(--border)",
         display: "flex", justifyContent: "space-between", alignItems: "center",
       }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>Live Feed</span>
-        {recentFlips.length > 0 && (
-          <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e60", animation: "blink 2s infinite" }} />
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 8px #22c55e", animation: "liveDot 1.5s ease infinite" }} />
+          <span style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>Live wins</span>
+        </div>
+        <span style={{ fontSize: 9, color: "var(--text-faint)" }}>{recentFlips.length} recent</span>
       </div>
-      <div className="chat-messages">
+      <div className="chat-messages" style={{ padding: "8px 10px" }}>
         {recentFlips.map((flip, i) => {
           const isMyWin = flip.winner?.toLowerCase() === address?.toLowerCase();
           const isMyLoss = flip.loser?.toLowerCase() === address?.toLowerCase();
+          const isTreasury = flip.loser?.toLowerCase() === CONTRACT_ADDRESS.toLowerCase() || flip.winner?.toLowerCase() === CONTRACT_ADDRESS.toLowerCase();
           return (
             <div key={flip.id + "-" + i} style={{
-              padding: "10px 18px", borderBottom: "1px solid #0e1219",
-              animation: flip.isNew ? "fadeIn 0.3s ease" : "none",
+              background: isMyWin ? "linear-gradient(90deg, rgba(247,179,43,0.08), transparent)" :
+                "linear-gradient(90deg, rgba(34,197,94,0.05), transparent)",
+              borderLeft: isMyWin ? "2px solid #f7b32b" : "2px solid rgba(34,197,94,0.4)",
+              padding: "8px 10px 8px 12px", borderRadius: "0 8px 8px 0",
+              marginBottom: 4, animation: flip.isNew ? "feedSlide 0.5s ease" : "none",
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{
-                  width: 22, height: 22, borderRadius: "50%", background: addrColor(flip.winner),
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 7, fontWeight: 800, color: "#fff",
-                }}>{flip.winner?.slice(2,4).toUpperCase()}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 11, color: "#e2e8f0" }}>
-                    <span style={{ fontWeight: 700, color: isMyWin ? "#f7b32b" : "#e2e8f0" }}>
-                      {isMyWin ? "You" : shortAddr(flip.winner)}
-                    </span>
-                    <span style={{ color: "#475569" }}> won </span>
-                    <span style={{ color: "#22c55e", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
-                      {parseFloat(flip.payout).toFixed(4)}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 9, color: "#374151" }}>
-                    vs {isMyLoss ? "You" : shortAddr(flip.loser)} {"\u00B7"} {parseFloat(flip.amount).toFixed(4)} ETH
-                  </div>
-                </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
+                <span style={{ fontSize: 11, color: isMyWin ? "#f7b32b" : "var(--text)", fontWeight: isMyWin ? 700 : 600 }}>
+                  {isMyWin ? "You" : shortAddr(flip.winner)}
+                </span>
+                <span style={{ fontSize: 13, color: "#22c55e", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+                  +{parseFloat(flip.payout).toFixed(4)}
+                </span>
+              </div>
+              <div style={{ fontSize: 9, color: "var(--text-faint)" }}>
+                vs {isMyLoss ? "You" : isTreasury ? "Treasury" : shortAddr(flip.loser)} {"\u00B7"} {parseFloat(flip.amount).toFixed(4)} ETH
               </div>
             </div>
           );
         })}
         {recentFlips.length === 0 && (
-          <div style={{ padding: 30, textAlign: "center", fontSize: 11, color: "#475569" }}>
+          <div style={{ padding: 30, textAlign: "center", fontSize: 11, color: "var(--text-faint)" }}>
             No flips yet. Be the first!
           </div>
         )}
@@ -810,108 +806,114 @@ function LiveFeedSidebar({ recentFlips, address }) {
 //  STATS SIDEBAR
 // ═══════════════════════════════════════
 function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, protocolStats, treasuryMax, contract, address, isAdmin, drawerOpen, onCloseDrawer }) {
-  const bal = sessionBalance || "0";
+  const jackpotPercent = protocolStats ? Math.min(100, (parseFloat(protocolStats.jackpot || 0) / 0.05) * 100) : 0;
 
   return (
     <div className={"stats-sidebar sidebar-texture" + (drawerOpen ? " drawer-open" : "")}>
-      <div style={{ height: 2, background: "linear-gradient(90deg, transparent, #f7b32b15, transparent)" }} />
-      {/* PROFILE CARD */}
-      {connected && (
-        <div style={{ padding: "16px", borderBottom: "1px solid #151b25", display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{
-            width: 44, height: 44, borderRadius: "50%", background: addrColor(address),
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 14, fontWeight: 800, color: "#fff", border: "2px solid #1c2430",
-          }}>{address?.slice(2,4).toUpperCase()}</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {shortAddr(address)}
-            </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
-              <span style={{ fontSize: 9, color: "#22c55e" }}>{playerStats?.wins || 0}W</span>
-              <span style={{ fontSize: 9, color: "#ef4444" }}>{playerStats?.losses || 0}L</span>
-              <span style={{ fontSize: 9, color: "#f7b32b" }}>
-                {playerStats?.wins && (playerStats.wins + playerStats.losses) > 0
-                  ? ((playerStats.wins / (playerStats.wins + playerStats.losses)) * 100).toFixed(0) + "%"
-                  : "0%"}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
+      <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(247,179,43,0.15), transparent)" }} />
+      <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
 
-      {/* BALANCE */}
-      <div style={{ padding: "16px", borderBottom: "1px solid #151b25" }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: 1.5, marginBottom: 6 }}>BALANCE</div>
-        <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "#f7b32b", letterSpacing: -1, textShadow: "0 0 20px #f7b32b15" }}>
-          {walletBalance || "0.00"}
-        </div>
-        <div style={{ fontSize: 11, color: "#475569" }}>ETH</div>
-      </div>
-
-      <div className="stats-section">
-        <div className="stats-label">Protocol Stats</div>
-        {!protocolStats ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {[1,2,3,4,5].map(i => (
-              <div key={i} style={{
-                height: 16, borderRadius: 4,
-                background: "#151a22",
-                animation: "pulse 1.5s ease infinite",
-                animationDelay: i * 0.1 + "s",
-              }}/>
-            ))}
+        {/* BALANCE CARD */}
+        <div style={{
+          background: "linear-gradient(135deg, rgba(247,179,43,0.08), rgba(247,179,43,0.02))",
+          border: "1px solid rgba(247,179,43,0.2)", borderRadius: 12, padding: 16,
+          position: "relative", overflow: "hidden",
+        }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(247,179,43,0.5), transparent)" }} />
+          <div style={{ fontSize: 9, color: "#d4a020", fontWeight: 700, letterSpacing: 2, marginBottom: 4 }}>YOUR BALANCE</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1, marginBottom: 4, textShadow: "0 0 20px rgba(247,179,43,0.3)" }}>
+            {walletBalance ? parseFloat(walletBalance).toFixed(4) : "0.0000"}
           </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {[
-              { l: "Total Bets", v: protocolStats.totalFlips.toLocaleString() },
-              { l: "🏦 Treasury", v: `${Number(protocolStats.treasury).toFixed(4)} \u039E` },
-              { l: "Max Bet", v: treasuryMax ? `${parseFloat(treasuryMax).toFixed(4)} \u039E` : "0.0000 \u039E" },
-              { l: "💰 Jackpot", v: `${Number(protocolStats.jackpot).toFixed(4)} \u039E` },
-              { l: "📊 Volume", v: `${Number(protocolStats.totalVolume).toFixed(3)} \u039E` },
-            ].map((r, i) => (
-              <div className="protocol-row" key={i}>
-                <span className="protocol-row-label">{r.l}</span>
-                <span className="protocol-row-val">{r.v}</span>
+          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+            {"\u2248"} ${(parseFloat(walletBalance || 0) * 2500).toFixed(2)} USD
+          </span>
+        </div>
+
+        {/* WINS / LOSSES */}
+        {connected && playerStats && (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div style={{ padding: 12, background: "linear-gradient(135deg, rgba(34,197,94,0.06), rgba(34,197,94,0.01))", border: "1px solid rgba(34,197,94,0.15)", borderRadius: 8 }}>
+                <div style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 600, letterSpacing: 1, marginBottom: 2 }}>WINS</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#22c55e", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>{playerStats.wins}</div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+              <div style={{ padding: 12, background: "linear-gradient(135deg, rgba(239,68,68,0.06), rgba(239,68,68,0.01))", border: "1px solid rgba(239,68,68,0.15)", borderRadius: 8 }}>
+                <div style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 600, letterSpacing: 1, marginBottom: 2 }}>LOSSES</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#ef4444", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>{playerStats.losses}</div>
+              </div>
+            </div>
 
-      {connected && playerStats && (
-        <div className="stats-section">
-          <div className="stats-label">Your Stats</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <div style={{ background: "#22c55e08", borderRadius: 10, padding: "14px 8px", textAlign: "center", border: "1px solid #22c55e15", boxShadow: "inset 0 0 20px #22c55e05" }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#22c55e", fontFamily: "'JetBrains Mono', monospace" }}>{playerStats.wins}</div>
-              <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Wins</div>
-            </div>
-            <div style={{ background: "#ef444408", borderRadius: 10, padding: "14px 8px", textAlign: "center", border: "1px solid #ef444415", boxShadow: "inset 0 0 20px #ef444405" }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#ef4444", fontFamily: "'JetBrains Mono', monospace" }}>{playerStats.losses}</div>
-              <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Losses</div>
-            </div>
-          </div>
-          {playerStats.streak > 0 && (
-            <div style={{
-              display: "flex", alignItems: "center", gap: 8,
-              marginTop: 12, padding: 12, borderLeft: "3px solid #f7b32b",
-              background: "#f7b32b05", borderRadius: "0 10px 10px 0",
-            }}>
-              <span style={{ fontSize: 18 }}>🔥</span>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#f7b32b" }}>
-                  {playerStats.streak} Win Streak
+            {/* WIN STREAK */}
+            {playerStats.streak > 0 && (
+              <div style={{ background: "linear-gradient(90deg, rgba(247,179,43,0.05), transparent)", borderLeft: "2px solid #f7b32b", padding: "10px 12px", borderRadius: "0 6px 6px 0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="#f7b32b"><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67z"/></svg>
+                  <span style={{ fontSize: 12, color: "#f7b32b", fontWeight: 700 }}>{playerStats.streak} win streak</span>
                 </div>
-                <div style={{ fontSize: 9, color: "#475569" }}>
-                  Best: {playerStats.bestStreak}
+                <div style={{ fontSize: 9, color: "var(--text-muted)" }}>Best: {playerStats.bestStreak}</div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* PROTOCOL STATS */}
+        <div>
+          <div style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 700, letterSpacing: 1.5, marginBottom: 10, paddingLeft: 4 }}>PROTOCOL</div>
+          {!protocolStats ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {[1,2,3].map(i => <div key={i} style={{ height: 40, borderRadius: 6, background: "rgba(255,255,255,0.02)", animation: "pulse 1.5s ease infinite", animationDelay: i * 0.1 + "s" }} />)}
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              {[
+                { l: "Treasury", v: `${Number(protocolStats.treasury).toFixed(4)}` },
+                { l: "Max bet", v: treasuryMax ? `${parseFloat(treasuryMax).toFixed(4)}` : "0.0000" },
+                { l: "Total bets", v: protocolStats.totalFlips.toLocaleString() },
+                { l: "Volume", v: `${Number(protocolStats.totalVolume).toFixed(3)}` },
+              ].map((r, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: i % 2 === 0 ? "rgba(255,255,255,0.015)" : "transparent", borderRadius: 6 }}>
+                  <span style={{ fontSize: 11, color: "var(--text-dim)" }}>{r.l}</span>
+                  <span style={{ fontSize: 13, color: "var(--text)", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>{r.v}</span>
+                </div>
+              ))}
+
+              {/* JACKPOT */}
+              <div style={{ display: "flex", flexDirection: "column", padding: 12, background: "linear-gradient(135deg, rgba(247,179,43,0.06), rgba(247,179,43,0.01))", border: "1px solid rgba(247,179,43,0.15)", borderRadius: 8, marginTop: 4 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="#f7b32b"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    <div>
+                      <div style={{ fontSize: 10, color: "#f7b32b", fontWeight: 700 }}>JACKPOT</div>
+                      <div style={{ fontSize: 8, color: "var(--text-muted)" }}>1% chance per flip</div>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 14, color: "#f7b32b", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace" }}>{Number(protocolStats.jackpot).toFixed(4)}</span>
+                </div>
+                <div style={{ height: 4, background: "rgba(0,0,0,0.3)", borderRadius: 2, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: jackpotPercent + "%", background: "linear-gradient(90deg, #f7b32b, #d4a020)", borderRadius: 2, boxShadow: "0 0 6px rgba(247,179,43,0.4)", transition: "width 0.5s ease" }} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                  <span style={{ fontSize: 8, color: "var(--text-faint)" }}>Pool growing</span>
+                  <span style={{ fontSize: 8, color: "var(--text-muted)", fontWeight: 600 }}>Target: 0.05 ETH</span>
                 </div>
               </div>
             </div>
           )}
         </div>
-      )}
+
+        {/* $FLIPPER TOKEN */}
+        <div style={{ padding: 12, background: "linear-gradient(135deg, rgba(34,197,94,0.04), rgba(34,197,94,0.01))", border: "1px solid rgba(34,197,94,0.12)", borderRadius: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="#22c55e"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>
+            <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 700, letterSpacing: 1 }}>$FLIPPER</span>
+          </div>
+          <div style={{ fontSize: 9, color: "var(--text-faint)", marginBottom: 8 }}>Trading fees fund the treasury</div>
+          <button onClick={() => window.open("https://flaunch.gg/base/coin/0xb28CdC10232e0E3bE033Fd2C01e01b4E514e06bB", "_blank")} style={{
+            width: "100%", padding: "8px 12px", background: "transparent", border: "1px solid rgba(34,197,94,0.3)",
+            borderRadius: 6, color: "#22c55e", fontSize: 10, fontWeight: 700, cursor: "pointer", letterSpacing: 0.5, fontFamily: "inherit",
+          }}>{"BUY $FLIPPER \u2192"}</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -2361,7 +2363,7 @@ export default function FlipperRooms() {
             </div>
 
             {/* Live counters */}
-            <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 14, alignItems: "center" }} className="header-stats">
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace" }}>
                   {stats?.totalFlips || 0}
