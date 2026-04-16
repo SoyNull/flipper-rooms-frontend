@@ -87,7 +87,10 @@ export async function getSeatInfo(seatsContract, seatId) {
 }
 
 export async function getUserProfile(seatsContract, address) {
-  const r = await seatsContract.getUserProfile(address);
+  const [r, cdRes] = await Promise.all([
+    seatsContract.getUserProfile(address),
+    seatsContract.getCooldownForUser(address).catch(() => null),
+  ]);
   return {
     xp: Number(r[0]),
     level: Number(r[1]),
@@ -96,6 +99,7 @@ export async function getUserProfile(seatsContract, address) {
     seatsOwned: Number(r[4]),
     totalEarned: r[5],
     yieldMultiplier: Number(r[6]),
+    priceCooldownSec: cdRes != null ? Number(cdRes) : null,
   };
 }
 

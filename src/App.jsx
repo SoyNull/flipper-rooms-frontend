@@ -18,6 +18,7 @@ import {
 import {
   COINFLIP_ADDRESS, SEATS_ADDRESS, MOCK_FLIPPER_ADDRESS,
   TIERS, CHAIN_ID, CHAIN_ID_HEX, TOTAL_SEATS,
+  LEVEL_NAMES, LEVEL_COLORS,
 } from "./config.js";
 import { parseEther, parseUnits, formatEther, formatUnits } from "ethers";
 import { audio, vibrate } from "./audio.js";
@@ -704,13 +705,20 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 
 /* ═══ RESPONSIVE ═══ */
 .stats-drawer-toggle { display: none !important; }
+.chat-drawer-toggle  { display: none !important; }
 
 /* ═══ RESPONSIVE: TABLET ═══ */
 @media (max-width: 1100px) {
   .stats-drawer-toggle { display: flex !important; }
+  .chat-drawer-toggle  { display: flex !important; }
   .drawer-backdrop { display: block !important; }
   .app-root { grid-template-columns: 1fr; }
-  .chat-sidebar { display: none; }
+  .chat-sidebar {
+    position: fixed; top: 0; left: -300px; width: 300px;
+    height: 100vh; z-index: 200; transition: left 0.3s ease;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.4);
+  }
+  .chat-sidebar.drawer-open { left: 0; }
   .stats-sidebar {
     position: fixed; top: 0; right: -300px; width: 300px;
     height: 100vh; z-index: 200; transition: right 0.3s ease;
@@ -843,9 +851,9 @@ function GameAvatar({ address, size = 40 }) {
 // ═══════════════════════════════════════
 //  CHAT SIDEBAR
 // ═══════════════════════════════════════
-function LiveFeedSidebar({ recentFlips, address }) {
+function LiveFeedSidebar({ recentFlips, address, drawerOpen }) {
   return (
-    <div className="chat-sidebar sidebar-texture">
+    <div className={"chat-sidebar sidebar-texture" + (drawerOpen ? " drawer-open" : "")}>
       <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(247,179,43,0.15), transparent)" }} />
       <div style={{
         padding: "14px 16px", borderBottom: "1px solid var(--border)",
@@ -959,6 +967,55 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
             )}
           </>
         )}
+
+        {/* LEVEL / XP / YIELD / COOLDOWN — from FlipperSeats.getUserProfile */}
+        {connected && userProfile && (() => {
+          // Contract level thresholds (binary-searched on-chain):
+          // L1[0), L2[500), L3[2000), L4[5000), L5[15000), L6[50000).
+          const LEVEL_XP = [0, 500, 2000, 5000, 15000, 50000];
+          const lvl = Math.max(1, Math.min(6, userProfile.level || 1));
+          const name = LEVEL_NAMES[lvl - 1] || "Rookie";
+          const color = LEVEL_COLORS[lvl - 1] || "#6b7280";
+          const xp = userProfile.xp || 0;
+          const base = LEVEL_XP[lvl - 1];
+          const next = LEVEL_XP[lvl] || (xp + 1);
+          const pct = lvl >= 6 ? 100 : Math.min(100, Math.max(0, ((xp - base) / (next - base)) * 100));
+          const multX = (userProfile.yieldMultiplier || 100) / 100;
+          const cd = userProfile.priceCooldownSec;
+          const cdMin = cd != null ? Math.round(cd / 60) : null;
+          return (
+            <div style={{
+              padding: 12, borderRadius: 10,
+              background: `linear-gradient(135deg, ${color}22, ${color}08)`,
+              border: `1px solid ${color}55`,
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                  <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 13, fontWeight: 800, color }}>Lv.{lvl}</span>
+                  <span style={{ fontSize: 11, color: "var(--text)", fontWeight: 700 }}>{name}</span>
+                </div>
+                <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "'JetBrains Mono', monospace" }}>
+                  {lvl >= 6 ? `${xp.toLocaleString()} XP` : `${xp.toLocaleString()} / ${next.toLocaleString()}`}
+                </span>
+              </div>
+              <div style={{ height: 4, background: "rgba(0,0,0,0.3)", borderRadius: 2, overflow: "hidden", marginBottom: 8 }}>
+                <div style={{ height: "100%", width: pct + "%", background: `linear-gradient(90deg, ${color}, ${color}aa)`, boxShadow: `0 0 6px ${color}88`, transition: "width 0.5s ease" }} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10 }}>
+                <div>
+                  <div style={{ color: "var(--text-muted)", fontSize: 8, letterSpacing: 1, fontWeight: 700 }}>YIELD MULT</div>
+                  <div style={{ color: "#22c55e", fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>{multX.toFixed(2)}x</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ color: "var(--text-muted)", fontSize: 8, letterSpacing: 1, fontWeight: 700 }}>PRICE COOLDOWN</div>
+                  <div style={{ color: "#94a3b8", fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>
+                    {cdMin != null ? `${cdMin} min` : "—"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* PROTOCOL STATS */}
         <div>
@@ -1711,12 +1768,22 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   let initialPrice;
                   try { initialPrice = parseUnits(cleaned, 18); } catch { addToast("error", "Invalid price"); return; }
                   if (initialPrice <= 0n) { addToast("error", "Price must be > 0"); return; }
+                  // Live-check: our cached seats feed can be stale. Re-query
+                  // on-chain ownership right before sending; if it's owned,
+                  // surface that and refresh the board.
+                  try {
+                    const live = await getSeatInfo(seatsContract, selectedSeat.id);
+                    if (live.owner && live.owner.toLowerCase() !== ZERO_ADDRESS) {
+                      addToast("error", `Seat #${selectedSeat.id} just got taken — refreshing.`);
+                      seatHook.refreshSeats();
+                      setSelectedSeat(null);
+                      return;
+                    }
+                  } catch {}
                   addToast("pending", "Approving FLIPPER...");
                   try {
                     const weeklyTax = initialPrice * 500n / 10000n;
                     const deposit = weeklyTax * BigInt(mintDepositWeeks);
-                    // mintSeatFn reads calculateMintPrice() from-chain and approves
-                    // (mintPrice + deposit) sequentially before calling mintSeat.
                     await mintSeatFn(seatsContract, tokenContract, selectedSeat.id, initialPrice, seatBuyName, 0n, deposit);
                     addToast("success", `Minted Seat #${selectedSeat.id}!`);
                     setSelectedSeat(null); setSeatBuyName("");
@@ -2436,6 +2503,7 @@ export default function FlipperRooms() {
   const [roomCountdown, setRoomCountdown] = useState(0);
   const [showWalletMenu, setShowWalletMenu] = useState(false);
   const [showStatsDrawer, setShowStatsDrawer] = useState(false);
+  const [showChatDrawer, setShowChatDrawer] = useState(false);
   const [matchFoundAnim, setMatchFoundAnim] = useState(false);
   const [vsFlash, setVsFlash] = useState(null);
   const [jackpotWin, setJackpotWin] = useState(null);
@@ -3125,7 +3193,13 @@ export default function FlipperRooms() {
       <div className="app-root">
 
         {/* ═══ LEFT — CHAT ═══ */}
-        <LiveFeedSidebar recentFlips={recentFlips} address={address} />
+        {showChatDrawer && (
+          <div onClick={() => setShowChatDrawer(false)} style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+            zIndex: 199, display: "none",
+          }} className="drawer-backdrop" />
+        )}
+        <LiveFeedSidebar recentFlips={recentFlips} address={address} drawerOpen={showChatDrawer} />
 
         {/* ═══ CENTER — GAME ═══ */}
         <div className="game-center">
@@ -3191,6 +3265,16 @@ export default function FlipperRooms() {
                   {(() => { const h = new Date().getHours(); return (h >= 18 && h <= 23 ? 2400 : h >= 9 && h <= 17 ? 1500 : 600) + Math.floor(Math.random() * 200); })().toLocaleString()} ONLINE
                 </span>
               </div>
+              <button onClick={() => setShowChatDrawer(p => !p)} className="chat-drawer-toggle" title="Live activity"
+                style={{
+                  display: "none", alignItems: "center", justifyContent: "center",
+                  width: 36, height: 36, background: "rgba(255,255,255,0.05)",
+                  borderRadius: 6, border: "none", cursor: "pointer",
+                }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" strokeWidth="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+              </button>
               <button onClick={() => setShowStatsDrawer(p => !p)} className="stats-drawer-toggle" style={{
                 display: "none", alignItems: "center", justifyContent: "center",
                 width: 36, height: 36, background: "rgba(255,255,255,0.05)",

@@ -197,26 +197,28 @@ export function useSeats(seatsContract, readSeats, address) {
   const refreshSeats = useCallback(async () => {
     const c = seatsContract || readSeats;
     if (!c) return;
-    try {
-      const [allSeats, grad, pool] = await Promise.all([
-        getAllSeatsBasic(c),
-        getGraduationInfo(c),
-        c.yieldPoolETH(),
-      ]);
-      setSeats(allSeats);
-      setGraduation(grad);
-      setYieldPool(pool);
+    // Fetch each piece independently — if one errors (e.g. graduationStart
+    // reverts on some providers), it must not wipe out the others.
+    const [seatsRes, gradRes, poolRes] = await Promise.allSettled([
+      getAllSeatsBasic(c),
+      getGraduationInfo(c),
+      c.yieldPoolETH(),
+    ]);
+    if (seatsRes.status === "fulfilled") {
+      setSeats(seatsRes.value);
       if (address) {
-        const mine = allSeats.filter(
+        const mine = seatsRes.value.filter(
           s => s.active && s.owner.toLowerCase() === address.toLowerCase()
         ).map(s => s.id);
         setMySeats(mine);
       } else {
         setMySeats([]);
       }
-    } catch (err) {
-      console.warn("Seats fetch failed:", err.message);
+    } else {
+      console.warn("getAllSeatsBasic failed:", seatsRes.reason?.message);
     }
+    if (gradRes.status === "fulfilled") setGraduation(gradRes.value);
+    if (poolRes.status === "fulfilled") setYieldPool(poolRes.value);
     setLoading(false);
   }, [seatsContract, readSeats, address]);
 
