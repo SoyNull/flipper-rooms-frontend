@@ -1130,7 +1130,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
   const [recentActivity, setRecentActivity] = useState([]);
   const [selectedDuration, setSelectedDuration] = useState(672); // hours; 672 = 4w = contract min
   const [selectedMult, setSelectedMult] = useState(0); // index into [1.1x, 1.2x, 2x, 5x]
-  const [mintDepositWeeks, setMintDepositWeeks] = useState(4); // 4|8|12|26
+  const [mintDepositWeeks, setMintDepositWeeks] = useState(4); // 4|8|13|26 (labels: 4w/8w/3m/6m)
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [boardFilter, setBoardFilter] = useState("all");
   const [newPriceInput, setNewPriceInput] = useState("");
@@ -1658,10 +1658,10 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 <div className="modal-section-label">DEPOSIT DURATION</div>
                 <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
                   {[
-                    { l: "4w", w: 4, sub: "min" },
-                    { l: "8w", w: 8, sub: "" },
-                    { l: "12w", w: 12, sub: "" },
-                    { l: "26w", w: 26, sub: "6 mo" },
+                    { l: "4w", w: 4,  sub: "min" },
+                    { l: "8w", w: 8,  sub: "" },
+                    { l: "3m", w: 13, sub: "" },
+                    { l: "6m", w: 26, sub: "" },
                   ].map(opt => (
                     <button key={opt.w} type="button" onClick={() => setMintDepositWeeks(opt.w)} style={{
                       flex: 1, padding: "8px 4px", borderRadius: 6,
@@ -1692,7 +1692,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                     return [
                       { l: "Mint price",            v: (onChainMintPriceWei ? fmt(mintWei) : "loading…") + " FLIP", c: "#94a3b8" },
                       { l: "Weekly tax",            v: fmt(weeklyTaxWei) + " FLIP/wk" },
-                      { l: `Deposit (${mintDepositWeeks}w)`, v: fmt(depositWei) + " FLIP" },
+                      { l: `Deposit (${mintDepositWeeks === 13 ? "3m" : mintDepositWeeks === 26 ? "6m" : mintDepositWeeks + "w"})`, v: fmt(depositWei) + " FLIP" },
                       { l: "Total approve",         v: fmt(totalWei) + " FLIP", c: "#f7b32b", bold: true },
                     ];
                   })().map((r, i) => (
@@ -1878,7 +1878,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
 
                 <div className="modal-section-label">DEPOSIT DURATION (min 4w)</div>
                 <div className="duration-options">
-                  {[{l:"4w",h:672},{l:"8w",h:1344},{l:"12w",h:2016},{l:"26w",h:4368}].map(d => (
+                  {[{l:"4w",h:672},{l:"8w",h:1344},{l:"3m",h:2184},{l:"6m",h:4368}].map(d => (
                     <button key={d.h} className={`duration-btn ${selectedDuration === d.h ? "active" : ""}`}
                       onClick={() => setSelectedDuration(d.h)}>{d.l}</button>
                   ))}
@@ -1895,7 +1895,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                       <span className="cost-value">{parseFloat(formatUnits(buyoutCalc.newPrice, 18)).toFixed(2)} FLIP</span>
                     </div>
                     <div className="cost-row">
-                      <span className="cost-label">Tax deposit ({Math.round(selectedDuration / 168)}w)</span>
+                      <span className="cost-label">Tax deposit ({(() => { const w = Math.round(selectedDuration / 168); return w === 13 ? "3m" : w === 26 ? "6m" : w + "w"; })()})</span>
                       <span className="cost-value">{parseFloat(formatUnits(buyoutCalc.deposit, 18)).toFixed(2)} FLIP</span>
                     </div>
                     <div className="total-row">
@@ -1934,7 +1934,10 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
       {showBulkBuy && (() => {
         // BigInt math so the approve is correct regardless of locale/float.
         const emptyAll = seatHook.seats.filter(s => !s.active);
-        const maxQty = Math.max(1, emptyAll.length);
+        // If the seats feed hasn't populated yet, fall back to the batch
+        // ceiling (64) — pre-graduation virtually everything is empty.
+        const seatsLoaded = seatHook.seats.length > 0;
+        const maxQty = seatsLoaded ? Math.max(1, emptyAll.length) : 64;
         const qty = Math.min(Math.max(1, bulkCount), maxQty);
 
         const cleanedPrice = sanitizeNum(bulkListPrice);
@@ -2013,14 +2016,14 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 {/* Deposit duration */}
                 <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>DEPOSIT DURATION (min 4w)</div>
                 <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-                  {[4, 8, 12, 26].map(w => (
-                    <button key={w} onClick={() => setBulkDepositWeeks(w)} style={{
+                  {[{l:"4w",w:4},{l:"8w",w:8},{l:"3m",w:13},{l:"6m",w:26}].map(opt => (
+                    <button key={opt.w} onClick={() => setBulkDepositWeeks(opt.w)} style={{
                       flex: 1, padding: "6px 0", borderRadius: 6,
-                      border: "1px solid " + (bulkDepositWeeks === w ? "#f7b32b" : "#1c2430"),
-                      background: bulkDepositWeeks === w ? "#f7b32b12" : "#0b0e11",
-                      color: bulkDepositWeeks === w ? "#f7b32b" : "#94a3b8",
+                      border: "1px solid " + (bulkDepositWeeks === opt.w ? "#f7b32b" : "#1c2430"),
+                      background: bulkDepositWeeks === opt.w ? "#f7b32b12" : "#0b0e11",
+                      color: bulkDepositWeeks === opt.w ? "#f7b32b" : "#94a3b8",
                       fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-                    }}>{w}w</button>
+                    }}>{opt.l}</button>
                   ))}
                 </div>
               </>)}
@@ -2030,7 +2033,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   { l: "Seats",               v: String(qty) },
                   { l: "Mint price (chain)",  v: (onChainMintPriceWei ? fmt(mintWei) : "loading…") + " FLIP", c: "#94a3b8" },
                   { l: "List price / seat",   v: fmt(listedWei) + " FLIP" },
-                  { l: `Deposit / seat (${bulkDepositWeeks}w)`, v: fmt(depositPerWei) + " FLIP" },
+                  { l: `Deposit / seat (${bulkDepositWeeks === 13 ? "3m" : bulkDepositWeeks === 26 ? "6m" : bulkDepositWeeks + "w"})`, v: fmt(depositPerWei) + " FLIP" },
                   { l: "Approve / seat",      v: fmt(approvePerWei) + " FLIP", c: "#94a3b8" },
                   { l: "Total approve",       v: fmt(grandTotalWei) + " FLIP", c: "#f7b32b", bold: true },
                 ].map((r, i) => (
@@ -2082,9 +2085,19 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 </div>
               )}
 
-              <button disabled={bulkBuying || qty === 0 || emptyAll.length === 0 || listedWei <= 0n || !onChainMintPriceWei} onClick={async () => {
+              <button disabled={bulkBuying || qty === 0 || listedWei <= 0n || !onChainMintPriceWei} onClick={async () => {
                 if (!seatsContract || !tokenContract) { addToast("error", "Wallet not ready"); return; }
-                const toBuy = emptyAll.slice(0, qty);
+                // If the seats feed is empty (still loading), refresh + pull the
+                // live list before slicing, so we don't bail on a stale array.
+                let empties = emptyAll;
+                if (empties.length === 0) {
+                  try {
+                    await seatHook.refreshSeats();
+                    empties = (seatHook.seats || []).filter(s => !s.active);
+                  } catch {}
+                }
+                if (empties.length === 0) { addToast("error", "No empty seats to mint"); return; }
+                const toBuy = empties.slice(0, qty);
                 setBulkBuying(true);
                 setBulkProgress({ done: 0, total: toBuy.length, seatIds: toBuy.map(s => s.id) });
                 try {
@@ -2184,7 +2197,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
               {/* Duration — min 4w because contract requires MIN_DEPOSIT_WEEKS runway */}
               <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>DEPOSIT DURATION (min 4w)</div>
               <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-                {[{l:"4w",h:672},{l:"8w",h:1344},{l:"12w",h:2016},{l:"26w",h:4368}].map(d => (
+                {[{l:"4w",h:672},{l:"8w",h:1344},{l:"3m",h:2184},{l:"6m",h:4368}].map(d => (
                   <button key={d.h} onClick={() => setTakeOverDuration(d.h)} style={{
                     flex: 1, padding: "6px 0", borderRadius: 6,
                     border: "1px solid " + (takeOverDuration === d.h ? "#f7b32b" : "#1c2430"),
