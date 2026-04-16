@@ -682,10 +682,58 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 .seat-modal-input:focus { border-color: var(--gold); }
 
 /* ═══ RESPONSIVE ═══ */
+.stats-drawer-toggle { display: none !important; }
+
+/* ═══ RESPONSIVE: TABLET ═══ */
 @media (max-width: 1100px) {
+  .stats-drawer-toggle { display: flex !important; }
+  .drawer-backdrop { display: block !important; }
   .app-root { grid-template-columns: 1fr; }
   .chat-sidebar { display: none; }
-  .stats-sidebar { display: none; }
+  .stats-sidebar {
+    position: fixed; top: 0; right: -300px; width: 300px;
+    height: 100vh; z-index: 200; transition: right 0.3s ease;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.4);
+  }
+  .stats-sidebar.drawer-open { right: 0; }
+}
+
+/* ═══ RESPONSIVE: MOBILE ═══ */
+@media (max-width: 640px) {
+  .app-root { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+  .game-topbar { height: 48px; padding: 0 12px; gap: 6px; }
+  .logo-text { font-size: 14px !important; letter-spacing: 2px !important; }
+  .logo-badge { font-size: 7px; padding: 2px 5px; }
+  .nav { padding: 2px; gap: 2px; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+  .nav-btn { padding: 6px 12px; font-size: 11px; white-space: nowrap; flex-shrink: 0; min-height: 36px; }
+  .header-right { gap: 6px; }
+
+  .hero-section { padding: 20px 14px 16px; }
+  .hero-title-text { font-size: 36px !important; letter-spacing: 4px !important; }
+  .hero-sub { font-size: 12px; margin-bottom: 14px; }
+
+  .games-section { padding: 0 14px 14px; }
+
+  .coin-3d-container { width: 120px !important; height: 120px !important; }
+  .arena { padding: 12px 4px; min-height: 160px; }
+  .arena-player { width: 80px; }
+  .arena-avatar { width: 40px !important; height: 40px !important; font-size: 12px !important; }
+  .arena-name { font-size: 10px; }
+  .arena-bet { font-size: 10px; padding: 2px 6px; }
+  .vs-area { min-width: 120px; }
+  .prize-value { font-size: 11px; }
+
+  .board-container { flex-direction: column !important; }
+  .board-left { width: 100% !important; min-width: 0 !important; max-height: 200px; border-right: none !important; border-bottom: 1px solid var(--border); }
+  .board-grid-area { padding: 8px !important; }
+  .board-right { display: none !important; }
+
+  .seat-modal { width: calc(100vw - 24px) !important; max-height: 85vh; border-radius: 16px 16px 0 0 !important; }
+  .seat-modal-overlay { align-items: flex-end !important; padding: 0 !important; }
+
+  .join-btn, .cancel-btn { min-height: 44px; min-width: 44px; }
+  .modal-action-btn { min-height: 44px; }
+  .modal-buy-btn { min-height: 48px; }
 }
 `;
 
@@ -761,11 +809,11 @@ function LiveFeedSidebar({ recentFlips, address }) {
 // ═══════════════════════════════════════
 //  STATS SIDEBAR
 // ═══════════════════════════════════════
-function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, protocolStats, treasuryMax, contract, address, isAdmin }) {
+function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, protocolStats, treasuryMax, contract, address, isAdmin, drawerOpen, onCloseDrawer }) {
   const bal = sessionBalance || "0";
 
   return (
-    <div className="stats-sidebar sidebar-texture">
+    <div className={"stats-sidebar sidebar-texture" + (drawerOpen ? " drawer-open" : "")}>
       <div style={{ height: 2, background: "linear-gradient(90deg, transparent, #f7b32b15, transparent)" }} />
       {/* PROFILE CARD */}
       {connected && (
@@ -1731,6 +1779,7 @@ export default function FlipperRooms() {
   const myRoomIdRef = useRef(null);
   const [roomCountdown, setRoomCountdown] = useState(0);
   const [showWalletMenu, setShowWalletMenu] = useState(false);
+  const [showStatsDrawer, setShowStatsDrawer] = useState(false);
   const [matchFoundAnim, setMatchFoundAnim] = useState(false);
   const [vsFlash, setVsFlash] = useState(null);
   const [jackpotWin, setJackpotWin] = useState(null);
@@ -2336,6 +2385,15 @@ export default function FlipperRooms() {
             </div>
 
             <div className="header-right">
+              <button onClick={() => setShowStatsDrawer(p => !p)} className="stats-drawer-toggle" style={{
+                display: "none", alignItems: "center", justifyContent: "center",
+                width: 36, height: 36, background: "rgba(255,255,255,0.05)",
+                borderRadius: 6, border: "none", cursor: "pointer",
+              }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" strokeWidth="2">
+                  <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+              </button>
               {connected ? (
                 <div style={{ position: "relative" }} className="wallet-dropdown">
                   {isEmbedded && (
@@ -3025,6 +3083,12 @@ export default function FlipperRooms() {
         </div>
 
         {/* ═══ RIGHT — STATS ═══ */}
+        {showStatsDrawer && (
+          <div onClick={() => setShowStatsDrawer(false)} style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+            zIndex: 199, display: "none",
+          }} className="drawer-backdrop" />
+        )}
         <StatsSidebar
           sessionBalance={sessionBalance}
           walletBalance={walletBalance}
@@ -3035,6 +3099,8 @@ export default function FlipperRooms() {
           contract={contract}
           address={address}
           isAdmin={isAdmin}
+          drawerOpen={showStatsDrawer}
+          onCloseDrawer={() => setShowStatsDrawer(false)}
         />
       </div>
 
