@@ -513,7 +513,14 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 }
 
 /* Game lobby */
-.games-section { padding: 0 24px 24px; }
+.games-section {
+  padding: 0 24px 24px;
+  /* Match the 720px cap + auto margin of .hero-inner so CREATE ROOM,
+     OPEN ROOMS, and the horizontal divider stay visually anchored
+     under the centered COINFLIP title instead of spanning the whole
+     game-center width. */
+  max-width: 720px; margin: 0 auto;
+}
 .games-header {
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
 }
@@ -4602,7 +4609,7 @@ export default function FlipperRooms() {
                 </div>
 
                 {!showCoinStage && !myRoomId && (<>
-                <div style={{ height: 1, background: "linear-gradient(90deg, transparent, #f7b32b25, transparent)", margin: "0 24px" }} />
+                <div style={{ height: 1, background: "linear-gradient(90deg, transparent, #f7b32b25, transparent)", maxWidth: 720, margin: "0 auto" }} />
 
                 {/* ═══ CREATE ROOM ═══ */}
                 <div className="games-section" style={{ paddingTop: 20, animation: "slideUp 0.3s ease" }}>
