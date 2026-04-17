@@ -289,7 +289,14 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 
 /* ═══ 3-COLUMN LAYOUT ═══ */
 .app-root {
-  height: 100vh; width: 100vw; overflow: hidden;
+  /* 100vh fallback first, 100dvh wins on modern mobile browsers where
+     it correctly excludes the collapsing URL bar (Safari iOS & Chrome
+     Android). Without dvh the bottom of the UI gets cut under the
+     address bar on first paint. */
+  height: 100vh;
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
   display: grid;
   /* Symmetric sidebars so .game-center's midline coincides with the
      viewport midline — the coinflip hero and nav land in the true
@@ -783,27 +790,36 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   .app-root { grid-template-columns: 1fr; }
   .chat-sidebar {
     position: fixed; top: 0; left: -300px; width: 300px;
-    height: 100vh; z-index: 200; transition: left 0.3s ease;
+    height: 100vh; height: 100dvh; z-index: 200; transition: left 0.3s ease;
     box-shadow: 4px 0 20px rgba(0,0,0,0.4);
   }
   .chat-sidebar.drawer-open { left: 0; }
   .stats-sidebar {
     position: fixed; top: 0; right: -300px; width: 300px;
-    height: 100vh; z-index: 200; transition: right 0.3s ease;
+    height: 100vh; height: 100dvh; z-index: 200; transition: right 0.3s ease;
     box-shadow: -4px 0 20px rgba(0,0,0,0.4);
   }
   .stats-sidebar.drawer-open { right: 0; }
+  /* Keep a topbar that never overflows even on 768-1100px tablets. */
+  .game-topbar { padding: 0 14px; }
 }
 
 /* ═══ RESPONSIVE: MOBILE ═══ */
 @media (max-width: 640px) {
   .app-root { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
-  .game-topbar { height: 48px; padding: 0 12px; gap: 6px; }
+
+  /* Topbar: stats pills are noise on a 375px screen; drop them and let
+     the nav + wallet button have the full width. Nav scrolls horizontally
+     if it overflows (Admin tab pushes it over on small phones). */
+  .game-topbar { height: 48px; padding: 0 10px; gap: 6px; grid-template-columns: auto 1fr auto; }
+  .topbar-stats { display: none !important; }
   .logo-text { font-size: 14px !important; letter-spacing: 2px !important; }
   .logo-badge { font-size: 7px; padding: 2px 5px; }
-  .nav { padding: 2px; gap: 2px; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+  .nav { padding: 2px; gap: 2px; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  .nav::-webkit-scrollbar { display: none; }
   .nav-btn { padding: 6px 12px; font-size: 11px; white-space: nowrap; flex-shrink: 0; min-height: 36px; }
-  .header-right { gap: 6px; }
+  .header-right { gap: 4px; }
+  .connect-btn { padding: 7px 12px !important; font-size: 11px !important; letter-spacing: 0 !important; }
 
   .hero-section { padding: 20px 14px 16px; }
   .hero-title-text { font-size: 36px !important; letter-spacing: 4px !important; }
@@ -824,6 +840,9 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   .board-left { width: 100% !important; min-width: 0 !important; max-height: 200px; border-right: none !important; border-bottom: 1px solid var(--border); }
   .board-grid-area { padding: 8px !important; }
   .board-right { display: none !important; }
+  /* 16 columns don't fit on 375px — tiles become tiny & unreadable. Drop
+     to 8 so each tile is tappable and the ID/avatar stays legible. */
+  .seat-grid { grid-template-columns: repeat(8, 1fr) !important; }
 
   .seat-modal { width: calc(100vw - 24px) !important; max-height: 85vh; border-radius: 16px 16px 0 0 !important; }
   .seat-modal-overlay { align-items: flex-end !important; padding: 0 !important; }
@@ -831,6 +850,23 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   .join-btn, .cancel-btn { min-height: 44px; min-width: 44px; }
   .modal-action-btn { min-height: 44px; }
   .modal-buy-btn { min-height: 48px; }
+
+  /* Toasts full-width on mobile so the message isn't clipped. */
+  .toast-container { left: 8px; right: 8px; top: 8px; }
+  .toast { min-width: 0; width: 100%; font-size: 11px; padding: 10px 14px; }
+}
+
+/* ═══ RESPONSIVE: NARROW PHONES (<= 380px) ═══ */
+@media (max-width: 380px) {
+  .game-topbar { padding: 0 6px; gap: 4px; }
+  .logo { gap: 4px; }
+  .logo-text { font-size: 13px !important; letter-spacing: 1px !important; }
+  .logo-badge { display: none; }
+  .nav-btn { padding: 5px 10px; font-size: 10px; }
+  .hero-title-text { font-size: 30px !important; letter-spacing: 3px !important; }
+  .hero-section { padding: 16px 10px 12px; }
+  .coin-3d-container { width: 100px !important; height: 100px !important; }
+  .connect-btn { padding: 6px 10px !important; font-size: 10px !important; }
 }
 
 @keyframes tickerChipEnter {
@@ -4184,7 +4220,7 @@ export default function FlipperRooms() {
                   separate 4th grid child — that used to push the nav off
                   center. Nested inside .header-right they sit flush against
                   the right edge and the 3-column grid stays clean. */}
-              <div style={{ display: "flex", gap: 10, alignItems: "center", marginRight: 4 }}>
+              <div className="topbar-stats" style={{ display: "flex", gap: 10, alignItems: "center", marginRight: 4 }}>
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>
                     {stats?.totalFlips || 0}
