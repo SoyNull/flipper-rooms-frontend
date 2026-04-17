@@ -437,10 +437,10 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   background-image:
     repeating-linear-gradient(45deg,
       transparent 0px, transparent 26px,
-      rgba(247,179,43,0.20) 26px, rgba(247,179,43,0.20) 28px),
+      rgba(247,179,43,0.22) 26px, rgba(247,179,43,0.22) 28px),
     repeating-linear-gradient(-45deg,
       transparent 0px, transparent 26px,
-      rgba(247,179,43,0.20) 26px, rgba(247,179,43,0.20) 28px);
+      rgba(247,179,43,0.22) 26px, rgba(247,179,43,0.22) 28px);
   background-size: 56px 56px;
   filter: blur(0.8px);
   opacity: 1;
@@ -4140,13 +4140,33 @@ export default function FlipperRooms() {
               )}
             </div>
 
-            {/* FLIPS/VOL/ROOMS counters moved out of the topbar — they
-                duplicate the stats sidebar AND were being rendered as a
-                FOURTH grid child, which pushed the nav off its centered
-                column. Fewer numbers up top = less visual noise, nav
-                lands on the exact horizontal middle. */}
-
             <div className="header-right">
+              {/* FLIPS/VOL/ROOMS counters live here now instead of being a
+                  separate 4th grid child — that used to push the nav off
+                  center. Nested inside .header-right they sit flush against
+                  the right edge and the 3-column grid stays clean. */}
+              <div style={{ display: "flex", gap: 10, alignItems: "center", marginRight: 4 }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>
+                    {stats?.totalFlips || 0}
+                  </div>
+                  <div style={{ fontSize: 7, color: "#475569", letterSpacing: 1, fontWeight: 700, marginTop: 2 }}>FLIPS</div>
+                </div>
+                <div style={{ width: 1, height: 18, background: "#1c2430" }}/>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#e2e8f0", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>
+                    {stats ? parseFloat(stats.totalVolume).toFixed(2) : "0.00"}
+                  </div>
+                  <div style={{ fontSize: 7, color: "#475569", letterSpacing: 1, fontWeight: 700, marginTop: 2 }}>VOL</div>
+                </div>
+                <div style={{ width: 1, height: 18, background: "#1c2430" }}/>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#22c55e", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>
+                    {openRooms ? openRooms.length : "..."}
+                  </div>
+                  <div style={{ fontSize: 7, color: "#475569", letterSpacing: 1, fontWeight: 700, marginTop: 2 }}>ROOMS</div>
+                </div>
+              </div>
               {/* Quiet testnet indicator — dot + short label, no pill. */}
               <div className="header-stats" title="Base Sepolia testnet" style={{
                 display: "flex", alignItems: "center", gap: 6,
