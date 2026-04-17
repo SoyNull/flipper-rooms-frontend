@@ -3277,6 +3277,11 @@ export default function FlipperRooms() {
   const processedFlipsRef = useRef(new Set());
   const showCoinStageRef = useRef(false);
   const roomGoneDetectedRef = useRef(false);
+  // Flips true only once a poll has actually observed the freshly-created
+  // room in getAllOpenChallenges(). Without this, Alchemy's indexer lag
+  // can make the very first poll see stillOpen=false right after
+  // createChallengeDirect() and mis-fire MATCH FOUND on an empty room.
+  const roomConfirmedOpenRef = useRef(false);
   const fallbackTimeoutRef = useRef(null);
   const droneCleanupRef = useRef(null);
 
@@ -3587,6 +3592,7 @@ export default function FlipperRooms() {
   useEffect(() => {
     if (!myRoomId || !contract) return;
     roomGoneDetectedRef.current = false;
+    roomConfirmedOpenRef.current = false;
 
     const queryForMyFlip = async (challengeId) => {
       const provider = contract.runner?.provider;
@@ -3663,7 +3669,17 @@ export default function FlipperRooms() {
         // 1) Still open?
         const data = await contract.getAllOpenChallenges();
         const stillOpen = data.ids.some(id => Number(id) === myRoomIdRef.current);
-        if (stillOpen) return;
+        if (stillOpen) {
+          // First time the RPC confirms our room is listed — from now on
+          // a "disappeared" read is trustworthy.
+          roomConfirmedOpenRef.current = true;
+          return;
+        }
+
+        // Ignore "not open" until we've seen it open at least once.
+        // This is the key guard against Alchemy's post-create lag
+        // firing a false MATCH FOUND on an empty room.
+        if (!roomConfirmedOpenRef.current) return;
 
         // Room disappeared — someone accepted.
         if (!roomGoneDetectedRef.current) {
