@@ -68,5 +68,13 @@ export const LEVEL_COLORS = {
   5: "#f97316",
 };
 
-// Admin gate
+// Admin gate — wallets allowed to see the Admin tab (checked after
+// wallet connect). Addresses MUST be lowercased here; the UI lowercases
+// the connected address before comparing. ADMIN_PASSWORD is a soft
+// second factor (shipped in the bundle, not real security — the real
+// gate is this wallet list plus the onlyOwner modifier on-chain).
+export const ADMIN_WALLETS = [
+  "0x0f63639ed0dd89641add7c01699721be425027f8", // deployer / on-chain owner
+  "0xf15372efb7545f81c6f7a3eb8f183a54fbe7a4b6", // co-admin
+];
 export const ADMIN_PASSWORD = "flipper_admin_2026";

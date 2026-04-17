@@ -17,7 +17,7 @@ import {
   COINFLIP_ADDRESS, SEATS_ADDRESS,
   TIERS, CHAIN_ID, CHAIN_ID_HEX, TOTAL_SEATS,
   LEVEL_NAMES, LEVEL_COLORS,
-  PROFILES_API, ADMIN_PASSWORD, FLAUNCH_URL, TWITTER_URL, WEBSITE_URL,
+  PROFILES_API, ADMIN_PASSWORD, ADMIN_WALLETS, FLAUNCH_URL, TWITTER_URL, WEBSITE_URL,
 } from "./config.js";
 import { parseEther, parseUnits, formatEther, formatUnits } from "ethers";
 import { audio, vibrate } from "./audio.js";
@@ -3422,7 +3422,9 @@ export default function FlipperRooms() {
   });
   const [walletBalance, setWalletBalance] = useState("0.0000");
   const [showCoinStage, setShowCoinStage] = useState(false);
-  const OWNER = "0xE5678F8659d229a303ABecdD0D0113Cf1F4F83aE";
+  // OWNER was a single hardcoded Sepolia wallet; admin is now a multi-wallet
+  // allowlist loaded from config (ADMIN_WALLETS).
+
 
   // Data loading timeout
   const [dataLoaded, setDataLoaded] = useState(false);
@@ -3643,7 +3645,7 @@ export default function FlipperRooms() {
     return () => clearInterval(iv);
   }, [contract, address]);
 
-  const isAdmin = address?.toLowerCase() === OWNER.toLowerCase();
+  const isAdmin = !!address && ADMIN_WALLETS.includes(address.toLowerCase());
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [profileViewAddr, setProfileViewAddr] = useState(null);
 
