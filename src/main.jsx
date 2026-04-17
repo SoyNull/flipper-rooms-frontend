@@ -48,11 +48,6 @@ createRoot(document.getElementById('root')).render(
             showWalletUIs: false,
           },
           loginMethods: ['email', 'google', 'wallet'],
-          // WalletConnect v2 — required for mobile wallets (MetaMask app,
-          // Coinbase Wallet, Rainbow, Trust, etc.) to complete the
-          // handshake after the deep-link returns from the wallet app.
-          // Without this, mobile connect stalls at "Retry".
-          walletConnectCloudProjectId: 'dfdbf9dc8524e392d07a074f9375dff5',
         }}
       >
         <App />
