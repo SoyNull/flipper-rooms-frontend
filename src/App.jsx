@@ -3102,7 +3102,7 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
                   <span style={{ fontSize: 20 }}>🎰</span>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 800, color: "#e2e8f0", fontFamily: "'Orbitron', sans-serif" }}>
-                      FLIPPERROOMS
+                      FLIP N FLOP
                     </div>
                     <div style={{ fontSize: 10, color: "#94a3b8" }}>
                       {mySeats.length} seat{mySeats.length === 1 ? "" : "s"}
@@ -3194,9 +3194,21 @@ function HowItWorksModal({ onClose }) {
         display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ background: "#131820", border: "1px solid #1c2430", borderRadius: 16, maxWidth: 520, width: "100%",
         maxHeight: "85vh", overflowY: "auto", padding: 28 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-          <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 18, fontWeight: 800, color: "#f7b32b" }}>How it works</div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#475569", fontSize: 20, cursor: "pointer" }}>x</button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+          <div>
+            <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 22, fontWeight: 900, letterSpacing: 3, marginBottom: 4 }}>
+              <span style={{ color: "#f7b32b" }}>FLIP</span>
+              <span style={{ color: "#475569" }}>N</span>
+              <span style={{ color: "#f7b32b" }}>FLOP</span>
+            </div>
+            <div style={{ fontSize: 11, color: "#94a3b8", letterSpacing: 0.3 }}>
+              PvP coinflip on Base &middot; 256 revenue seats earn from every flip
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#475569", fontSize: 20, cursor: "pointer", lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ fontSize: 11, color: "#64748b", marginBottom: 20, letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>
+          How it works
         </div>
 
         {[
@@ -3242,7 +3254,7 @@ function HowItWorksModal({ onClose }) {
           background: "linear-gradient(135deg, #b8860b, #f7b32b)", color: "#0b0e11",
           fontSize: 14, fontWeight: 800, border: "none", cursor: "pointer",
           fontFamily: "'Chakra Petch', sans-serif",
-        }}>Got it</button>
+        }}>Let's flip</button>
       </div>
     </div>
   );
@@ -3282,7 +3294,12 @@ export default function FlipperRooms() {
   // V7 state
   const [customBet, setCustomBet] = useState("0.01");
   const [openRooms, setOpenRooms] = useState(null);
-  const [showHowItWorks, setShowHowItWorks] = useState(false);
+  // Auto-open on first visit so newcomers immediately understand the game.
+  // `flipnflop_seen_intro` is flipped once the modal is dismissed.
+  const [showHowItWorks, setShowHowItWorks] = useState(() => {
+    try { return !localStorage.getItem("flipnflop_seen_intro"); }
+    catch { return false; }
+  });
   const [walletBalance, setWalletBalance] = useState("0.0000");
   const [showCoinStage, setShowCoinStage] = useState(false);
   const OWNER = "0xE5678F8659d229a303ABecdD0D0113Cf1F4F83aE";
@@ -4074,7 +4091,7 @@ export default function FlipperRooms() {
           <FlipTicker recentFlips={recentFlips} />
           <div className="game-topbar">
             <div className="logo">
-              <span className="logo-text"><span className="logo-gold">FLIPPER</span><span className="logo-dim">ROOMS</span></span>
+              <span className="logo-text"><span className="logo-gold">FLIP</span><span className="logo-dim">N</span><span className="logo-gold">FLOP</span></span>
               <span className="logo-badge">BASE</span>
               <span className="logo-badge" style={{
                 background: "linear-gradient(135deg, #22c55e, #16a34a)",
@@ -4998,8 +5015,14 @@ export default function FlipperRooms() {
         </div>
       )}
 
-      {/* HOW IT WORKS MODAL */}
-      {showHowItWorks && <HowItWorksModal onClose={() => setShowHowItWorks(false)} />}
+      {/* HOW IT WORKS MODAL — flag the intro as seen once dismissed so
+          it only auto-opens for first-time visitors. */}
+      {showHowItWorks && (
+        <HowItWorksModal onClose={() => {
+          setShowHowItWorks(false);
+          try { localStorage.setItem("flipnflop_seen_intro", "1"); } catch {}
+        }} />
+      )}
 
       {/* MATCH FOUND OVERLAY */}
       {vsFlash && (

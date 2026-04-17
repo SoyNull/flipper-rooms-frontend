@@ -20,7 +20,7 @@ class ErrorBoundary extends Component {
     if (this.state.error) {
       return (
         <div style={{ padding: 40, color: '#ff3366', background: '#0a0a1a', minHeight: '100vh', fontFamily: 'monospace' }}>
-          <h1 style={{ color: '#fff', marginBottom: 16 }}>FlipperRooms crashed</h1>
+          <h1 style={{ color: '#fff', marginBottom: 16 }}>Flip N Flop crashed</h1>
           <pre style={{ whiteSpace: 'pre-wrap', fontSize: 13, color: '#ff6688' }}>{this.state.error.message}</pre>
           <pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, color: '#666', marginTop: 12 }}>{this.state.error.stack}</pre>
         </div>
