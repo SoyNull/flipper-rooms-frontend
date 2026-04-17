@@ -7,7 +7,19 @@
 // so consumers re-render.
 
 import { useEffect, useState } from "react";
-import { PROFILES_API } from "./config.js";
+import { PROFILES_API, COINFLIP_ADDRESS } from "./config.js";
+
+// Addresses that should ALWAYS resolve to a fixed label, no matter what
+// the off-chain profile server returns. Protects against Treasury
+// flipping to someone's nickname because a row used the contract
+// address directly.
+const KNOWN = new Map([
+  [COINFLIP_ADDRESS.toLowerCase(), { name: "Treasury", reserved: true }],
+]);
+
+export function isTreasuryAddr(addr) {
+  return !!addr && addr.toLowerCase() === COINFLIP_ADDRESS.toLowerCase();
+}
 
 const cache = new Map(); // lowercased addr -> { name, twitter, avatar }
 let version = 0;
@@ -51,9 +63,12 @@ export async function fetchAllProfiles(force = false) {
 
 // Merge a single profile into the cache after a POST /api/profiles so
 // the caller's name flips everywhere without waiting for the next poll.
+// Reserved addresses (Treasury, etc.) cannot be renamed from the UI.
 export function primeProfile(addr, profile) {
   if (!addr || !profile) return;
-  cache.set(addr.toLowerCase(), {
+  const key = addr.toLowerCase();
+  if (KNOWN.get(key)?.reserved) return;
+  cache.set(key, {
     name: profile.name || "",
     twitter: profile.twitter || "",
     avatar: profile.avatar || "",
@@ -64,10 +79,13 @@ export function primeProfile(addr, profile) {
 const shortAddr = (a) => (a ? `${a.slice(0, 6)}...${a.slice(-4)}` : "???");
 
 // Returns the profile name if set, otherwise the shortened address.
-// Never returns an empty string.
+// Reserved addresses (Treasury, etc.) always win over user-saved names.
 export function displayName(addr) {
   if (!addr) return "???";
-  const p = cache.get(addr.toLowerCase());
+  const key = addr.toLowerCase();
+  const known = KNOWN.get(key);
+  if (known?.reserved) return known.name;
+  const p = cache.get(key);
   if (p?.name) return p.name;
   return shortAddr(addr);
 }

@@ -23,7 +23,7 @@ import {
 } from "./config.js";
 import { parseEther, parseUnits, formatEther, formatUnits } from "ethers";
 import { audio, vibrate } from "./audio.js";
-import { useProfilesCache, displayName as displayNameFn, primeProfile } from "./profiles.js";
+import { useProfilesCache, displayName as displayNameFn, primeProfile, isTreasuryAddr } from "./profiles.js";
 import confetti from "canvas-confetti";
 
 // V7 used a single `CONTRACT_ADDRESS` for the house/treasury; in V8 that role is Coinflip's address.
@@ -958,7 +958,12 @@ function LiveFeedSidebar({ recentFlips, address, drawerOpen }) {
                 </span>
               </div>
               <div style={{ fontSize: 9, color: "var(--text-faint)" }}>
-                {subtitle}
+                {subtitle?.includes("Treasury") ? (
+                  <>
+                    vs{" "}
+                    <span style={{ color: "#f7b32b", fontWeight: 700 }}>Treasury</span>
+                  </>
+                ) : subtitle}
               </div>
             </div>
           );
@@ -2734,7 +2739,10 @@ function FlipTicker({ recentFlips }) {
         <span>{outcomeWin ? "+" : "−"}{fmtNum(outcomeWin ? payoutNum || amountNum : amountNum)} ETH</span>
         <span style={{ color: "#94a3b8" }}>{playerName}</span>
         {trInvolved && (
-          <span style={{ color: "#64748b", fontSize: 9 }}>vs Treasury</span>
+          <span style={{ fontSize: 9 }}>
+            <span style={{ color: "#64748b" }}>vs </span>
+            <span style={{ color: "#f7b32b", fontWeight: 700 }}>Treasury</span>
+          </span>
         )}
       </div>
     );
@@ -4346,21 +4354,29 @@ export default function FlipperRooms() {
                                 )}
                               </div>
 
-                              {/* Opponent — dynamic */}
-                              <div className={`arena-player ${p2Class}`}>
-                                <div className={`arena-avatar ${a2Class}`} style={{
-                                  background: currentOpponent
-                                    ? `linear-gradient(135deg, ${addrColor(currentOpponent)}, ${addrColor(currentOpponent)}88)`
-                                    : "linear-gradient(135deg, #b8860b, #f7b32b)",
-                                  borderColor: currentOpponent ? addrColor(currentOpponent) + "40" : "#f7b32b40",
-                                }}>
-                                  {currentOpponent ? currentOpponent.slice(2,4).toUpperCase() : "TR"}
-                                </div>
-                                <div className={`arena-name ${n2Class}`}>
-                                  {currentOpponent ? displayNameFn(currentOpponent) : "Treasury"}
-                                </div>
-                                <div className={`arena-bet ${b2Class}`}>{displayBet} ETH</div>
-                              </div>
+                              {/* Opponent — Treasury keeps the gold treatment
+                                  even when currentOpponent is set to the
+                                  coinflip contract address (host-side flows). */}
+                              {(() => {
+                                const oppIsTreasury = !currentOpponent || isTreasuryAddr(currentOpponent);
+                                const oppBg = oppIsTreasury
+                                  ? "linear-gradient(135deg, #b8860b, #f7b32b)"
+                                  : `linear-gradient(135deg, ${addrColor(currentOpponent)}, ${addrColor(currentOpponent)}88)`;
+                                const oppBorder = oppIsTreasury ? "#f7b32b40" : addrColor(currentOpponent) + "40";
+                                const oppInitials = oppIsTreasury ? "TR" : currentOpponent.slice(2, 4).toUpperCase();
+                                const oppName = oppIsTreasury ? "Treasury" : displayNameFn(currentOpponent);
+                                return (
+                                  <div className={`arena-player ${p2Class}`}>
+                                    <div className={`arena-avatar ${a2Class}`} style={{ background: oppBg, borderColor: oppBorder }}>
+                                      {oppInitials}
+                                    </div>
+                                    <div className={`arena-name ${n2Class}`} style={oppIsTreasury ? { color: "#f7b32b", fontWeight: 800 } : undefined}>
+                                      {oppName}
+                                    </div>
+                                    <div className={`arena-bet ${b2Class}`}>{displayBet} ETH</div>
+                                  </div>
+                                );
+                              })()}
                             </div>
 
                             {/* Result zone */}
