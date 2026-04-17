@@ -8,15 +8,14 @@ const Coin3D = lazy(() => import("./Coin3D.jsx"));
 import {
   getPlayerInfo, getTreasuryMaxBet, getSeatInfo, decodeError,
   mintSeat as mintSeatFn, buyOutSeat as buyOutSeatFn, takeOverMultiple as takeOverMultipleFn,
-  approveFlipperForSeats as approveFlipperFn, mintSeatNoApprove as mintSeatNoApproveFn,
+  approveFlipperForSeats as approveFlipperFn,
   addDeposit as addDepositFn, withdrawDeposit as withdrawDepositFn,
   claimRewards as claimRewardsFn, claimMultipleRewards as claimMultipleRewardsFn,
   updateSeatPrice as updateSeatPriceFn, abandonSeat as abandonSeatFn,
-  distributeYield as distributeYieldFn, claimMockFlipper as claimMockFlipperFn,
-  fmtTokens,
+  claimMockFlipper as claimMockFlipperFn,
 } from "./contract.js";
 import {
-  COINFLIP_ADDRESS, SEATS_ADDRESS, MOCK_FLIPPER_ADDRESS,
+  COINFLIP_ADDRESS, SEATS_ADDRESS,
   TIERS, CHAIN_ID, CHAIN_ID_HEX, TOTAL_SEATS,
   LEVEL_NAMES, LEVEL_COLORS,
   PROFILES_API, ADMIN_PASSWORD, FLAUNCH_URL, TWITTER_URL, WEBSITE_URL,
@@ -386,6 +385,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
   cursor: pointer; border-radius: 6px; transition: all 0.2s; position: relative;
 }
 .nav-btn:hover { color: var(--text-dim); }
+.nav-btn:active { transform: scale(0.97); }
 .nav-btn.active { background: linear-gradient(135deg, var(--gold), #c98c1d); color: #07090d; font-weight: 700; }
 .nav-btn.active::after { display: none; }
 .header-right { display: flex; align-items: center; gap: 10px; }
@@ -393,9 +393,19 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
   padding: 8px 20px; border: none; border-radius: 10px; font-size: 13px;
   font-weight: 800; font-family: 'Chakra Petch', sans-serif; cursor: pointer;
   background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: #07090d;
-  box-shadow: 0 4px 16px rgba(247,179,43,0.3); transition: all 0.2s; letter-spacing: 0.5px;
+  box-shadow: 0 4px 16px rgba(247,179,43,0.3);
+  transition: transform 0.12s ease, box-shadow 0.18s ease;
+  letter-spacing: 0.5px;
+  will-change: transform;
 }
 .connect-btn:hover { box-shadow: 0 6px 24px rgba(247,179,43,0.45); transform: translateY(-1px); }
+.connect-btn:active { transform: translateY(0) scale(0.97); box-shadow: 0 3px 10px rgba(247,179,43,0.25); }
+
+/* Tactile press for every <button>, on top of any existing styles.
+   Uses transform so it never reflows. */
+button { transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.18s ease; }
+button:not(:disabled):active { transform: scale(0.97); filter: brightness(1.08); }
+button:disabled { cursor: not-allowed; opacity: 0.55; }
 .addr-pill {
   padding: 6px 14px; background: var(--bg-card); border: 1px solid var(--border);
   border-radius: 8px; font-size: 12px; color: var(--text-dim); cursor: pointer;
@@ -659,8 +669,9 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 .holder-name { font-size: 11px; font-weight: 600; color: #c8d0da; flex: 1; }
 .holder-count { font-size: 11px; font-weight: 700; color: #f7b32b; font-family: 'JetBrains Mono', monospace; }
 .seat-grid { display: grid; grid-template-columns: repeat(16, 1fr); gap: 2px; }
-.seat-tile { aspect-ratio: 1; border-radius: 4px; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; transition: all 0.15s; border: 2px solid transparent; }
-.seat-tile:hover { transform: scale(1.15); z-index: 5; }
+.seat-tile { aspect-ratio: 1; border-radius: 4px; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; transition: transform 0.12s cubic-bezier(0.34, 1.3, 0.64, 1), border-color 0.15s ease, background 0.15s ease; border: 2px solid transparent; will-change: transform; }
+.seat-tile:hover { transform: scale(1.18); z-index: 5; }
+.seat-tile:active { transform: scale(1.05); }
 .seat-tile.tile-empty { background: #0d1118; border-color: #131820; }
 .seat-tile.tile-empty:hover { border-color: #1c2430; }
 .seat-tile.tile-owned { border-color: #1c2430; }
@@ -707,8 +718,9 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 .total-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; margin-bottom: 16px; }
 .total-label { font-size: 14px; font-weight: 700; color: #e2e8f0; }
 .total-value { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 700; color: #f7b32b; }
-.modal-buy-btn { width: 100%; padding: 14px; border-radius: 10px; border: none; background: linear-gradient(135deg, #b8860b, #f7b32b, #ffd700); color: #0b0e11; font-size: 15px; font-weight: 800; cursor: pointer; font-family: 'Chakra Petch', sans-serif; transition: all 0.2s; }
+.modal-buy-btn { width: 100%; padding: 14px; border-radius: 10px; border: none; background: linear-gradient(135deg, #b8860b, #f7b32b, #ffd700); color: #0b0e11; font-size: 15px; font-weight: 800; cursor: pointer; font-family: 'Chakra Petch', sans-serif; transition: transform 0.12s ease, box-shadow 0.18s ease; will-change: transform; }
 .modal-buy-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px #f7b32b30; }
+.modal-buy-btn:active:not(:disabled) { transform: translateY(0) scale(0.97); box-shadow: 0 2px 8px #f7b32b25; }
 .modal-buy-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .modal-cancel-btn { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #1c2430; background: transparent; color: #94a3b8; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; }
 .modal-cancel-btn:hover { background: #151a22; }
@@ -1257,7 +1269,6 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
   const [selectedSeat, setSelectedSeat] = useState(null);
   const [seatDetail, setSeatDetail] = useState(null);
   const [seatBuyName, setSeatBuyName] = useState("");
-  const [seatBuyDeposit, setSeatBuyDeposit] = useState("0.002");
   const [seatBuyPrice, setSeatBuyPrice] = useState("1000");
   const [recentActivity, setRecentActivity] = useState([]);
   // V8: deposit duration is measured in hours. Contract min is 1h.
@@ -3240,7 +3251,7 @@ function HowItWorksModal({ onClose }) {
 export default function FlipperRooms() {
   const wallet = useWallet();
   const {
-    connected, address, chainId, connect, disconnect, ready, isEmbedded,
+    connected, address, chainId, connect, disconnect, isEmbedded,
     seatsContract, coinflipContract, tokenContract,
     readSeats, readCoinflip, readToken, historyCoinflip,
   } = wallet;
@@ -3333,13 +3344,6 @@ export default function FlipperRooms() {
 
   const stopSpinAudio = useCallback(() => {
     if (droneCleanupRef.current) { droneCleanupRef.current(); droneCleanupRef.current = null; }
-  }, []);
-
-  const resetFlip = useCallback(() => {
-    setCoinState("idle");
-    setBorderState("idle");
-    setShowResult(false);
-    setResult(null);
   }, []);
 
   // Called by Coin3D when landing animation completes.
@@ -3607,9 +3611,9 @@ export default function FlipperRooms() {
               amount: formatEther(betAmount),
             };
             setCoinState(won ? "win" : "lose");
-            setTimeout(() => setBorderState(won ? "win" : "lose"), 500);
-          }, 2500);
-        }, 2000);
+            setTimeout(() => setBorderState(won ? "win" : "lose"), 400);
+          }, 1800);
+        }, 1000);
 
       } catch {}
     };
@@ -3706,9 +3710,9 @@ export default function FlipperRooms() {
             amount: formatEther(betAmount),
           };
           setCoinState(iAmWinner ? "win" : "lose");
-          setTimeout(() => setBorderState(iAmWinner ? "win" : "lose"), 500);
-        }, 2500);
-      }, 2000);
+          setTimeout(() => setBorderState(iAmWinner ? "win" : "lose"), 400);
+        }, 1800);
+      }, 1000);
     };
 
     const check = async () => {
@@ -3839,13 +3843,13 @@ export default function FlipperRooms() {
       // Wallet confirmed — VS flash for PvP
       setWaitingConfirm(false);
       if (opponent) {
-        // Phase 1: "Joining..." text (0.5s)
+        // Phase 1: "Joining..." (tightened 500 → 300ms)
         setVsFlash({ you: address, them: opponent, amount: betAmount, phase: "joining" });
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 300));
 
-        // Phase 2: "VS" display (1.5s)
+        // Phase 2: "VS" display (tightened 1500 → 900ms)
         setVsFlash({ you: address, them: opponent, amount: betAmount, phase: "vs" });
-        await new Promise(r => setTimeout(r, 1500));
+        await new Promise(r => setTimeout(r, 900));
 
         setVsFlash(null);
       }
