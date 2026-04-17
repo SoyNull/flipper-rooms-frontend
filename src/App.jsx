@@ -2725,7 +2725,7 @@ function AdminPanel({ contract, seatsContract, protocolStats, graduation, yieldP
     return () => clearInterval(iv);
   }, []);
 
-  const COOLDOWN = 24 * 60 * 60; // 24h
+  const COOLDOWN = 24 * 60 * 60; // 24h (UI-only, soft-gate against accidental double-withdraw)
   const untilNext = Math.max(0, lastWithdrawAt + COOLDOWN - nowSec);
   const countdownStr = (() => {
     const h = Math.floor(untilNext / 3600);
@@ -2733,6 +2733,54 @@ function AdminPanel({ contract, seatsContract, protocolStats, graduation, yieldP
     const s = untilNext % 60;
     return `${h}h ${m.toString().padStart(2, "0")}m ${s.toString().padStart(2, "0")}s`;
   })();
+
+  // Declared early so the withdrawTreasury amount helpers below can use it.
+  const protocolBal = protocolStats?.protocolBalance || "0";
+  const treasuryBal = protocolStats?.treasuryBalance || "0";
+  const jackpotBal  = protocolStats?.jackpotPool || "0";
+  const yieldPoolEth = yieldPoolWei ? parseFloat(formatEther(yieldPoolWei)) : 0;
+
+  // withdrawJackpot reverts with GameStillActive() until 2 full days pass
+  // with zero new flips. We read lastFlipTimestamp on-chain and use it to
+  // disable the button + show a live countdown. Without this the button
+  // looks fine but the tx always reverts.
+  const [lastFlipTs, setLastFlipTs] = useState(0);
+  useEffect(() => {
+    if (!contract) return;
+    const fetchTs = async () => {
+      try { setLastFlipTs(Number(await contract.lastFlipTimestamp())); } catch {}
+    };
+    fetchTs();
+    const iv = setInterval(fetchTs, 15000);
+    return () => clearInterval(iv);
+  }, [contract]);
+  const JACKPOT_DELAY = 2 * 24 * 60 * 60;
+  const jackpotUnlockAt = lastFlipTs + JACKPOT_DELAY;
+  const jackpotSecsLeft = Math.max(0, jackpotUnlockAt - nowSec);
+  const jackpotLocked = jackpotSecsLeft > 0;
+  const jackpotLockStr = (() => {
+    const h = Math.floor(jackpotSecsLeft / 3600);
+    const m = Math.floor((jackpotSecsLeft % 3600) / 60);
+    return `${h}h ${m.toString().padStart(2, "0")}m`;
+  })();
+
+  // withdrawTreasury needs an explicit uint256 _amount and the contract
+  // requires treasuryBalance > (treasuryBalance/2) + _amount, i.e. the
+  // caller must leave at least 50% of treasury behind. Compute the max
+  // safe amount (half treasury - 1 wei) and let the admin type a smaller
+  // number in the input if they want a partial withdraw.
+  const [treasuryAmtInput, setTreasuryAmtInput] = useState("");
+  const treasuryWei = (() => {
+    try { return parseEther(String(treasuryBal || "0")); } catch { return 0n; }
+  })();
+  const treasuryMaxSafeWei = treasuryWei > 1n ? (treasuryWei / 2n) - 1n : 0n;
+  const treasuryMaxSafeEth = formatEther(treasuryMaxSafeWei);
+  const treasuryAmtWei = (() => {
+    const s = (treasuryAmtInput || "").trim();
+    if (!s) return treasuryMaxSafeWei;
+    try { return parseEther(s); } catch { return 0n; }
+  })();
+  const treasuryAmtInvalid = treasuryAmtWei <= 0n || treasuryAmtWei > treasuryMaxSafeWei;
 
   const exec = async (label, fn, { gated = false } = {}) => {
     const run = async () => {
@@ -2772,11 +2820,6 @@ function AdminPanel({ contract, seatsContract, protocolStats, graduation, yieldP
     </div>
   );
 
-  const protocolBal = protocolStats?.protocolBalance || "0";
-  const treasuryBal = protocolStats?.treasuryBalance || "0";
-  const jackpotBal  = protocolStats?.jackpotPool || "0";
-  const yieldPoolEth = yieldPoolWei ? parseFloat(formatEther(yieldPoolWei)) : 0;
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* STATS GRID */}
@@ -2807,16 +2850,13 @@ function AdminPanel({ contract, seatsContract, protocolStats, graduation, yieldP
         <button disabled={loading !== ""} onClick={() => exec("Withdraw Protocol", () => contract.withdrawProtocol())} style={btnStyle("#f7b32b")}>
           Withdraw Protocol
         </button>
-        <button disabled={loading !== ""} onClick={() => exec("Withdraw Jackpot", () => contract.withdrawJackpot())} style={btnStyle("#3b82f6")}>
-          Withdraw Jackpot
+        <button disabled={loading !== "" || jackpotLocked}
+          onClick={() => exec("Withdraw Jackpot", () => contract.withdrawJackpot())}
+          style={btnStyle("#3b82f6")}>
+          {jackpotLocked ? `Jackpot locked · ${jackpotLockStr}` : "Withdraw Jackpot"}
         </button>
         <button disabled={loading !== ""} onClick={() => exec("Distribute Yield", () => seatsContract.distributeYield())} style={btnStyle("#f7b32b")}>
           Distribute Seat Yield
-        </button>
-        <button disabled={loading !== "" || untilNext > 0}
-          onClick={() => exec("Withdraw Treasury", () => contract.withdrawTreasury(), { gated: true })}
-          style={btnStyle("#ef4444")}>
-          {untilNext > 0 ? "Treasury locked" : "Withdraw Treasury"}
         </button>
         <button disabled={loading !== ""} onClick={() => exec("Pause", () => contract.pause())} style={btnStyle("#b3b3b3")}>
           Pause
@@ -2824,6 +2864,54 @@ function AdminPanel({ contract, seatsContract, protocolStats, graduation, yieldP
         <button disabled={loading !== ""} onClick={() => exec("Unpause", () => contract.unpause())} style={btnStyle("#b3b3b3")}>
           Unpause
         </button>
+      </div>
+
+      {/* TREASURY WITHDRAW — needs an explicit ETH amount. The contract
+          forbids dropping treasury below 50% of its current balance, so
+          the max safe amount is (treasuryBalance / 2) - 1 wei. Blank
+          input auto-uses the max. */}
+      <div style={{
+        padding: 12, background: "rgba(239,68,68,0.06)",
+        border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8,
+        display: "flex", flexDirection: "column", gap: 8,
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 10, color: "#ef4444", fontWeight: 700, letterSpacing: 0.5 }}>WITHDRAW TREASURY</span>
+          <span style={{ fontSize: 10, color: "#b3b3b3", fontFamily: "'JetBrains Mono', monospace" }}>
+            max safe: {parseFloat(treasuryMaxSafeEth).toFixed(6)} ETH
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input
+            type="text" inputMode="decimal"
+            value={treasuryAmtInput}
+            onChange={e => setTreasuryAmtInput(e.target.value)}
+            placeholder={parseFloat(treasuryMaxSafeEth).toFixed(6)}
+            style={{
+              flex: 1, padding: "10px 12px", background: "#0d0d0d",
+              border: `1px solid ${treasuryAmtInvalid ? "#ef444440" : "#242424"}`,
+              borderRadius: 8, color: "#e6e6e6", fontSize: 12,
+              fontFamily: "'JetBrains Mono', monospace", outline: "none",
+            }}
+          />
+          <button
+            disabled={loading !== "" || untilNext > 0 || treasuryAmtInvalid}
+            onClick={() => exec("Withdraw Treasury", () => contract.withdrawTreasury(treasuryAmtWei), { gated: true })}
+            style={{
+              ...btnStyle("#ef4444"),
+              marginBottom: 0, width: "auto", paddingLeft: 18, paddingRight: 18,
+              opacity: (loading || untilNext > 0 || treasuryAmtInvalid) ? 0.5 : 1,
+            }}>
+            {untilNext > 0 ? "Locked" : "Withdraw"}
+          </button>
+        </div>
+        <div style={{ fontSize: 9, color: "#b3b3b3" }}>
+          {untilNext > 0
+            ? `UI cooldown ${countdownStr}`
+            : treasuryAmtInvalid
+              ? `Amount must be > 0 and ≤ ${parseFloat(treasuryMaxSafeEth).toFixed(6)} ETH`
+              : `Will withdraw ${parseFloat(formatEther(treasuryAmtWei)).toFixed(6)} ETH (empty = max safe)`}
+        </div>
       </div>
 
       {/* CONFIRM MODAL */}
