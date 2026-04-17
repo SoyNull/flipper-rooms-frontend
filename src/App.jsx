@@ -292,7 +292,10 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 .app-root {
   height: 100vh; width: 100vw; overflow: hidden;
   display: grid;
-  grid-template-columns: 280px 1fr 300px;
+  /* Symmetric sidebars so .game-center's midline coincides with the
+     viewport midline — the coinflip hero and nav land in the true
+     visual center instead of ~10px to the left. */
+  grid-template-columns: 300px 1fr 300px;
   background: linear-gradient(180deg, #0b0b0b 0%, #0f0f0f 100%);
   position: relative;
 }
