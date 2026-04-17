@@ -1890,10 +1890,21 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                     await mintSeatFn(seatsContract, tokenContract, selectedSeat.id, initialPrice, seatBuyName, 0n, deposit);
                     dismissToast(pendingId);
                     addToast("success", `Minted Seat #${selectedSeat.id}!`);
+                    // Optimistic paint so the board flips ownership instantly,
+                    // even if Alchemy hasn't caught up yet. The scheduled
+                    // refreshes below reconcile with on-chain truth.
+                    seatHook.applyLocalSeats?.([{
+                      id: selectedSeat.id,
+                      owner: address,
+                      price: initialPrice,
+                      priceNum: parseFloat(formatUnits(initialPrice, 18)),
+                      deposit: deposit,
+                      depositNum: parseFloat(formatUnits(deposit, 18)),
+                      name: seatBuyName || "",
+                      active: true,
+                    }]);
                     setSelectedSeat(null); setSeatBuyName("");
                     seatHook.refreshSeats(); refreshTokenBalance?.();
-                    // RPC indexers lag by a block or two — re-query after 2s
-                    // so the board shows the freshly minted seat.
                     setTimeout(() => seatHook.refreshSeats(), 2000);
                   } catch (err) {
                     dismissToast(pendingId);
@@ -2105,6 +2116,15 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                     try {
                       await buyOutSeatFn(seatsContract, tokenContract, selectedSeat.id, buyoutCalc.newPrice, buyoutCalc.deposit);
                       addToast("success", `Bought Seat #${selectedSeat.id}!`);
+                      seatHook.applyLocalSeats?.([{
+                        id: selectedSeat.id,
+                        owner: address,
+                        price: buyoutCalc.newPrice,
+                        priceNum: parseFloat(formatUnits(buyoutCalc.newPrice, 18)),
+                        deposit: buyoutCalc.deposit,
+                        depositNum: parseFloat(formatUnits(buyoutCalc.deposit, 18)),
+                        active: true,
+                      }]);
                       setSelectedSeat(null); seatHook.refreshSeats();
                       refreshBalance(); refreshTokenBalance?.();
                       setTimeout(() => seatHook.refreshSeats(), 2000);
@@ -2342,6 +2362,18 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                       const tx = await seatsContract.batchMint(ids, listedWei, depositPerWei);
                       await tx.wait();
                       bought += wave.length;
+                      // Optimistic paint so the full batch flips ownership
+                      // instantly on the board while Alchemy catches up.
+                      seatHook.applyLocalSeats?.(ids.map(id => ({
+                        id,
+                        owner: address,
+                        price: listedWei,
+                        priceNum: parseFloat(formatUnits(listedWei, 18)),
+                        deposit: depositPerWei,
+                        depositNum: parseFloat(formatUnits(depositPerWei, 18)),
+                        name: "",
+                        active: true,
+                      })));
                     } catch (err) {
                       console.error("[batchMint]", err);
                       failedIds.push(...ids);
@@ -2486,6 +2518,15 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   const deposits = computed.map(c => c.deposit);
                   await takeOverMultipleFn(seatsContract, tokenContract, ids, prices, deposits, totalApprove);
                   addToast("success", `Took over ${selected.length} seats`);
+                  seatHook.applyLocalSeats?.(computed.map(c => ({
+                    id: c.id,
+                    owner: address,
+                    price: c.newPrice,
+                    priceNum: parseFloat(formatUnits(c.newPrice, 18)),
+                    deposit: c.deposit,
+                    depositNum: parseFloat(formatUnits(c.deposit, 18)),
+                    active: true,
+                  })));
                   seatHook.refreshSeats(); refreshTokenBalance?.();
                   setTimeout(() => seatHook.refreshSeats(), 2000);
                   setShowTakeOver(false);

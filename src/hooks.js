@@ -242,7 +242,39 @@ export function useSeats(seatsContract, readSeats, address) {
     return () => clearInterval(iv);
   }, [refreshSeats]);
 
-  return { seats, mySeats, loading, graduation, yieldPool, refreshSeats };
+  // Optimistic mutation. Most RPCs (especially Alchemy) lag by a block
+  // or two after tx.wait() so the first refresh often returns stale
+  // data. Callers hit this right after a successful tx so the board
+  // updates instantly; the background refresh reconciles if needed.
+  const applyLocalSeats = useCallback((updates) => {
+    if (!Array.isArray(updates) || updates.length === 0) return;
+    setSeats(prev => {
+      const byId = new Map(prev.map(s => [s.id, s]));
+      for (const u of updates) {
+        const existing = byId.get(u.id) || { id: u.id };
+        const merged = { ...existing, ...u };
+        // derive active from owner if not set explicitly
+        if (merged.owner && merged.owner !== "0x0000000000000000000000000000000000000000") {
+          merged.active = true;
+        }
+        byId.set(u.id, merged);
+      }
+      return [...byId.values()].sort((a, b) => a.id - b.id);
+    });
+    if (address) {
+      setMySeats(prev => {
+        const set = new Set(prev);
+        for (const u of updates) {
+          if ((u.owner || "").toLowerCase() === address.toLowerCase()) {
+            set.add(u.id);
+          }
+        }
+        return [...set];
+      });
+    }
+  }, [address]);
+
+  return { seats, mySeats, loading, graduation, yieldPool, refreshSeats, applyLocalSeats };
 }
 
 // ═══════════════════════════════════════
