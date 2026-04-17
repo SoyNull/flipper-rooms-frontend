@@ -2657,60 +2657,68 @@ function AdminPanel({ contract, seatsContract, protocolStats, graduation, yieldP
 }
 
 // ═══════════════════════════════════════
-//  F4: PERSISTENT FLIP TICKER
+//  F4: PERSISTENT FLIP TICKER (marquee)
 // ═══════════════════════════════════════
 function FlipTicker({ recentFlips }) {
   const treasuryLC = COINFLIP_ADDRESS.toLowerCase();
   const flips = recentFlips.filter(f => parseFloat(f.amount || 0) >= 0.0005).slice(0, 20);
   if (flips.length === 0) return null;
+
+  // Builds a single chip. `suffix` disambiguates keys when the same
+  // flip is rendered twice for the seamless marquee loop.
+  const renderChip = (f, i, suffix) => {
+    const winner = (f.winner || "").toLowerCase();
+    const loser  = (f.loser  || "").toLowerCase();
+    const isTrW = winner === treasuryLC;
+    const isTrL = loser  === treasuryLC;
+    const trInvolved = isTrW || isTrL;
+    const payoutNum = parseFloat(f.payout || 0);
+    const amountNum = parseFloat(f.amount || 0);
+    const playerAddr = trInvolved ? (isTrW ? f.loser : f.winner) : f.winner;
+    const playerName = shortAddr(playerAddr);
+    const outcomeWin = trInvolved ? isTrL : true;
+    const label = trInvolved ? (outcomeWin ? "WON" : "LOST") : "PVP";
+    const accent = outcomeWin ? "#22c55e" : "#ef4444";
+    return (
+      <div key={f.id + "-" + i + suffix} style={{
+        display: "inline-flex", alignItems: "center", gap: 6,
+        padding: "4px 10px", borderRadius: 12,
+        background: `${accent}14`,
+        border: `1px solid ${accent}33`,
+        fontSize: 10, color: accent, fontWeight: 700,
+        flexShrink: 0, whiteSpace: "nowrap",
+      }}>
+        <span>{label}</span>
+        <span>{outcomeWin ? "+" : "−"}{fmtNum(outcomeWin ? payoutNum || amountNum : amountNum)} ETH</span>
+        <span style={{ color: "#94a3b8" }}>{playerName}</span>
+        {trInvolved && (
+          <span style={{ color: "#64748b", fontSize: 9 }}>vs Treasury</span>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div style={{
       background: "linear-gradient(180deg, #07090d, #0b0e11)",
       borderBottom: "1px solid #1c2430",
       overflow: "hidden", position: "relative",
     }}>
+      {/* Edge fades so chips slide in/out smoothly. */}
+      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 40, background: "linear-gradient(90deg, #07090d, transparent)", zIndex: 2, pointerEvents: "none" }} />
+      <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 40, background: "linear-gradient(-90deg, #0b0e11, transparent)", zIndex: 2, pointerEvents: "none" }} />
+
+      {/* Seamless marquee: original list + duplicate, animated -50%.
+         Reuses the existing `scrollTicker` keyframe at the top of the
+         file so no global <style> changes are needed. */}
       <div style={{
-        display: "flex", gap: 14, padding: "6px 16px",
-        whiteSpace: "nowrap", overflowX: "auto",
+        display: "flex", gap: 14, padding: "6px 0",
         fontFamily: "'JetBrains Mono', monospace",
-        scrollbarWidth: "none", msOverflowStyle: "none",
+        width: "max-content",
+        animation: "scrollTicker 40s linear infinite",
       }}>
-        {flips.map((f, i) => {
-          const winner = (f.winner || "").toLowerCase();
-          const loser  = (f.loser  || "").toLowerCase();
-          const isTrW = winner === treasuryLC;
-          const isTrL = loser  === treasuryLC;
-          const trInvolved = isTrW || isTrL;
-          const payoutNum = parseFloat(f.payout || 0);
-          const amountNum = parseFloat(f.amount || 0);
-
-          // From the human player's perspective when Treasury is involved.
-          const playerAddr = trInvolved ? (isTrW ? f.loser : f.winner) : f.winner;
-          const playerName = shortAddr(playerAddr);
-          const outcomeWin = trInvolved ? isTrL : true; // PvP: color by winner side
-          const label = trInvolved
-            ? (outcomeWin ? "WON" : "LOST")
-            : "PVP";
-
-          const accent = outcomeWin ? "#22c55e" : "#ef4444";
-          return (
-            <div key={f.id + "-" + i} style={{
-              display: "inline-flex", alignItems: "center", gap: 6,
-              padding: "4px 10px", borderRadius: 12,
-              background: `${accent}14`,
-              border: `1px solid ${accent}33`,
-              fontSize: 10, color: accent, fontWeight: 700,
-              flexShrink: 0,
-            }}>
-              <span>{label}</span>
-              <span>{outcomeWin ? "+" : "−"}{fmtNum(outcomeWin ? payoutNum || amountNum : amountNum)} ETH</span>
-              <span style={{ color: "#94a3b8" }}>{playerName}</span>
-              {trInvolved && (
-                <span style={{ color: "#64748b", fontSize: 9 }}>vs Treasury</span>
-              )}
-            </div>
-          );
-        })}
+        {flips.map((f, i) => renderChip(f, i, "-a"))}
+        {flips.map((f, i) => renderChip(f, i, "-b"))}
       </div>
     </div>
   );
@@ -4147,55 +4155,9 @@ export default function FlipperRooms() {
             );
           })()}
 
-          {/* ═══ SCROLLING RESULTS TICKER ═══ */}
-          {recentFlips && recentFlips.length > 0 && (
-            <div style={{
-              height: 40, display: "flex", alignItems: "center",
-              borderBottom: "1px solid var(--border)",
-              background: "var(--bg-main)",
-              overflow: "hidden", flexShrink: 0, position: "relative",
-            }}>
-              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 40, background: "linear-gradient(90deg, var(--bg-main), transparent)", zIndex: 2 }} />
-              <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 40, background: "linear-gradient(-90deg, var(--bg-main), transparent)", zIndex: 2 }} />
-              <div style={{
-                display: "flex", gap: 8,
-                animation: recentFlips.length > 5 ? "scrollTicker 30s linear infinite" : "none",
-                paddingLeft: 50,
-              }}>
-                {[...recentFlips, ...recentFlips].slice(0, 40).map((h, i) => {
-                  const isWin = address && h.winner?.toLowerCase() === address.toLowerCase();
-                  const isLoss = address && h.loser?.toLowerCase() === address.toLowerCase();
-                  const color = isWin ? "#22c55e" : isLoss ? "#ef4444" : "#888";
-                  const label = isWin ? "W" : isLoss ? "L" : "\u2022";
-                  const mult = isWin ? "2x" : isLoss ? "0x" : "";
-                  return (
-                    <div key={i} style={{
-                      display: "inline-flex", alignItems: "center", gap: 6,
-                      padding: "4px 12px", borderRadius: 6,
-                      background: color + "08",
-                      border: "1px solid " + color + "25",
-                      color,
-                      whiteSpace: "nowrap", flexShrink: 0,
-                      fontFamily: "'JetBrains Mono', monospace",
-                      boxShadow: "0 0 8px " + color + "15",
-                    }}>
-                      <span style={{ fontSize: 10, fontWeight: 800, color, fontFamily: "'JetBrains Mono', monospace" }}>
-                        {label}
-                      </span>
-                      <span style={{ fontSize: 10, color: "var(--text-dim)", fontFamily: "'JetBrains Mono', monospace" }}>
-                        {h.amount} ETH
-                      </span>
-                      {mult && (
-                        <span style={{ fontSize: 10, fontWeight: 700, color, fontFamily: "'JetBrains Mono', monospace" }}>
-                          {mult}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {/* V8: old V7 scrolling ticker removed — <FlipTicker/> above
+             (inside game-center) is now the single source for the
+             persistent flip ticker. */}
 
           <div className="game-scroll">
            <div key={view} style={{ animation: "fadeIn 0.2s ease" }}>
