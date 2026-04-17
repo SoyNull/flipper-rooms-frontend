@@ -2,13 +2,8 @@
 
 export const SEATS_ADDRESS = "0x975d9CA950515e441B111ED1CE4c339736a8F1d3";
 export const COINFLIP_ADDRESS = "0xC8f1ddb8EEe9B24E9dAF9ee07B16fd691AB1e6Ca";
-// $FNF token — populate this with the real address once the token is
-// launched on Flaunch and `setFlipperToken` has been called on Seats.
-// Until then leave as "" so the UI gracefully gates:
-//   - token-dependent buttons (approve / mint with FNF) disable
-//   - Dexscreener price feed returns null → USD conversions show "—"
-//   - balance card shows "—" instead of a stale $0
-export const FNF_TOKEN_ADDRESS = "";
+// $FNF token — live on Flaunch (FlipNflop.fun, 18 decimals, 100B supply).
+export const FNF_TOKEN_ADDRESS = "0x5de125669c54d480f14E49f6cd6a505f6D05CdDB";
 
 export const CHAIN_ID = 8453;
 export const CHAIN_ID_HEX = "0x2105";
@@ -27,7 +22,7 @@ export const EXPLORER = "https://basescan.org";
 export const PROFILES_API = "https://api.aitrencher.xyz/flipper-profiles";
 
 // External links
-export const FLAUNCH_URL = "https://flaunch.gg"; // placeholder for $FNF token page
+export const FLAUNCH_URL = "https://flaunch.gg/base/coins/0x5de125669c54d480f14E49f6cd6a505f6D05CdDB";
 export const TWITTER_URL = "https://x.com/BasedJaider";
 export const WEBSITE_URL = "https://www.flipnflop.fun";
 
