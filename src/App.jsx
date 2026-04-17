@@ -429,23 +429,23 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   position: relative; padding: 36px 24px 24px; text-align: center;
 }
 .hero-section::before {
-  /* Tiled diamond pattern in the gold family using two overlapping
-     45-degree stripe grids. The crossing stripes form little diamond
-     outlines; a light blur diffuses the edges. Faint enough that the
-     coin/tiers stay the visual anchor. */
+  /* Tiled diamond pattern from two crossing 45° stripe grids. Their
+     intersections render as small diamond outlines in gold; a light
+     blur diffuses the edges so the effect feels like depth instead of
+     a flat grid. Opacity is high enough to actually be visible. */
   content: ''; position: absolute; inset: 0; pointer-events: none;
   background-image:
     repeating-linear-gradient(45deg,
-      transparent 0px, transparent 22px,
-      rgba(247,179,43,0.07) 22px, rgba(247,179,43,0.07) 24px),
+      transparent 0px, transparent 26px,
+      rgba(247,179,43,0.20) 26px, rgba(247,179,43,0.20) 28px),
     repeating-linear-gradient(-45deg,
-      transparent 0px, transparent 22px,
-      rgba(247,179,43,0.07) 22px, rgba(247,179,43,0.07) 24px);
-  background-size: 48px 48px;
-  filter: blur(0.6px);
-  opacity: 0.9;
-  mask-image: radial-gradient(ellipse at center, #000 0%, #000 55%, transparent 100%);
-  -webkit-mask-image: radial-gradient(ellipse at center, #000 0%, #000 55%, transparent 100%);
+      transparent 0px, transparent 26px,
+      rgba(247,179,43,0.20) 26px, rgba(247,179,43,0.20) 28px);
+  background-size: 56px 56px;
+  filter: blur(0.8px);
+  opacity: 1;
+  mask-image: radial-gradient(ellipse at center, #000 0%, rgba(0,0,0,0.85) 45%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 0%, rgba(0,0,0,0.85) 45%, transparent 100%);
 }
 .hero-section::after {
   content: ''; position: absolute; inset: 0;
@@ -4140,29 +4140,11 @@ export default function FlipperRooms() {
               )}
             </div>
 
-            {/* Live counters */}
-            <div style={{ display: "flex", gap: 14, alignItems: "center" }} className="header-stats">
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace" }}>
-                  {stats?.totalFlips || 0}
-                </div>
-                <div style={{ fontSize: 7, color: "#475569", letterSpacing: 1, fontWeight: 700 }}>FLIPS</div>
-              </div>
-              <div style={{ width: 1, height: 18, background: "#1c2430" }}/>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", fontFamily: "'JetBrains Mono', monospace" }}>
-                  {stats ? parseFloat(stats.totalVolume).toFixed(2) : "0.00"}
-                </div>
-                <div style={{ fontSize: 7, color: "#475569", letterSpacing: 1, fontWeight: 700 }}>VOL</div>
-              </div>
-              <div style={{ width: 1, height: 18, background: "#1c2430" }}/>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#22c55e", fontFamily: "'JetBrains Mono', monospace" }}>
-                  {openRooms ? openRooms.length : "..."}
-                </div>
-                <div style={{ fontSize: 7, color: "#475569", letterSpacing: 1, fontWeight: 700 }}>ROOMS</div>
-              </div>
-            </div>
+            {/* FLIPS/VOL/ROOMS counters moved out of the topbar — they
+                duplicate the stats sidebar AND were being rendered as a
+                FOURTH grid child, which pushed the nav off its centered
+                column. Fewer numbers up top = less visual noise, nav
+                lands on the exact horizontal middle. */}
 
             <div className="header-right">
               {/* Quiet testnet indicator — dot + short label, no pill. */}
