@@ -14,7 +14,7 @@ import {
   withdrawDeposit as withdrawDepositFn, distributeYield as distributeFn,
   parseFlipResolved, decodeError, EXPLORER,
 } from "./contract.js";
-import { RPC_URL, HISTORY_RPC_URL, SEATS_ADDRESS, CHAIN_ID } from "./config.js";
+import { RPC_URL, HISTORY_RPC_URL, SEATS_ADDRESS, CHAIN_ID, FNF_TOKEN_ADDRESS } from "./config.js";
 
 // ═══════════════════════════════════════
 //             TOAST SYSTEM
@@ -231,6 +231,57 @@ export function useEthUsdPrice() {
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => {
     const iv = setInterval(refresh, 60000);
+    return () => clearInterval(iv);
+  }, [refresh]);
+
+  return price;
+}
+
+// ═══════════════════════════════════════
+//            useFnfPrice
+// ═══════════════════════════════════════
+// Live $FNF price from Dexscreener. Gated on FNF_TOKEN_ADDRESS being
+// populated in config — until the token is launched on Flaunch and the
+// config is updated, this returns { usd: null, eth: null } and all
+// dependent USD displays show "—" instead of a fake price.
+//
+// Dexscreener aggregates across every pool on Base automatically; we
+// pick the highest-liquidity pair to avoid manipulation from a shallow
+// secondary pool.
+const DEXSCREENER_URL = "https://api.dexscreener.com/latest/dex/tokens/";
+
+export function useFnfPrice() {
+  const [price, setPrice] = useState({ usd: null, eth: null });
+
+  const refresh = useCallback(async () => {
+    if (!FNF_TOKEN_ADDRESS) return;
+    try {
+      const res = await fetch(`${DEXSCREENER_URL}${FNF_TOKEN_ADDRESS}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const pairs = (data?.pairs || []).filter(p => p.chainId === "base");
+      if (pairs.length === 0) return;
+      // Deepest pool wins — a 50k$ pool reports a more honest mid than
+      // a 200$ dust pool. Liquidity missing on brand-new pairs is fine;
+      // treat as 0 and they naturally sort to the bottom.
+      pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
+      const best = pairs[0];
+      const usd = parseFloat(best.priceUsd);
+      const eth = parseFloat(best.priceNative);
+      if (Number.isFinite(usd) && usd > 0) {
+        setPrice({
+          usd,
+          eth: Number.isFinite(eth) && eth > 0 ? eth : null,
+        });
+      }
+    } catch {
+      // Keep last known value
+    }
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    const iv = setInterval(refresh, 30000);
     return () => clearInterval(iv);
   }, [refresh]);
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from "react";
 import {
   useWallet, useFlip, useSeats, useProtocol, useToasts, addToast, dismissToast, EXPLORER,
-  useGlobalFeed, useTokenBalance, useUserProfile, useEthUsdPrice,
+  useGlobalFeed, useTokenBalance, useUserProfile, useEthUsdPrice, useFnfPrice,
 } from "./hooks.js";
 
 const Coin3D = lazy(() => import("./Coin3D.jsx"));
@@ -1100,7 +1100,7 @@ function LiveFeedSidebar({ recentFlips, address, drawerOpen }) {
 // ═══════════════════════════════════════
 //  STATS SIDEBAR
 // ═══════════════════════════════════════
-function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, protocolStats, treasuryMax, contract, address, isAdmin, drawerOpen, onCloseDrawer, tokenBalance, mySeats, seats, graduation, userProfile, seatsContract, refreshSeats, ethUsd }) {
+function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, protocolStats, treasuryMax, contract, address, isAdmin, drawerOpen, onCloseDrawer, tokenBalance, mySeats, seats, graduation, userProfile, seatsContract, refreshSeats, ethUsd, fnfPrice }) {
   const jackpotPercent = protocolStats ? Math.min(100, (parseFloat(protocolStats.jackpotPool || 0) / 0.05) * 100) : 0;
   const flipBal = tokenBalance ? parseFloat(formatUnits(tokenBalance, 18)) : 0;
   // Derive from `seats` as a fallback — if the hook's mySeats is ever
@@ -1258,22 +1258,27 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
           )}
         </div>
 
-        {/* $FLIPPER BALANCE — V8 */}
+        {/* $FNF BALANCE — V8 */}
         <div style={{ padding: 12, background: "linear-gradient(135deg, rgba(247,179,43,0.06), rgba(247,179,43,0.01))", border: "1px solid rgba(247,179,43,0.18)", borderRadius: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="#f7b32b"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>
-            <span style={{ fontSize: 10, color: "#f7b32b", fontWeight: 700, letterSpacing: 1 }}>$FLIPPER BALANCE</span>
+            <span style={{ fontSize: 10, color: "#f7b32b", fontWeight: 700, letterSpacing: 1 }}>$FNF BALANCE</span>
           </div>
           <div style={{ fontSize: 20, color: "#f7b32b", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginBottom: 4, lineHeight: 1 }}>
             {connected ? flipBal.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"}
           </div>
+          <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 2, fontFamily: "'JetBrains Mono', monospace" }}>
+            {connected && fnfPrice?.usd
+              ? `\u2248 $${(flipBal * fnfPrice.usd).toLocaleString(undefined, { maximumFractionDigits: 2 })} USD`
+              : "\u2248 — USD"}
+          </div>
           <div style={{ fontSize: 9, color: "var(--text-faint)", marginBottom: 8 }}>
             Used to mint & maintain seats
           </div>
-          <button onClick={() => window.open("https://flaunch.gg/base/coin/0xb28CdC10232e0E3bE033Fd2C01e01b4E514e06bB", "_blank")} style={{
+          <button onClick={() => window.open(FLAUNCH_URL, "_blank")} style={{
             width: "100%", padding: "8px 12px", background: "transparent", border: "1px solid rgba(247,179,43,0.3)",
             borderRadius: 6, color: "#f7b32b", fontSize: 10, fontWeight: 700, cursor: "pointer", letterSpacing: 0.5, fontFamily: "inherit",
-          }}>{"BUY $FLIPPER \u2192"}</button>
+          }}>{"BUY $FNF \u2192"}</button>
         </div>
 
         {/* YOUR SEATS — V8 */}
@@ -1372,7 +1377,7 @@ function sanitizeNum(raw) {
   return cleaned;
 }
 
-function BoardView({ seatHook, address, connected, seatsContract, tokenContract, readSeats, tokenBalance, refreshBalance, refreshTokenBalance, protocolStats }) {
+function BoardView({ seatHook, address, connected, seatsContract, tokenContract, readSeats, tokenBalance, refreshBalance, refreshTokenBalance, protocolStats, fnfPrice }) {
   // V7 compatibility alias — BoardView's seat calls all go to FlipperSeats in V8.
   const contract = seatsContract || readSeats;
   const [selectedSeat, setSelectedSeat] = useState(null);
@@ -1549,7 +1554,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
     });
   }, [seatHook.seats, boardFilter, isMineSeat]);
 
-  // Calculate buyout cost breakdown (V8: denominated in FLIPPER tokens, 18-decimal)
+  // Calculate buyout cost breakdown (V8: denominated in FNF tokens, 18-decimal)
   // Tenths — 1.1x minimum because the contract requires a strictly higher new price.
   const buyoutCalc = useMemo(() => {
     if (!selectedSeat || !selectedSeat.active || !selectedSeat.price) return null;
@@ -1873,8 +1878,15 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
             <div className="modal-top-cards">
               <div className="modal-top-card">
                 <div className="mtc-label">{selectedSeat.active ? "BUYOUT COST" : "MINT"}</div>
-                <div className="mtc-value" style={{ color: "#f7b32b" }}>{selectedSeat.active ? (selectedSeat.priceNum || 0).toFixed(2) : "~50K"}</div>
-                <div className="mtc-note">FLIPPER tokens</div>
+                <div className="mtc-value" style={{ color: "#f7b32b" }}>
+                  {selectedSeat.active ? (selectedSeat.priceNum || 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "~50M"}
+                </div>
+                <div className="mtc-note">FNF tokens</div>
+                <div className="mtc-note" style={{ color: fnfPrice?.usd ? "#f7b32b" : undefined }}>
+                  {fnfPrice?.usd
+                    ? `\u2248 $${((selectedSeat.active ? (selectedSeat.priceNum || 0) : 50_000_000) * fnfPrice.usd).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                    : "\u2248 — USD"}
+                </div>
               </div>
               <div className="modal-top-card">
                 <div className="mtc-label">YOU COULD EARN</div>
@@ -1910,9 +1922,9 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   const runwayDays = Math.floor(runway / 86400);
                   const runwayHours = Math.floor((runway % 86400) / 3600);
                   return [
-                    { l: "Price", v: `${parseFloat(seatDetail.price).toFixed(4)} FLIP`, c: "#f7b32b" },
-                    { l: "Deposit", v: `${effectiveDeposit.toFixed(4)} FLIP`, c: "#e6e6e6" },
-                    { l: "Pending Tax", v: `${tax.toFixed(4)} FLIP`, c: "#ef4444" },
+                    { l: "Price", v: `${parseFloat(seatDetail.price).toFixed(4)} FNF`, c: "#f7b32b" },
+                    { l: "Deposit", v: `${effectiveDeposit.toFixed(4)} FNF`, c: "#e6e6e6" },
+                    { l: "Pending Tax", v: `${tax.toFixed(4)} FNF`, c: "#ef4444" },
                     { l: "Claimable Rewards", v: `${parseFloat(seatDetail.rewards).toFixed(4)} ETH`, c: "#f7b32b" },
                     { l: "Total Earned", v: `${parseFloat(seatDetail.earned).toFixed(4)} ETH`, c: "#f7b32b" },
                     { l: "Time to Forfeit", v: runway > 0 ? `${runwayDays}d ${runwayHours}h` : "\u2014", c: runway > 0 && runway < 259200 ? "#ef4444" : "#b3b3b3" },
@@ -1930,7 +1942,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
             {!connected ? (
               <div style={{ textAlign: "center", fontSize: 12, color: "#b3b3b3" }}>Connect wallet to interact</div>
             ) : !selectedSeat.active ? (
-              /* MINT empty seat — V8 uses FLIPPER tokens (approve + mint) */
+              /* MINT empty seat — V8 uses FNF tokens (approve + mint) */
               <div>
                 <input className="seat-modal-input" placeholder="Seat name (optional)" maxLength={32}
                   value={seatBuyName} onChange={e => setSeatBuyName(e.target.value)} />
@@ -1939,7 +1951,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   placeholder="e.g. 1000" value={seatBuyPrice}
                   onChange={e => setSeatBuyPrice(e.target.value)} />
                 <div style={{ fontSize: 9, color: "#b3b3b3", marginTop: -6, marginBottom: 6 }}>
-                  Amount in whole FLIPPER tokens. Decimals allowed (dot or comma).
+                  Amount in whole FNF tokens. Decimals allowed (dot or comma).
                 </div>
 
                 <div className="modal-section-label">DEPOSIT DURATION (min 1h)</div>
@@ -1994,7 +2006,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   ))}
                 </div>
                 <div style={{ fontSize: 9, color: "#b3b3b3", marginBottom: 8, textAlign: "center" }}>
-                  Two transactions: approve FLIPPER → mint seat
+                  Two transactions: approve FNF → mint seat
                 </div>
                 <button className="modal-buy-btn" onClick={async () => {
                   if (!tokenContract || !seatsContract) { addToast("error", "Wallet not ready"); return; }
@@ -2014,7 +2026,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                       return;
                     }
                   } catch {}
-                  const pendingId = addToast("pending", "Approving FLIPPER…");
+                  const pendingId = addToast("pending", "Approving FNF…");
                   try {
                     const weeklyTax = initialPrice * 500n / 10000n;
                     const deposit = weeklyTax * BigInt(mintDepositHours) / 168n;
@@ -2026,7 +2038,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                       const bal = await tokenContract.balanceOf(address);
                       if (bal < needed) {
                         dismissToast(pendingId);
-                        addToast("error", `Need ${Number(formatUnits(needed, 18)).toLocaleString()} FLIPPER, have ${Number(formatUnits(bal, 18)).toLocaleString()}`);
+                        addToast("error", `Need ${Number(formatUnits(needed, 18)).toLocaleString()} FNF, have ${Number(formatUnits(bal, 18)).toLocaleString()}`);
                         return;
                       }
                     } catch {}
@@ -2084,7 +2096,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 </button>
                 <div style={{ fontSize: 9, color: "#b3b3b3", marginTop: -2, marginBottom: 4, textAlign: "center" }}>Rewards sent directly to your wallet</div>
 
-                {/* Top Up Deposit (V8: FLIPPER tokens, approve + addDeposit) */}
+                {/* Top Up Deposit (V8: FNF tokens, approve + addDeposit) */}
                 <div style={{ marginTop: 4 }}>
                   <div style={{ fontSize: 10, color: "#b3b3b3", marginBottom: 4 }}>Add deposit to extend seat life</div>
                   <div style={{ display: "flex", gap: 6 }}>
@@ -2119,7 +2131,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   </div>
                 </div>
 
-                {/* Withdraw Excess Deposit (V8: FLIPPER tokens) */}
+                {/* Withdraw Excess Deposit (V8: FNF tokens) */}
                 {seatDetail && parseFloat(seatDetail.deposit) > 0 && (
                   <button className="modal-action-btn" style={{
                     background: "#f7b32b08", border: "1px solid #f7b32b20", color: "#f7b32b", fontSize: 10, marginTop: 4,
@@ -2247,7 +2259,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
 
                 <div style={{ fontSize: 9, color: "#b3b3b3", margin: "4px 0 8px", textAlign: "center" }}>
                   {seatHook.graduation?.graduated
-                    ? "Two transactions: approve FLIPPER → buy out"
+                    ? "Two transactions: approve FNF → buy out"
                     : "Buyouts unlock after all 256 seats are minted."}
                 </div>
                 <button className="modal-buy-btn"
@@ -2471,14 +2483,14 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   try {
                     const bal = await tokenContract.balanceOf(address);
                     if (bal < grand) {
-                      addToast("error", `Need ${fmt(grand)} FLIPPER, only have ${fmt(bal)}`);
+                      addToast("error", `Need ${fmt(grand)} FNF, only have ${fmt(bal)}`);
                       setBulkBuying(false); return;
                     }
                   } catch {}
 
                   // V8 F6: one approve + one batchMint call. The contract
                   // handles all N seats atomically (all succeed or all fail).
-                  const approvePendingId = addToast("pending", `Approving ${fmt(withMargin)} FLIPPER for ${toBuy.length} seats…`);
+                  const approvePendingId = addToast("pending", `Approving ${fmt(withMargin)} FNF for ${toBuy.length} seats…`);
                   try {
                     await approveFlipperFn(tokenContract, withMargin);
                   } finally {
@@ -2686,7 +2698,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 {takeOverBusy ? "Taking over…" : `Take Over ${selected.length} Seat${selected.length === 1 ? "" : "s"}`}
               </button>
               <div style={{ fontSize: 9, color: "#b3b3b3", marginTop: 8, textAlign: "center" }}>
-                Two transactions: approve FLIPPER → takeOverMultiple
+                Two transactions: approve FNF → takeOverMultiple
               </div>
             </div>
           </div>
@@ -3385,6 +3397,7 @@ export default function FlipperRooms() {
   const tokenHook = useTokenBalance(tokenContract, readToken, address);
   const userProfile = useUserProfile(seatsContract, readSeats, address);
   const ethUsd = useEthUsdPrice();
+  const fnfPrice = useFnfPrice();
   const { toasts, remove: removeToastFn } = useToasts();
 
   const refreshBalance = useCallback(() => {
@@ -4847,6 +4860,7 @@ export default function FlipperRooms() {
                 refreshBalance={refreshBalance}
                 refreshTokenBalance={tokenHook.refreshBalance}
                 protocolStats={stats}
+                fnfPrice={fnfPrice}
               />
             )}
 
@@ -4999,6 +5013,7 @@ export default function FlipperRooms() {
           seatsContract={seatsContract}
           refreshSeats={seatHook.refreshSeats}
           ethUsd={ethUsd}
+          fnfPrice={fnfPrice}
         />
       </div>
 
@@ -5012,7 +5027,7 @@ export default function FlipperRooms() {
       }}>
         <a href={FLAUNCH_URL} target="_blank" rel="noreferrer"
           style={{ color: "#f7b32b", textDecoration: "none", fontWeight: 700 }}>
-          Buy $FLIPPER →
+          Buy $FNF →
         </a>
         <button onClick={() => setShowHowItWorks(true)}
           style={{ background: "none", border: "none", color: "#b3b3b3", cursor: "pointer", fontSize: 10, fontWeight: 600, padding: 0 }}>

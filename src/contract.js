@@ -2,7 +2,7 @@ import { Contract, formatEther, formatUnits } from "ethers";
 import { flipperSeatsAbi } from "./abis/flipperSeatsAbi.js";
 import { flipperCoinflipAbi } from "./abis/flipperCoinflipAbi.js";
 import { flipperTokenAbi } from "./abis/flipperTokenAbi.js";
-import { SEATS_ADDRESS, COINFLIP_ADDRESS, FLIPPER_TOKEN_ADDRESS, EXPLORER } from "./config.js";
+import { SEATS_ADDRESS, COINFLIP_ADDRESS, FNF_TOKEN_ADDRESS, EXPLORER } from "./config.js";
 
 // ═══════════════════════════════════════
 //          CONTRACT FACTORIES
@@ -16,10 +16,10 @@ export function getCoinflipContract(signerOrProvider) {
   return new Contract(COINFLIP_ADDRESS, flipperCoinflipAbi, signerOrProvider);
 }
 
-// Returns null until FLIPPER_TOKEN_ADDRESS is set (post-Flaunch launch
+// Returns null until FNF_TOKEN_ADDRESS is set (post-Flaunch launch
 // + `setFlipperToken` on Seats). All callers tolerate a null token.
 export function getTokenContract(signerOrProvider, addressOverride) {
-  const addr = addressOverride || FLIPPER_TOKEN_ADDRESS;
+  const addr = addressOverride || FNF_TOKEN_ADDRESS;
   if (!addr) return null;
   return new Contract(addr, flipperTokenAbi, signerOrProvider);
 }

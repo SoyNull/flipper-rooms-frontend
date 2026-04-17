@@ -2,9 +2,13 @@
 
 export const SEATS_ADDRESS = "0x975d9CA950515e441B111ED1CE4c339736a8F1d3";
 export const COINFLIP_ADDRESS = "0xC8f1ddb8EEe9B24E9dAF9ee07B16fd691AB1e6Ca";
-// $FNF token — populated after the Flaunch launch and `setFlipperToken`
-// on Seats. Leave as "" until then; token-dependent UI gates on this.
-export const FLIPPER_TOKEN_ADDRESS = "";
+// $FNF token — populate this with the real address once the token is
+// launched on Flaunch and `setFlipperToken` has been called on Seats.
+// Until then leave as "" so the UI gracefully gates:
+//   - token-dependent buttons (approve / mint with FNF) disable
+//   - Dexscreener price feed returns null → USD conversions show "—"
+//   - balance card shows "—" instead of a stale $0
+export const FNF_TOKEN_ADDRESS = "";
 
 export const CHAIN_ID = 8453;
 export const CHAIN_ID_HEX = "0x2105";
