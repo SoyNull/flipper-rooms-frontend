@@ -81,8 +81,8 @@ const CSS = `
   --gold-dark: #d4a020;
   --gold-deep: #a87a18;
 
-  --green: #22c55e;
-  --green-glow: rgba(34,197,94,0.3);
+  --win: #f7b32b;
+  --win-glow: rgba(247,179,43,0.3);
   --red: #ef4444;
   --red-glow: rgba(239,68,68,0.3);
 
@@ -126,7 +126,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.2); } }
 @keyframes scaleIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes roomPulse { 0%, 100% { border-color: #22c55e15; } 50% { border-color: #22c55e35; } }
+@keyframes roomPulse { 0%, 100% { border-color: #f7b32b15; } 50% { border-color: #f7b32b35; } }
 @keyframes liveDot { 0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--gold); } 50% { opacity: 0.4; box-shadow: 0 0 4px var(--gold); } }
 @keyframes cardTopGlow { 0%, 100% { box-shadow: 0 0 30px rgba(247,179,43,0.08); } 50% { box-shadow: 0 0 50px rgba(247,179,43,0.18); } }
 @keyframes feedSlide { from { transform: translateX(-20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -163,8 +163,8 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 
 @keyframes flashToGreen {
   0% { background: #f7b32b; opacity: 0.5; } 30% { background: #f7b32b; opacity: 0.03; }
-  50% { background: #22c55e; opacity: 0; } 70% { background: #22c55e; opacity: 0.45; }
-  100% { background: #22c55e; opacity: 0.12; }
+  50% { background: #f7b32b; opacity: 0; } 70% { background: #f7b32b; opacity: 0.45; }
+  100% { background: #f7b32b; opacity: 0.12; }
 }
 @keyframes flashToRed {
   0% { background: #f7b32b; opacity: 0.5; } 30% { background: #f7b32b; opacity: 0.03; }
@@ -186,7 +186,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
   background: radial-gradient(ellipse at 50% 45%, #f7b32b08 0%, transparent 50%);
 }
 .coin-wrapper.spinning .glow-bg { background: radial-gradient(ellipse at 50% 45%, #f7b32b1a 0%, transparent 55%); }
-.coin-wrapper.result-win .glow-bg { background: radial-gradient(ellipse at 50% 45%, #22c55e15 0%, transparent 55%); }
+.coin-wrapper.result-win .glow-bg { background: radial-gradient(ellipse at 50% 45%, #f7b32b15 0%, transparent 55%); }
 .coin-wrapper.result-lose .glow-bg { background: radial-gradient(ellipse at 50% 45%, #ef444412 0%, transparent 55%); }
 
 .connector-line {
@@ -199,7 +199,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
   animation: connPulse 0.8s ease infinite;
 }
 @keyframes connPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
-.coin-wrapper.result-win .connector-line { background: linear-gradient(90deg, transparent 5%, #22c55e18 25%, #22c55e18 75%, transparent 95%); }
+.coin-wrapper.result-win .connector-line { background: linear-gradient(90deg, transparent 5%, #f7b32b18 25%, #f7b32b18 75%, transparent 95%); }
 .coin-wrapper.result-lose .connector-line { background: linear-gradient(90deg, transparent 5%, #ef444415 25%, #ef444415 75%, transparent 95%); }
 
 .arena { display: flex; align-items: center; justify-content: space-between; padding: 20px 10px; position: relative; z-index: 2; min-height: 200px; }
@@ -215,13 +215,13 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 }
 .arena-avatar.avatar-you { background: linear-gradient(135deg, #2563eb, #3b82f6); border-color: #3b82f640; }
 .arena-avatar.avatar-opp { background: linear-gradient(135deg, #b8860b, #f7b32b); border-color: #f7b32b40; }
-.arena-avatar.avatar-win { border-color: #22c55e; box-shadow: 0 0 18px #22c55e30; }
+.arena-avatar.avatar-win { border-color: #f7b32b; box-shadow: 0 0 18px #f7b32b30; }
 .arena-avatar.avatar-lose { border-color: #ef4444; box-shadow: 0 0 12px #ef444420; opacity: 0.6; }
 .arena-avatar.avatar-bounce { animation: avatarBounce 1s ease infinite; }
 @keyframes avatarBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 
 .arena-name { font-size: 12px; font-weight: 700; color: #c8d0da; margin-top: 8px; transition: color 0.5s; }
-.arena-name.name-win { color: #22c55e; }
+.arena-name.name-win { color: #f7b32b; }
 .arena-name.name-lose { color: #94a3b8; opacity: 0.5; }
 
 .arena-bet {
@@ -230,7 +230,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
   font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: #f7b32b;
   transition: all 0.5s;
 }
-.arena-bet.bet-win { border-color: #22c55e30; color: #22c55e; background: #22c55e08; }
+.arena-bet.bet-win { border-color: #f7b32b30; color: #f7b32b; background: #f7b32b08; }
 .arena-bet.bet-lose { border-color: #ef444425; color: #ef4444; background: #ef444408; }
 
 .vs-area { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 160px; max-width: 240px; padding: 0 8px; }
@@ -242,18 +242,18 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 .prize-pool { margin-top: 10px; text-align: center; }
 .prize-label { font-size: 8px; color: #374151; letter-spacing: 2px; font-weight: 700; }
 .prize-value { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: #f7b32b; margin-top: 1px; transition: color 0.5s; }
-.prize-value.prize-win { color: #22c55e; }
+.prize-value.prize-win { color: #f7b32b; }
 .prize-value.prize-lose { color: #ef4444; }
 
 .result-zone { min-height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; z-index: 10; margin-top: 8px; }
 .result-text-new { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 900; letter-spacing: 5px; opacity: 0; transition: opacity 0.4s ease 0.5s; }
 .result-text-new.visible { opacity: 1; }
-.result-text-new.win-text { color: #22c55e; }
+.result-text-new.win-text { color: #f7b32b; }
 .result-text-new.lose-text { color: #ef4444; }
 
 .result-amount { font-family: 'JetBrains Mono', monospace; font-size: 12px; opacity: 0; transition: opacity 0.4s ease 0.8s; margin-top: 3px; }
 .result-amount.visible { opacity: 1; }
-.result-amount.win-amount { color: #22c55e90; }
+.result-amount.win-amount { color: #f7b32b90; }
 .result-amount.lose-amount { color: #ef444490; }
 
 .result-actions { display: flex; gap: 8px; margin-top: 10px; opacity: 0; transition: opacity 0.4s ease 1.2s; }
@@ -262,14 +262,14 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 .action-btn:hover { transform: translateY(-1px); }
 .action-btn.btn-rematch { background: linear-gradient(135deg, #b8860b, #f7b32b); color: #0b0e11; box-shadow: 0 0 15px #f7b32b25; }
 .action-btn.btn-rematch:hover { box-shadow: 0 0 25px #f7b32b40; }
-.action-btn.btn-double { background: transparent; border: 1px solid #22c55e50; color: #22c55e; }
-.action-btn.btn-double:hover { background: #22c55e10; box-shadow: 0 0 15px #22c55e20; }
+.action-btn.btn-double { background: transparent; border: 1px solid #f7b32b50; color: #f7b32b; }
+.action-btn.btn-double:hover { background: #f7b32b10; box-shadow: 0 0 15px #f7b32b20; }
 .action-btn.btn-change { background: transparent; border: 1px solid #1c2430; color: #94a3b8; }
 .action-btn.btn-change:hover { background: #151a22; }
 
 .streak-bar { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 10px; min-height: 20px; position: relative; z-index: 2; }
 .streak-dot { width: 18px; height: 18px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 800; font-family: 'JetBrains Mono', monospace; transition: all 0.3s; }
-.streak-dot.streak-win { background: #22c55e18; border: 1px solid #22c55e40; color: #22c55e; }
+.streak-dot.streak-win { background: #f7b32b18; border: 1px solid #f7b32b40; color: #f7b32b; }
 .streak-dot.streak-lose { background: #ef444418; border: 1px solid #ef444440; color: #ef4444; }
 .streak-dot.streak-new { animation: streakPop 0.3s ease; }
 @keyframes streakPop { 0% { transform: scale(0); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
@@ -318,7 +318,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 }
 .chat-header h2 { font-size: 14px; font-weight: 700; color: var(--text); }
 .online-badge { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
-.online-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px #22c55e60; animation: blink 2s infinite; }
+.online-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--win); box-shadow: 0 0 8px #f7b32b60; animation: blink 2s infinite; }
 
 .chat-messages { flex: 1; overflow-y: auto; padding: 0; display: flex; flex-direction: column; gap: 0; background: transparent; }
 .chat-msg { display: flex; align-items: flex-start; gap: 8px; padding: 10px 18px; border-bottom: 1px solid #0e1219; }
@@ -549,18 +549,18 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   display: inline-block; padding: 4px 12px; border-radius: 20px;
   font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
 }
-.status-open { background: #22c55e20; color: var(--green); border: 1px solid #22c55e30; }
+.status-open { background: #f7b32b20; color: var(--win); border: 1px solid #f7b32b30; }
 .status-searching { background: #f7b32b20; color: var(--gold); border: 1px solid #f7b32b40; animation: searchPulse 1.5s ease infinite; }
 .status-done { background: var(--bg-elevated); color: var(--text-muted); }
 
 .join-btn {
   padding: 8px 20px; border: none; border-radius: 8px;
-  background: linear-gradient(135deg, #16a34a, #22c55e);
+  background: linear-gradient(135deg, #c98c1d, #f7b32b);
   color: #fff; font-size: 12px; font-weight: 700; cursor: pointer;
   font-family: 'Chakra Petch', sans-serif; transition: all 0.2s;
-  box-shadow: 0 0 12px #22c55e25;
+  box-shadow: 0 0 12px #f7b32b25;
 }
-.join-btn:hover { box-shadow: 0 0 20px #22c55e50; transform: scale(1.05); }
+.join-btn:hover { box-shadow: 0 0 20px #f7b32b50; transform: scale(1.05); }
 .cancel-btn {
   padding: 8px 16px; border: 1px solid var(--red); border-radius: 8px;
   background: transparent; color: var(--red); font-size: 11px; font-weight: 600;
@@ -652,7 +652,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   animation: slideIn 0.3s ease; min-width: 250px; border: 1px solid; cursor: pointer;
   backdrop-filter: blur(8px);
 }
-.toast-success { background: #22c55e18; border-color: #22c55e30; color: var(--green); }
+.toast-success { background: #f7b32b18; border-color: #f7b32b30; color: var(--win); }
 .toast-error { background: #ef444418; border-color: #ef444430; color: var(--red); }
 .toast-pending { background: #f7b32b18; border-color: #f7b32b30; color: var(--gold); }
 .toast-info { background: #f7b32b18; border-color: #f7b32b30; color: var(--gold); }
@@ -907,23 +907,50 @@ function GameAvatar({ address, size = 40 }) {
 //  CHAT SIDEBAR
 // ═══════════════════════════════════════
 function LiveFeedSidebar({ recentFlips, address, drawerOpen }) {
-  // Hide sub-0.0005 ETH dust (wallet-test noise) while still showing
-  // the lowest live tier (0.001). Treasury-involved rows are formatted
-  // without leaking the contract address or a misleading "+amount"
-  // on the house side.
-  const visibleFlips = recentFlips.filter(f => parseFloat(f.amount || 0) >= 0.0005);
+  // Two filters: everyone's flips vs just mine. Dust under 0.0005 ETH
+  // is hidden in both views (wallet-test noise).
+  const [feedFilter, setFeedFilter] = useState("all"); // "all" | "mine"
+  const myAddrLC = (address || "").toLowerCase();
+  const base = recentFlips.filter(f => parseFloat(f.amount || 0) >= 0.0005);
+  const visibleFlips = feedFilter === "mine" && myAddrLC
+    ? base.filter(f => (f.winner || "").toLowerCase() === myAddrLC || (f.loser || "").toLowerCase() === myAddrLC)
+    : base;
   return (
     <div className={"chat-sidebar sidebar-texture" + (drawerOpen ? " drawer-open" : "")}>
       <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(247,179,43,0.15), transparent)" }} />
       <div style={{
-        padding: "14px 16px", borderBottom: "1px solid var(--border)",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
+        padding: "12px 14px 0", borderBottom: "1px solid var(--border)",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 8px #22c55e", animation: "liveDot 1.5s ease infinite" }} />
-          <span style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>Live activity</span>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f7b32b", boxShadow: "0 0 8px rgba(247,179,43,0.6)", animation: "liveDot 1.5s ease infinite" }} />
+            <span style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>Live activity</span>
+          </div>
+          <span style={{ fontSize: 9, color: "var(--text-faint)" }}>{visibleFlips.length}</span>
         </div>
-        <span style={{ fontSize: 9, color: "var(--text-faint)" }}>{visibleFlips.length} recent</span>
+        {/* Segmented filter — Everyone | You */}
+        <div style={{
+          display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4,
+          background: "rgba(255,255,255,0.03)", padding: 3, borderRadius: 8,
+          marginBottom: 12,
+        }}>
+          {[
+            { k: "all",  l: "Everyone" },
+            { k: "mine", l: "You" },
+          ].map(opt => {
+            const active = feedFilter === opt.k;
+            const disabled = opt.k === "mine" && !myAddrLC;
+            return (
+              <button key={opt.k} onClick={() => !disabled && setFeedFilter(opt.k)} disabled={disabled} style={{
+                padding: "6px 4px", borderRadius: 6, border: "none",
+                background: active ? "linear-gradient(135deg, #b8860b, #f7b32b)" : "transparent",
+                color: active ? "#0b0e11" : disabled ? "var(--text-faint)" : "var(--text-muted)",
+                fontSize: 10, fontWeight: 700, letterSpacing: 0.5, cursor: disabled ? "not-allowed" : "pointer",
+                fontFamily: "inherit",
+              }}>{opt.l}</button>
+            );
+          })}
+        </div>
       </div>
       <div className="chat-messages" style={{ padding: "8px 10px" }}>
         {visibleFlips.map((flip, i) => {
@@ -979,7 +1006,7 @@ function LiveFeedSidebar({ recentFlips, address, drawerOpen }) {
           const palette = {
             myWin:     { color: "#f7b32b", border: "#f7b32b",           bg: "linear-gradient(90deg, rgba(247,179,43,0.10), transparent)" },
             myLoss:    { color: "#ef4444", border: "#ef4444",           bg: "linear-gradient(90deg, rgba(239,68,68,0.08), transparent)"  },
-            otherWin:  { color: "#22c55e", border: "rgba(34,197,94,0.6)",  bg: "linear-gradient(90deg, rgba(34,197,94,0.06), transparent)"  },
+            otherWin:  { color: "#f7b32b", border: "rgba(247,179,43,0.6)",  bg: "linear-gradient(90deg, rgba(247,179,43,0.06), transparent)"  },
             otherLoss: { color: "#ef4444", border: "rgba(239,68,68,0.5)",  bg: "linear-gradient(90deg, rgba(239,68,68,0.05), transparent)"  },
             neutral:   { color: "var(--text)", border: "rgba(148,163,184,0.25)", bg: "linear-gradient(90deg, rgba(148,163,184,0.03), transparent)" },
           }[tone];
@@ -1011,7 +1038,9 @@ function LiveFeedSidebar({ recentFlips, address, drawerOpen }) {
         })}
         {visibleFlips.length === 0 && (
           <div style={{ padding: 30, textAlign: "center", fontSize: 11, color: "var(--text-faint)" }}>
-            No flips yet. Be the first!
+            {feedFilter === "mine"
+              ? "You haven't flipped yet."
+              : "No flips yet. Be the first!"}
           </div>
         )}
       </div>
@@ -1061,9 +1090,9 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
         {connected && playerStats && (
           <>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <div style={{ padding: 12, background: "linear-gradient(135deg, rgba(34,197,94,0.06), rgba(34,197,94,0.01))", border: "1px solid rgba(34,197,94,0.15)", borderRadius: 8 }}>
+              <div style={{ padding: 12, background: "linear-gradient(135deg, rgba(247,179,43,0.06), rgba(247,179,43,0.01))", border: "1px solid rgba(247,179,43,0.15)", borderRadius: 8 }}>
                 <div style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 600, letterSpacing: 1, marginBottom: 2 }}>WINS</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: "#22c55e", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}><AnimatedNumber value={playerStats.wins} decimals={0} duration={300} /></div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}><AnimatedNumber value={playerStats.wins} decimals={0} duration={300} /></div>
               </div>
               <div style={{ padding: 12, background: "linear-gradient(135deg, rgba(239,68,68,0.06), rgba(239,68,68,0.01))", border: "1px solid rgba(239,68,68,0.15)", borderRadius: 8 }}>
                 <div style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 600, letterSpacing: 1, marginBottom: 2 }}>LOSSES</div>
@@ -1120,7 +1149,7 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10 }}>
                 <div>
                   <div style={{ color: "var(--text-muted)", fontSize: 8, letterSpacing: 1, fontWeight: 700 }}>YIELD MULT</div>
-                  <div style={{ color: "#22c55e", fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>{multX.toFixed(2)}x</div>
+                  <div style={{ color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>{multX.toFixed(2)}x</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ color: "var(--text-muted)", fontSize: 8, letterSpacing: 1, fontWeight: 700 }}>PRICE COOLDOWN</div>
@@ -1179,20 +1208,20 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
         </div>
 
         {/* $FLIPPER BALANCE — V8 */}
-        <div style={{ padding: 12, background: "linear-gradient(135deg, rgba(34,197,94,0.06), rgba(34,197,94,0.01))", border: "1px solid rgba(34,197,94,0.18)", borderRadius: 8 }}>
+        <div style={{ padding: 12, background: "linear-gradient(135deg, rgba(247,179,43,0.06), rgba(247,179,43,0.01))", border: "1px solid rgba(247,179,43,0.18)", borderRadius: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="#22c55e"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>
-            <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 700, letterSpacing: 1 }}>$FLIPPER BALANCE</span>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="#f7b32b"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>
+            <span style={{ fontSize: 10, color: "#f7b32b", fontWeight: 700, letterSpacing: 1 }}>$FLIPPER BALANCE</span>
           </div>
-          <div style={{ fontSize: 20, color: "#22c55e", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginBottom: 4, lineHeight: 1 }}>
+          <div style={{ fontSize: 20, color: "#f7b32b", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginBottom: 4, lineHeight: 1 }}>
             {connected ? flipBal.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"}
           </div>
           <div style={{ fontSize: 9, color: "var(--text-faint)", marginBottom: 8 }}>
             Used to mint & maintain seats
           </div>
           <button onClick={() => window.open("https://flaunch.gg/base/coin/0xb28CdC10232e0E3bE033Fd2C01e01b4E514e06bB", "_blank")} style={{
-            width: "100%", padding: "8px 12px", background: "transparent", border: "1px solid rgba(34,197,94,0.3)",
-            borderRadius: 6, color: "#22c55e", fontSize: 10, fontWeight: 700, cursor: "pointer", letterSpacing: 0.5, fontFamily: "inherit",
+            width: "100%", padding: "8px 12px", background: "transparent", border: "1px solid rgba(247,179,43,0.3)",
+            borderRadius: 6, color: "#f7b32b", fontSize: 10, fontWeight: 700, cursor: "pointer", letterSpacing: 0.5, fontFamily: "inherit",
           }}>{"BUY $FLIPPER \u2192"}</button>
         </div>
 
@@ -1232,9 +1261,9 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
                   } catch (e) { addToast("error", decodeError(e)); }
                 }} style={{
                   width: "100%", padding: "8px 10px",
-                  background: "linear-gradient(135deg, rgba(34,197,94,0.15), rgba(34,197,94,0.05))",
-                  border: "1px solid rgba(34,197,94,0.35)", borderRadius: 6,
-                  color: "#22c55e", fontSize: 10, fontWeight: 700, cursor: "pointer",
+                  background: "linear-gradient(135deg, rgba(247,179,43,0.15), rgba(247,179,43,0.05))",
+                  border: "1px solid rgba(247,179,43,0.35)", borderRadius: 6,
+                  color: "#f7b32b", fontSize: 10, fontWeight: 700, cursor: "pointer",
                   fontFamily: "inherit", letterSpacing: 0.5,
                 }}>Claim All Rewards</button>
               </>
@@ -1247,13 +1276,13 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
           <div style={{
             padding: 12,
             background: graduation.graduated
-              ? "linear-gradient(135deg, rgba(34,197,94,0.05), rgba(34,197,94,0.01))"
+              ? "linear-gradient(135deg, rgba(247,179,43,0.05), rgba(247,179,43,0.01))"
               : "linear-gradient(135deg, rgba(247,179,43,0.04), rgba(247,179,43,0.01))",
-            border: "1px solid " + (graduation.graduated ? "rgba(34,197,94,0.2)" : "rgba(247,179,43,0.15)"),
+            border: "1px solid " + (graduation.graduated ? "rgba(247,179,43,0.2)" : "rgba(247,179,43,0.15)"),
             borderRadius: 8,
           }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1,
-              color: graduation.graduated ? "#22c55e" : "var(--gold)", marginBottom: 8 }}>
+              color: graduation.graduated ? "#f7b32b" : "var(--gold)", marginBottom: 8 }}>
               GRADUATION
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -1261,7 +1290,7 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
                 { l: "Minted", v: `${graduation.totalMinted || 0} / ${TOTAL_SEATS}` },
                 { l: "Active", v: `${graduation.activeCount || 0}` },
                 { l: "Status", v: graduation.graduated ? "Graduated" : "Open",
-                  c: graduation.graduated ? "#22c55e" : "var(--gold)" },
+                  c: graduation.graduated ? "#f7b32b" : "var(--gold)" },
               ].map((r, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
                   <span style={{ color: "var(--text-dim)" }}>{r.l}</span>
@@ -1489,9 +1518,9 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
       {/* LEFT PANEL */}
       <div className="board-left">
         {/* Yield estimate - prominent */}
-        <div style={{ padding: "14px 12px", background: "#22c55e08", borderRadius: 8, border: "1px solid #22c55e15", marginBottom: 12 }}>
-          <div style={{ fontSize: 9, color: "#22c55e80", fontWeight: 700, letterSpacing: 1 }}>YOU COULD EARN</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: "#22c55e", fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>{estYieldPerSeat} ETH</div>
+        <div style={{ padding: "14px 12px", background: "#f7b32b08", borderRadius: 8, border: "1px solid #f7b32b15", marginBottom: 12 }}>
+          <div style={{ fontSize: 9, color: "#f7b32b80", fontWeight: 700, letterSpacing: 1 }}>YOU COULD EARN</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>{estYieldPerSeat} ETH</div>
           <div style={{ fontSize: 9, color: "#475569" }}>per week based on current volume</div>
         </div>
 
@@ -1512,7 +1541,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
           { l: "Total locked", v: `${totalValue} FLIP`, c: "#e2e8f0" },
           { l: "Rent per week", v: "5%", c: "#e2e8f0" },
           { l: "You own", v: `${seatHook.mySeats.length}`, c: "#f7b32b" },
-          { l: "Yield pool", v: `${seatHook.yieldPool ? fmtNum(parseFloat(formatEther(seatHook.yieldPool)), 4) : "0"} \u039E`, c: "#22c55e" },
+          { l: "Yield pool", v: `${seatHook.yieldPool ? fmtNum(parseFloat(formatEther(seatHook.yieldPool)), 4) : "0"} \u039E`, c: "#f7b32b" },
         ].map((r, i) => (
           <div className="board-info-row" key={i}>
             <span className="board-info-label">{r.l}</span>
@@ -1611,8 +1640,8 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
               } catch (err) { addToast("error", decodeError(err)); }
             }} style={{
               width: "100%", padding: 10, borderRadius: 8, marginTop: 8,
-              background: "#22c55e10", border: "1px solid #22c55e30",
-              color: "#22c55e", fontSize: 11, fontWeight: 700,
+              background: "#f7b32b10", border: "1px solid #f7b32b30",
+              color: "#f7b32b", fontSize: 11, fontWeight: 700,
               cursor: "pointer", fontFamily: "inherit",
             }}>
               Claim All Rewards ({seatHook.mySeats.length} seats)
@@ -1798,7 +1827,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
               </div>
               <div className="modal-top-card">
                 <div className="mtc-label">YOU COULD EARN</div>
-                <div className="mtc-value" style={{ color: "#22c55e" }}>+{estYieldPerSeat}</div>
+                <div className="mtc-value" style={{ color: "#f7b32b" }}>+{estYieldPerSeat}</div>
                 <div className="mtc-note">ETH / week</div>
               </div>
             </div>
@@ -1833,7 +1862,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                     { l: "Price", v: `${parseFloat(seatDetail.price).toFixed(4)} FLIP`, c: "#f7b32b" },
                     { l: "Deposit", v: `${effectiveDeposit.toFixed(4)} FLIP`, c: "#e2e8f0" },
                     { l: "Pending Tax", v: `${tax.toFixed(4)} FLIP`, c: "#ef4444" },
-                    { l: "Claimable Rewards", v: `${parseFloat(seatDetail.rewards).toFixed(4)} ETH`, c: "#22c55e" },
+                    { l: "Claimable Rewards", v: `${parseFloat(seatDetail.rewards).toFixed(4)} ETH`, c: "#f7b32b" },
                     { l: "Total Earned", v: `${parseFloat(seatDetail.earned).toFixed(4)} ETH`, c: "#f7b32b" },
                     { l: "Time to Forfeit", v: runway > 0 ? `${runwayDays}d ${runwayHours}h` : "\u2014", c: runway > 0 && runway < 259200 ? "#ef4444" : "#94a3b8" },
                   ];
@@ -1990,7 +2019,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                     <span>Cooldown: {Math.floor(cooldownRemaining / 60)}m {cooldownRemaining % 60}s remaining</span>
                   </div>
                 )}
-                <button className="modal-action-btn" style={{ background: "#22c55e15", border: "1px solid #22c55e40", color: "#22c55e" }}
+                <button className="modal-action-btn" style={{ background: "#f7b32b15", border: "1px solid #f7b32b40", color: "#f7b32b" }}
                   onClick={async () => {
                     if (!seatsContract) return;
                     try {
@@ -2028,8 +2057,8 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                           } catch (err) { addToast("error", decodeError(err)); }
                         }} className="modal-action-btn" style={{
                           flex: 1, padding: "8px 4px",
-                          background: "#22c55e08", border: "1px solid #22c55e20",
-                          color: "#22c55e", fontSize: 10, textAlign: "center",
+                          background: "#f7b32b08", border: "1px solid #f7b32b20",
+                          color: "#f7b32b", fontSize: 10, textAlign: "center",
                         }}>
                           <div>{d.label}</div>
                           <div style={{ fontSize: 8, color: "#475569", marginTop: 2 }}>{depositAmt} FLIP</div>
@@ -2334,9 +2363,9 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                         <span key={id} style={{
                           fontSize: 10, padding: "3px 8px", borderRadius: 4,
                           fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
-                          border: "1px solid " + (done ? "#22c55e40" : active ? "#f7b32b" : "#1c2430"),
-                          background: done ? "#22c55e15" : active ? "#f7b32b18" : "#0b0e11",
-                          color: done ? "#22c55e" : active ? "#f7b32b" : "#94a3b8",
+                          border: "1px solid " + (done ? "#f7b32b40" : active ? "#f7b32b" : "#1c2430"),
+                          background: done ? "#f7b32b15" : active ? "#f7b32b18" : "#0b0e11",
+                          color: done ? "#f7b32b" : active ? "#f7b32b" : "#94a3b8",
                         }}>#{id}{done ? " \u2713" : ""}</span>
                       );
                     })}
@@ -2563,7 +2592,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   { l: "Buyouts total",  v: `${fmtNum(parseFloat(formatUnits(totalBuyout, 18)), 0)} FLIP` },
                   { l: "Deposits total", v: `${fmtNum(parseFloat(formatUnits(totalDeposit, 18)), 0)} FLIP` },
                   { l: "Total approve",  v: `${fmtNum(approveFlip, 0)} FLIP`, c: "#f7b32b" },
-                  { l: "USD equivalent", v: `~$${fmtNum(usd, 0)}`, c: "#22c55e" },
+                  { l: "USD equivalent", v: `~$${fmtNum(usd, 0)}`, c: "#f7b32b" },
                 ].map((r, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11 }}>
                     <span style={{ color: "#475569" }}>{r.l}</span>
@@ -2692,9 +2721,9 @@ function AdminPanel({ contract, seatsContract, protocolStats, graduation, yieldP
         {stat("Total Flips",        fmtNum(protocolStats?.totalFlips || 0, 0))}
         {stat("Total Volume (ETH)", fmtNum(protocolStats?.totalVolume || 0, 4))}
         {stat("Treasury (ETH)",     fmtNum(treasuryBal, 4), "#f7b32b")}
-        {stat("Protocol fees (ETH)", fmtNum(protocolBal, 4), "#22c55e")}
+        {stat("Protocol fees (ETH)", fmtNum(protocolBal, 4), "#f7b32b")}
         {stat("Jackpot pool (ETH)", fmtNum(jackpotBal, 4), "#3b82f6")}
-        {stat("Yield pool (ETH)",   fmtNum(yieldPoolEth, 4), "#22c55e")}
+        {stat("Yield pool (ETH)",   fmtNum(yieldPoolEth, 4), "#f7b32b")}
         {stat("Active seats",       `${graduation?.activeCount ?? 0}`)}
         {stat("Total minted",       `${graduation?.totalMinted ?? 0}/256`)}
       </div>
@@ -2705,14 +2734,14 @@ function AdminPanel({ contract, seatsContract, protocolStats, graduation, yieldP
         border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8,
       }}>
         <div style={{ fontSize: 10, color: "#ef4444", fontWeight: 700, letterSpacing: 0.5 }}>NEXT TREASURY CLAIM</div>
-        <div style={{ fontSize: 16, color: untilNext === 0 ? "#22c55e" : "#e2e8f0", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>
+        <div style={{ fontSize: 16, color: untilNext === 0 ? "#f7b32b" : "#e2e8f0", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>
           {untilNext === 0 ? "Available now" : `in ${countdownStr}`}
         </div>
       </div>
 
       {/* ACTIONS */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <button disabled={loading !== ""} onClick={() => exec("Withdraw Protocol", () => contract.withdrawProtocol())} style={btnStyle("#22c55e")}>
+        <button disabled={loading !== ""} onClick={() => exec("Withdraw Protocol", () => contract.withdrawProtocol())} style={btnStyle("#f7b32b")}>
           Withdraw Protocol
         </button>
         <button disabled={loading !== ""} onClick={() => exec("Withdraw Jackpot", () => contract.withdrawJackpot())} style={btnStyle("#3b82f6")}>
@@ -2783,7 +2812,7 @@ function FlipTicker({ recentFlips }) {
     const playerName = displayNameFn(playerAddr);
     const outcomeWin = trInvolved ? isTrL : true;
     const label = trInvolved ? (outcomeWin ? "WON" : "LOST") : "PVP";
-    const accent = outcomeWin ? "#22c55e" : "#ef4444";
+    const accent = outcomeWin ? "#f7b32b" : "#ef4444";
     return (
       <div key={f.id + "-" + i + suffix} style={{
         display: "inline-flex", alignItems: "center", gap: 6,
@@ -3065,7 +3094,7 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
           <div style={{ fontSize: 9, color: "#475569", letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>PNL</div>
           <div style={{
             fontSize: 20, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 4,
-            color: pnlEth === 0 ? "#e2e8f0" : pnlPositive ? "#22c55e" : "#ef4444",
+            color: pnlEth === 0 ? "#e2e8f0" : pnlPositive ? "#f7b32b" : "#ef4444",
           }}>
             {pnlEth === 0 ? "0" : (pnlPositive ? "+" : "−") + fmtNum(Math.abs(pnlEth), 4)} ETH
           </div>
@@ -3199,7 +3228,7 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
           {[
             { l: "Total wagered", v: `${fmtNum(wageredEth, 4)} ETH`, c: "#e2e8f0" },
-            { l: "Total won",     v: `${fmtNum(wonEth, 4)} ETH`,     c: "#22c55e" },
+            { l: "Total won",     v: `${fmtNum(wonEth, 4)} ETH`,     c: "#f7b32b" },
             { l: "Win rate",      v: `${fmtNum(winRate, 1)}%`,       c: "#e2e8f0" },
             { l: "Flips",         v: `${userProfile?.wins || 0}/${userProfile?.totalFlips || 0}`, c: "#e2e8f0" },
             { l: "Current streak", v: `${playerStats?.streak || 0}`,  c: "#f7b32b" },
@@ -3243,7 +3272,7 @@ function HowItWorksModal({ onClose }) {
         {[
           { n: "1", title: "Flip coins, win ETH", color: "#f7b32b",
             text: "Create a room with any amount (0.0005 - 1 ETH) or join an existing one. 50/50 coinflip \u2014 winner takes 96% of the pot. No deposit needed, play directly from your wallet." },
-          { n: "2", title: "Own a seat, earn yield", color: "#22c55e",
+          { n: "2", title: "Own a seat, earn yield", color: "#f7b32b",
             text: "256 revenue seats on the board. Buy one and earn ETH from every coinflip. More volume = more yield. Harberger tax keeps prices fair \u2014 anyone can buy out your seat." },
           { n: "3", title: "Refer and earn more", color: "#3b82f6",
             text: "Each seat has a referral link. Share it \u2014 when someone plays through your link, your seat earns extra yield weighted by the volume you bring." },
@@ -3274,7 +3303,7 @@ function HowItWorksModal({ onClose }) {
           ))}
           <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0 0", borderTop: "1px solid #1c2430", marginTop: 4, fontSize: 11 }}>
             <span style={{ color: "#e2e8f0", fontWeight: 700 }}>Winner receives</span>
-            <span style={{ color: "#22c55e", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>96%</span>
+            <span style={{ color: "#f7b32b", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>96%</span>
           </div>
         </div>
 
@@ -4161,7 +4190,7 @@ export default function FlipperRooms() {
                 </div>
                 <div style={{ width: 1, height: 18, background: "#1c2430" }}/>
                 <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#22c55e", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>
                     {openRooms ? openRooms.length : "..."}
                   </div>
                   <div style={{ fontSize: 7, color: "#475569", letterSpacing: 1, fontWeight: 700, marginTop: 2 }}>ROOMS</div>
@@ -4337,7 +4366,7 @@ export default function FlipperRooms() {
                         fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: 12,
                       }}>?</button>
                     </div>
-                    <div className="hero-sub">Bet against another player. Winner takes <span style={{ color: "var(--green)", fontWeight: 700 }}>96%</span>.</div>
+                    <div className="hero-sub">Bet against another player. Winner takes <span style={{ color: "var(--win)", fontWeight: 700 }}>96%</span>.</div>
 
                     {!connected && (
                       <button className="connect-btn" onClick={connect} style={{ padding: "14px 40px", fontSize: 16, borderRadius: 12, margin: "0 auto" }}>
@@ -4447,15 +4476,15 @@ export default function FlipperRooms() {
                                   <div style={{
                                     fontSize: 28, fontWeight: 900, letterSpacing: 4,
                                     fontFamily: "'Orbitron', sans-serif",
-                                    color: result === "win" ? "#22c55e" : "#ef4444",
-                                    textShadow: result === "win" ? "0 0 20px #22c55e40" : "0 0 20px #ef444440",
+                                    color: result === "win" ? "#f7b32b" : "#ef4444",
+                                    textShadow: result === "win" ? "0 0 20px #f7b32b40" : "0 0 20px #ef444440",
                                   }}>
                                     {result === "win" ? "YOU WIN" : "YOU LOSE"}
                                   </div>
                                   <div style={{
                                     fontSize: 18, fontWeight: 700,
                                     fontFamily: "'JetBrains Mono', monospace",
-                                    color: result === "win" ? "#22c55e" : "#ef4444",
+                                    color: result === "win" ? "#f7b32b" : "#ef4444",
                                   }}>
                                     {result === "win" ? "+" : "-"}{displayBet} ETH
                                   </div>
@@ -4642,7 +4671,7 @@ export default function FlipperRooms() {
                           OPEN ROOMS
                         </div>
                         {openRooms && openRooms.length > 0 && (
-                          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e", animation: "blink 1.5s ease infinite" }} />
+                          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f7b32b", boxShadow: "0 0 6px #f7b32b", animation: "blink 1.5s ease infinite" }} />
                         )}
                       </div>
                       <span style={{ fontSize: 10, color: "#475569" }}>{openRooms ? openRooms.length : "..."} active</span>
@@ -4681,7 +4710,7 @@ export default function FlipperRooms() {
                           display: "flex", alignItems: "center", justifyContent: "space-between",
                           padding: "12px 14px", marginBottom: 4, borderRadius: 10,
                           background: "#131820",
-                          border: "1px solid " + (isMine ? "#f7b32b20" : "#22c55e20"),
+                          border: "1px solid " + (isMine ? "#f7b32b20" : "#f7b32b20"),
                           animation: isMine ? "none" : "roomPulse 2s ease infinite",
                         }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -4712,55 +4741,9 @@ export default function FlipperRooms() {
                     })}
                   </div>
 
-                  {/* Global Recent Flips */}
-                  <div className="section-label" style={{ marginTop: 24 }}>RECENT FLIPS</div>
-                  {recentFlips.length === 0 && <div className="empty-state">No flips yet — be the first!</div>}
-                  {recentFlips.slice(0, 10).map((flip, i) => {
-                    const isMyWin = flip.winner?.toLowerCase() === address?.toLowerCase();
-                    const isMyLoss = flip.loser?.toLowerCase() === address?.toLowerCase();
-                    const isTrW = flip.winner?.toLowerCase() === CONTRACT_ADDRESS.toLowerCase();
-                    const isTrL = flip.loser?.toLowerCase() === CONTRACT_ADDRESS.toLowerCase();
-                    return (
-                      <div key={flip.id + "-" + i} style={{
-                        display: "flex", alignItems: "center", justifyContent: "space-between",
-                        padding: "12px 16px", marginBottom: 4,
-                        background: isMyWin ? "linear-gradient(90deg, rgba(34,197,94,0.05), transparent)" :
-                          isMyLoss ? "linear-gradient(90deg, rgba(239,68,68,0.05), transparent)" :
-                          "rgba(255,255,255,0.015)",
-                        borderLeft: "3px solid " + (isMyWin ? "#22c55e" : isMyLoss ? "#ef4444" : "transparent"),
-                        borderRadius: "0 8px 8px 0",
-                        animation: flip.isNew ? "tickerChipEnter 0.4s ease" : "none",
-                      }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{
-                            width: 28, height: 28, borderRadius: "50%",
-                            background: isTrW ? "linear-gradient(135deg, #b8860b, #f7b32b)" : addrColor(flip.winner),
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            fontSize: 9, fontWeight: 800, color: "#fff",
-                          }}>{isTrW ? "T" : flip.winner?.slice(2,4).toUpperCase()}</div>
-                          <span style={{ fontSize: 12, color: "var(--text-dim)" }}>
-                            {isMyWin ? "You" : isTrW ? "Treasury" : displayNameFn(flip.winner)}
-                            <span style={{ color: "var(--text-faint)", margin: "0 6px" }}>vs</span>
-                            {isMyLoss ? "You" : isTrL ? "Treasury" : displayNameFn(flip.loser)}
-                          </span>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                          <span style={{ fontSize: 13, color: "var(--text)", fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>
-                            {parseFloat(flip.amount).toFixed(4)} ETH
-                          </span>
-                          <span style={{
-                            padding: "4px 12px", borderRadius: 4, fontSize: 10, fontWeight: 800,
-                            letterSpacing: 0.5,
-                            background: isMyWin ? "#22c55e" : isMyLoss ? "#ef4444" : "rgba(255,255,255,0.04)",
-                            color: isMyWin || isMyLoss ? "#fff" : "var(--text-muted)",
-                            boxShadow: isMyWin ? "0 0 12px rgba(34,197,94,0.3)" : isMyLoss ? "0 0 12px rgba(239,68,68,0.3)" : "none",
-                          }}>
-                            {isMyWin ? "WON" : isMyLoss ? "LOST" : "FLIP"}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {/* RECENT FLIPS section removed from the coinflip body
+                      — live activity is already on the left sidebar and
+                      in the marquee ticker at the top. */}
 
                   {/* ═══ FLIP VS TREASURY — secondary ═══ */}
                   <div style={{
@@ -4891,7 +4874,7 @@ export default function FlipperRooms() {
                   ))}
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0 0", borderTop: "1px solid #1c2430", marginTop: 4, fontSize: 11 }}>
                     <span style={{ color: "#e2e8f0", fontWeight: 700 }}>Winner receives</span>
-                    <span style={{ color: "#22c55e", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>96%</span>
+                    <span style={{ color: "#f7b32b", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>96%</span>
                   </div>
                 </div>
 
@@ -5016,12 +4999,12 @@ export default function FlipperRooms() {
           animation: "fadeIn 0.3s ease",
           display: "flex", alignItems: "center", gap: 12,
         }}>
-          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 8px #22c55e" }} />
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#f7b32b", boxShadow: "0 0 8px #f7b32b" }} />
           <div>
             <div style={{ fontSize: 11, color: "#e2e8f0" }}>
               <span style={{ fontWeight: 700 }}>{displayNameFn(liveFlip.winner)}</span>
               <span style={{ color: "#475569" }}> won </span>
-              <span style={{ color: "#22c55e", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>{liveFlip.payout} ETH</span>
+              <span style={{ color: "#f7b32b", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>{liveFlip.payout} ETH</span>
             </div>
             <div style={{ fontSize: 9, color: "#475569" }}>Just now</div>
           </div>
@@ -5103,7 +5086,7 @@ export default function FlipperRooms() {
             marginBottom: 8,
           }}>JACKPOT!</div>
           <div style={{
-            fontSize: 28, fontWeight: 700, color: "#22c55e",
+            fontSize: 28, fontWeight: 700, color: "#f7b32b",
             fontFamily: "'JetBrains Mono', monospace",
             marginBottom: 24,
           }}>+{jackpotWin.amount} ETH</div>
