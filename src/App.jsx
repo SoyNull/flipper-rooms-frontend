@@ -86,10 +86,14 @@ const CSS = `
   --red: #ef4444;
   --red-glow: rgba(239,68,68,0.3);
 
+  /* Two-tier text palette — primary (near-white) and a single
+     secondary tier bright enough to stay legible on the dark bg.
+     --text-muted / --text-faint alias into the same secondary so
+     legacy references don't render near-invisible. */
   --text: #e8eef5;
-  --text-dim: #c0c8d4;
-  --text-muted: #5a6577;
-  --text-faint: #3d4756;
+  --text-dim: #b8c3d4;
+  --text-muted: #b8c3d4;
+  --text-faint: #b8c3d4;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -220,9 +224,9 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 .arena-avatar.avatar-bounce { animation: avatarBounce 1s ease infinite; }
 @keyframes avatarBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 
-.arena-name { font-size: 12px; font-weight: 700; color: #c8d0da; margin-top: 8px; transition: color 0.5s; }
+.arena-name { font-size: 12px; font-weight: 700; color: #e8eef5; margin-top: 8px; transition: color 0.5s; }
 .arena-name.name-win { color: #f7b32b; }
-.arena-name.name-lose { color: #94a3b8; opacity: 0.5; }
+.arena-name.name-lose { color: #b8c3d4; opacity: 0.5; }
 
 .arena-bet {
   margin-top: 4px; padding: 3px 10px; border-radius: 6px;
@@ -234,13 +238,13 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 .arena-bet.bet-lose { border-color: #ef444425; color: #ef4444; background: #ef444408; }
 
 .vs-area { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 160px; max-width: 240px; padding: 0 8px; }
-.vs-text { font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700; color: #374151; letter-spacing: 4px; margin-bottom: 8px; height: 14px; transition: opacity 0.3s; }
+.vs-text { font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700; color: #b8c3d4; letter-spacing: 4px; margin-bottom: 8px; height: 14px; transition: opacity 0.3s; }
 .coin-wrapper.spinning .vs-text { opacity: 0; }
 
 .coin-3d-container { width: 160px; height: 160px; position: relative; }
 
 .prize-pool { margin-top: 10px; text-align: center; }
-.prize-label { font-size: 8px; color: #374151; letter-spacing: 2px; font-weight: 700; }
+.prize-label { font-size: 8px; color: #b8c3d4; letter-spacing: 2px; font-weight: 700; }
 .prize-value { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: #f7b32b; margin-top: 1px; transition: color 0.5s; }
 .prize-value.prize-win { color: #f7b32b; }
 .prize-value.prize-lose { color: #ef4444; }
@@ -264,7 +268,7 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 .action-btn.btn-rematch:hover { box-shadow: 0 0 25px #f7b32b40; }
 .action-btn.btn-double { background: transparent; border: 1px solid #f7b32b50; color: #f7b32b; }
 .action-btn.btn-double:hover { background: #f7b32b10; box-shadow: 0 0 15px #f7b32b20; }
-.action-btn.btn-change { background: transparent; border: 1px solid #1c2430; color: #94a3b8; }
+.action-btn.btn-change { background: transparent; border: 1px solid #1c2430; color: #b8c3d4; }
 .action-btn.btn-change:hover { background: #151a22; }
 
 .streak-bar { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 10px; min-height: 20px; position: relative; z-index: 2; }
@@ -276,11 +280,11 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 
 .jackpot-bar { margin-top: 14px; padding: 0 4px; position: relative; z-index: 2; }
 .jackpot-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.jackpot-label { font-size: 9px; color: #475569; letter-spacing: 1.5px; font-weight: 700; }
+.jackpot-label { font-size: 9px; color: #b8c3d4; letter-spacing: 1.5px; font-weight: 700; }
 .jackpot-value { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #f7b32b; font-weight: 600; }
 .jackpot-track { height: 4px; background: #151a22; border-radius: 2px; overflow: hidden; }
 .jackpot-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, #b8860b, #f7b32b, #ffd700); transition: width 1s ease; }
-.jackpot-note { font-size: 9px; color: #374151; text-align: center; margin-top: 4px; transition: color 0.3s; }
+.jackpot-note { font-size: 9px; color: #b8c3d4; text-align: center; margin-top: 4px; transition: color 0.3s; }
 .jackpot-note.jackpot-hot { color: #f7b32b80; animation: jackpotPulse 1.5s ease infinite; }
 @keyframes jackpotPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 
@@ -684,18 +688,18 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .board-left { width: 200px; min-width: 200px; border-right: 1px solid #151b25; padding: 14px; overflow-y: auto; background: linear-gradient(180deg, #0d1118, #0a0d13); }
 .board-grid-area { flex: 1; padding: 12px; overflow-y: auto; display: flex; flex-direction: column; }
 .board-right { width: 200px; min-width: 200px; border-left: 1px solid #151b25; padding: 14px; overflow-y: auto; background: linear-gradient(180deg, #0d1118, #0a0d13); }
-.board-label { font-size: 10px; color: #475569; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 10px; }
+.board-label { font-size: 10px; color: #b8c3d4; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 10px; }
 .board-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 16px; }
 .board-stat-card { background: #131820; border-radius: 8px; padding: 10px 8px; text-align: center; }
 .board-stat-value { font-size: 18px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
-.board-stat-label { font-size: 9px; color: #475569; margin-top: 2px; }
+.board-stat-label { font-size: 9px; color: #b8c3d4; margin-top: 2px; }
 .board-info-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #111820; font-size: 11px; }
-.board-info-label { color: #475569; }
-.board-info-value { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: #e2e8f0; }
+.board-info-label { color: #b8c3d4; }
+.board-info-value { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: #e8eef5; }
 .holder-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #111820; }
-.holder-rank { font-size: 11px; font-weight: 700; color: #475569; width: 16px; }
+.holder-rank { font-size: 11px; font-weight: 700; color: #b8c3d4; width: 16px; }
 .holder-avatar { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 800; color: #fff; }
-.holder-name { font-size: 11px; font-weight: 600; color: #c8d0da; flex: 1; }
+.holder-name { font-size: 11px; font-weight: 600; color: #e8eef5; flex: 1; }
 .holder-count { font-size: 11px; font-weight: 700; color: #f7b32b; font-family: 'JetBrains Mono', monospace; }
 .seat-grid { display: grid; grid-template-columns: repeat(16, 1fr); gap: 2px; }
 .seat-tile { aspect-ratio: 1; border-radius: 4px; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; transition: transform 0.12s cubic-bezier(0.34, 1.3, 0.64, 1), border-color 0.15s ease, background 0.15s ease; border: 2px solid transparent; will-change: transform; }
@@ -708,14 +712,14 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .seat-tile.tile-mine { border-color: #f7b32b60; }
 .seat-tile.tile-mine:hover { border-color: #f7b32b; }
 .tile-avatar { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 6px; font-weight: 800; color: #fff; margin-bottom: 1px; }
-.tile-id { font-size: 7px; color: #374151; font-weight: 600; }
+.tile-id { font-size: 7px; color: #b8c3d4; font-weight: 600; }
 .tile-price { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; font-size: 7px; font-weight: 700; color: #f7b32b; font-family: 'JetBrains Mono', monospace; background: #0b0e11cc; padding: 1px 0; border-radius: 0 0 2px 2px; }
 .activity-item { padding: 8px 0; border-bottom: 1px solid #111820; }
 .activity-head { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
 .activity-avatar { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 6px; font-weight: 800; color: #fff; }
-.activity-name { font-size: 10px; font-weight: 600; color: #c8d0da; }
+.activity-name { font-size: 10px; font-weight: 600; color: #e8eef5; }
 .activity-detail { display: flex; justify-content: space-between; font-size: 9px; }
-.activity-action { color: #475569; }
+.activity-action { color: #b8c3d4; }
 .activity-price { color: #f7b32b; font-family: 'JetBrains Mono', monospace; font-weight: 700; }
 .my-seat-card { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; margin-bottom: 3px; border-radius: 6px; background: #131820; border: 1px solid #f7b32b15; cursor: pointer; transition: all 0.2s; }
 .my-seat-card:hover { border-color: #f7b32b40; background: #151e2a; }
@@ -725,36 +729,36 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .seat-modal { background: #131820; border: 1px solid #1c2430; border-radius: 16px; width: 420px; max-width: 95vw; max-height: 90vh; overflow-y: auto; padding: 24px; animation: fadeInUp 0.3s ease; }
 .modal-top-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
 .modal-top-card { background: #0d1118; border: 1px solid #1c2430; border-radius: 10px; padding: 12px; }
-.mtc-label { font-size: 9px; color: #475569; letter-spacing: 1px; font-weight: 700; margin-bottom: 4px; }
+.mtc-label { font-size: 9px; color: #b8c3d4; letter-spacing: 1px; font-weight: 700; margin-bottom: 4px; }
 .mtc-value { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700; }
-.mtc-note { font-size: 9px; color: #475569; margin-top: 2px; }
+.mtc-note { font-size: 9px; color: #b8c3d4; margin-top: 2px; }
 .modal-holder { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; padding: 10px 12px; background: #0d1118; border-radius: 8px; border: 1px solid #1c2430; }
 .price-options { display: flex; gap: 6px; margin-bottom: 16px; }
 .price-option { flex: 1; padding: 10px 4px; border-radius: 8px; border: 1px solid #1c2430; background: #0d1118; cursor: pointer; text-align: center; transition: all 0.2s; }
 .price-option:hover { border-color: #f7b32b40; }
 .price-option.active { border-color: #f7b32b; background: #f7b32b08; }
-.price-option-value { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #e2e8f0; }
+.price-option-value { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #e8eef5; }
 .price-option.active .price-option-value { color: #f7b32b; }
-.price-option-mult { font-size: 9px; color: #475569; margin-top: 2px; }
+.price-option-mult { font-size: 9px; color: #b8c3d4; margin-top: 2px; }
 .price-option.active .price-option-mult { color: #f7b32b90; }
 .duration-options { display: flex; gap: 4px; margin-bottom: 16px; }
-.duration-btn { padding: 3px 10px; border-radius: 5px; border: 1px solid #1c2430; background: #0d1118; color: #475569; font-size: 10px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.duration-btn { padding: 3px 10px; border-radius: 5px; border: 1px solid #1c2430; background: #0d1118; color: #b8c3d4; font-size: 10px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.15s; }
 .duration-btn:hover { border-color: #f7b32b40; }
 .duration-btn.active { border-color: #f7b32b; color: #f7b32b; background: #f7b32b08; }
 .cost-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #1c243030; font-size: 12px; }
-.cost-label { color: #475569; }
-.cost-value { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: #e2e8f0; }
+.cost-label { color: #b8c3d4; }
+.cost-value { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: #e8eef5; }
 .total-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; margin-bottom: 16px; }
-.total-label { font-size: 14px; font-weight: 700; color: #e2e8f0; }
+.total-label { font-size: 14px; font-weight: 700; color: #e8eef5; }
 .total-value { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 700; color: #f7b32b; }
 .modal-buy-btn { width: 100%; padding: 14px; border-radius: 10px; border: none; background: linear-gradient(135deg, #b8860b, #f7b32b, #ffd700); color: #0b0e11; font-size: 15px; font-weight: 800; cursor: pointer; font-family: 'Chakra Petch', sans-serif; transition: transform 0.12s ease, box-shadow 0.18s ease; will-change: transform; }
 .modal-buy-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px #f7b32b30; }
 .modal-buy-btn:active:not(:disabled) { transform: translateY(0) scale(0.97); box-shadow: 0 2px 8px #f7b32b25; }
 .modal-buy-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-.modal-cancel-btn { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #1c2430; background: transparent; color: #94a3b8; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; }
+.modal-cancel-btn { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #1c2430; background: transparent; color: #b8c3d4; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; }
 .modal-cancel-btn:hover { background: #151a22; }
 .modal-action-btn { width: 100%; padding: 10px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; margin-top: 6px; transition: all 0.2s; }
-.modal-section-label { font-size: 10px; color: #94a3b8; font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; }
+.modal-section-label { font-size: 10px; color: #b8c3d4; font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; }
 .seat-modal-input { width: 100%; padding: 10px 14px; background: #0d1118; border: 1px solid #1c2430; border-radius: 8px; color: var(--text); font-size: 12px; font-family: 'Chakra Petch', sans-serif; outline: none; margin-bottom: 8px; transition: border-color 0.2s; }
 .seat-modal-input:focus { border-color: var(--gold); }
 
@@ -1153,7 +1157,7 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ color: "var(--text-muted)", fontSize: 8, letterSpacing: 1, fontWeight: 700 }}>PRICE COOLDOWN</div>
-                  <div style={{ color: "#94a3b8", fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>
+                  <div style={{ color: "#b8c3d4", fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>
                     {cdMin != null ? `${cdMin} min` : "—"}
                   </div>
                 </div>
@@ -1521,7 +1525,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
         <div style={{ padding: "14px 12px", background: "#f7b32b08", borderRadius: 8, border: "1px solid #f7b32b15", marginBottom: 12 }}>
           <div style={{ fontSize: 9, color: "#f7b32b80", fontWeight: 700, letterSpacing: 1 }}>YOU COULD EARN</div>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>{estYieldPerSeat} ETH</div>
-          <div style={{ fontSize: 9, color: "#475569" }}>per week based on current volume</div>
+          <div style={{ fontSize: 9, color: "#b8c3d4" }}>per week based on current volume</div>
         </div>
 
         <div className="board-label">THE BOARD</div>
@@ -1531,15 +1535,15 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
             <div className="board-stat-label">TAKEN</div>
           </div>
           <div className="board-stat-card">
-            <div className="board-stat-value" style={{ color: "#e2e8f0" }}>{256 - ownedCount}</div>
+            <div className="board-stat-value" style={{ color: "#e8eef5" }}>{256 - ownedCount}</div>
             <div className="board-stat-label">AVAILABLE</div>
           </div>
         </div>
 
         {[
           { l: "Cheapest seat", v: `${floorPrice} FLIP`, c: "#f7b32b" },
-          { l: "Total locked", v: `${totalValue} FLIP`, c: "#e2e8f0" },
-          { l: "Rent per week", v: "5%", c: "#e2e8f0" },
+          { l: "Total locked", v: `${totalValue} FLIP`, c: "#e8eef5" },
+          { l: "Rent per week", v: "5%", c: "#e8eef5" },
           { l: "You own", v: `${seatHook.mySeats.length}`, c: "#f7b32b" },
           { l: "Yield pool", v: `${seatHook.yieldPool ? fmtNum(parseFloat(formatEther(seatHook.yieldPool)), 4) : "0"} \u039E`, c: "#f7b32b" },
         ].map((r, i) => (
@@ -1565,7 +1569,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 background: anyEmpty
                   ? "linear-gradient(135deg, #b8860b, #f7b32b)"
                   : "#1c2430",
-                color: anyEmpty ? "#0b0e11" : "#475569",
+                color: anyEmpty ? "#0b0e11" : "#b8c3d4",
                 fontSize: 12, fontWeight: 800, border: "none",
                 cursor: anyEmpty ? "pointer" : "not-allowed",
                 fontFamily: "'Chakra Petch', sans-serif",
@@ -1575,7 +1579,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 width: "100%", padding: 8, borderRadius: 8, marginTop: 6,
                 background: "transparent",
                 border: "1px solid " + (anyEmpty ? "#f7b32b30" : "#1c2430"),
-                color: anyEmpty ? "#f7b32b80" : "#475569",
+                color: anyEmpty ? "#f7b32b80" : "#b8c3d4",
                 fontSize: 10, fontWeight: 600,
                 cursor: anyEmpty ? "pointer" : "not-allowed",
                 opacity: anyEmpty ? 1 : 0.5,
@@ -1595,7 +1599,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                     ? "linear-gradient(135deg, rgba(247,179,43,0.12), rgba(247,179,43,0.04))"
                     : "rgba(255,255,255,0.02)",
                   border: "1px solid " + (emptyCount > 0 ? "#f7b32b" : "#1c2430"),
-                  color: emptyCount > 0 ? "#f7b32b" : "#475569",
+                  color: emptyCount > 0 ? "#f7b32b" : "#b8c3d4",
                   fontSize: 11, fontWeight: 800, letterSpacing: 0.5,
                   cursor: emptyCount > 0 ? "pointer" : "not-allowed", fontFamily: "inherit",
                   textShadow: emptyCount > 0 ? "0 0 10px rgba(247,179,43,0.25)" : "none",
@@ -1622,7 +1626,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 style={{
                   width: "100%", padding: 8, borderRadius: 8, marginTop: 6,
                   background: "transparent", border: "1px dashed rgba(239,68,68,0.3)",
-                  color: graduated ? "#fca5a5" : "#475569", fontSize: 10, fontWeight: 600,
+                  color: graduated ? "#fca5a5" : "#b8c3d4", fontSize: 10, fontWeight: 600,
                   cursor: graduated ? "pointer" : "not-allowed", opacity: graduated ? 1 : 0.5,
                   fontFamily: "inherit",
                 }}>
@@ -1650,7 +1654,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
         </>)}
 
         <div className="board-label" style={{ marginTop: 16 }}>TOP HOLDERS</div>
-        {topHolders.length === 0 && <div style={{ fontSize: 10, color: "#475569" }}>No seats owned yet</div>}
+        {topHolders.length === 0 && <div style={{ fontSize: 10, color: "#b8c3d4" }}>No seats owned yet</div>}
         {topHolders.map((h, i) => (
           <div className="holder-row" key={i}>
             <span className="holder-rank">{i + 1}</span>
@@ -1666,10 +1670,10 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
         {/* Title + Filters */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, padding: "0 2px" }}>
           <div>
-            <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 13, fontWeight: 700, color: "#e2e8f0", letterSpacing: 1, marginBottom: 4 }}>
+            <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 13, fontWeight: 700, color: "#e8eef5", letterSpacing: 1, marginBottom: 4 }}>
               256 Seats. Passive ETH.
             </div>
-            <div style={{ fontSize: 10, color: "#475569", lineHeight: 1.5, maxWidth: 400 }}>
+            <div style={{ fontSize: 10, color: "#b8c3d4", lineHeight: 1.5, maxWidth: 400 }}>
               Own a seat. Earn from every flip. Others can buy yours for your listed price.
             </div>
           </div>
@@ -1679,7 +1683,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 padding: "4px 10px", borderRadius: 5, fontSize: 9, fontWeight: 600,
                 border: "1px solid " + (boardFilter === f.v ? "#f7b32b" : "#1c2430"),
                 background: boardFilter === f.v ? "#f7b32b08" : "#131820",
-                color: boardFilter === f.v ? "#f7b32b" : "#475569",
+                color: boardFilter === f.v ? "#f7b32b" : "#b8c3d4",
                 cursor: "pointer", fontFamily: "inherit",
               }}>{f.l}</button>
             ))}
@@ -1743,11 +1747,11 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                         }}>{seat.owner?.slice(2, 4).toUpperCase()}</div>
                         <div style={{
                           position: "absolute", bottom: 1, left: 2,
-                          fontSize: 7, color: "#475569", fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: 7, color: "#b8c3d4", fontFamily: "'JetBrains Mono', monospace",
                         }}>#{seat.id}</div>
                       </>
                     ) : (
-                      <div style={{ fontSize: 9, color: "#3d4756", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+                      <div style={{ fontSize: 9, color: "#b8c3d4", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
                         {seat.id}
                       </div>
                     )}
@@ -1764,7 +1768,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
         <div className="board-label">RECENT ACTIVITY</div>
         {recentActivity.length === 0 && (
           <div style={{ padding: "12px 0", textAlign: "center" }}>
-            <div style={{ fontSize: 10, color: "#475569", marginBottom: 8 }}>Nothing yet.</div>
+            <div style={{ fontSize: 10, color: "#b8c3d4", marginBottom: 8 }}>Nothing yet.</div>
             {connected && <button onClick={() => {
               const firstEmpty = seatHook.seats.find(s => !s.active);
               if (firstEmpty) { setSelectedSeat(firstEmpty); setSelectedMult(0); setSelectedDuration(24); }
@@ -1796,7 +1800,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
               return (
                 <div key={seatId} className="my-seat-card" onClick={() => { setSelectedSeat(seat); audio.playClick(); }}>
                   <span style={{ fontSize: 10, fontWeight: 700, color: "#f7b32b" }}>#{seatId}</span>
-                  <span style={{ fontSize: 10, color: "#e2e8f0" }}>{seat.name || `Seat #${seatId}`}</span>
+                  <span style={{ fontSize: 10, color: "#e8eef5" }}>{seat.name || `Seat #${seatId}`}</span>
                   <span style={{ fontSize: 9, color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace" }}>{(seat.priceNum || 0).toFixed(0)}</span>
                 </div>
               );
@@ -1812,10 +1816,10 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
             {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
               <div>
-                <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 20, fontWeight: 800, color: "#e2e8f0" }}>Seat #{selectedSeat.id}</div>
-                <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>{selectedSeat.active ? (selectedSeat.name || "Occupied") : "Available"}</div>
+                <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 20, fontWeight: 800, color: "#e8eef5" }}>Seat #{selectedSeat.id}</div>
+                <div style={{ fontSize: 11, color: "#b8c3d4", marginTop: 2 }}>{selectedSeat.active ? (selectedSeat.name || "Occupied") : "Available"}</div>
               </div>
-              <button onClick={() => setSelectedSeat(null)} style={{ background: "none", border: "none", color: "#475569", fontSize: 18, cursor: "pointer" }}>{"\u2715"}</button>
+              <button onClick={() => setSelectedSeat(null)} style={{ background: "none", border: "none", color: "#b8c3d4", fontSize: 18, cursor: "pointer" }}>{"\u2715"}</button>
             </div>
 
             {/* Top cards: cost + yield */}
@@ -1842,8 +1846,8 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   borderColor: `${addrColor(selectedSeat.owner)}60`,
                 }}>{selectedSeat.owner.slice(2, 4).toUpperCase()}</div>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{displayNameFn(selectedSeat.owner)}</div>
-                  <div style={{ fontSize: 10, color: "#475569" }}>Current holder</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#e8eef5" }}>{displayNameFn(selectedSeat.owner)}</div>
+                  <div style={{ fontSize: 10, color: "#b8c3d4" }}>Current holder</div>
                 </div>
               </div>
             )}
@@ -1860,11 +1864,11 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   const runwayHours = Math.floor((runway % 86400) / 3600);
                   return [
                     { l: "Price", v: `${parseFloat(seatDetail.price).toFixed(4)} FLIP`, c: "#f7b32b" },
-                    { l: "Deposit", v: `${effectiveDeposit.toFixed(4)} FLIP`, c: "#e2e8f0" },
+                    { l: "Deposit", v: `${effectiveDeposit.toFixed(4)} FLIP`, c: "#e8eef5" },
                     { l: "Pending Tax", v: `${tax.toFixed(4)} FLIP`, c: "#ef4444" },
                     { l: "Claimable Rewards", v: `${parseFloat(seatDetail.rewards).toFixed(4)} ETH`, c: "#f7b32b" },
                     { l: "Total Earned", v: `${parseFloat(seatDetail.earned).toFixed(4)} ETH`, c: "#f7b32b" },
-                    { l: "Time to Forfeit", v: runway > 0 ? `${runwayDays}d ${runwayHours}h` : "\u2014", c: runway > 0 && runway < 259200 ? "#ef4444" : "#94a3b8" },
+                    { l: "Time to Forfeit", v: runway > 0 ? `${runwayDays}d ${runwayHours}h` : "\u2014", c: runway > 0 && runway < 259200 ? "#ef4444" : "#b8c3d4" },
                   ];
                 })().map((r, i) => (
                   <div className="cost-row" key={i}>
@@ -1877,7 +1881,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
 
             {/* Actions */}
             {!connected ? (
-              <div style={{ textAlign: "center", fontSize: 12, color: "#475569" }}>Connect wallet to interact</div>
+              <div style={{ textAlign: "center", fontSize: 12, color: "#b8c3d4" }}>Connect wallet to interact</div>
             ) : !selectedSeat.active ? (
               /* MINT empty seat — V8 uses FLIPPER tokens (approve + mint) */
               <div>
@@ -1887,7 +1891,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 <input className="seat-modal-input" inputMode="decimal"
                   placeholder="e.g. 1000" value={seatBuyPrice}
                   onChange={e => setSeatBuyPrice(e.target.value)} />
-                <div style={{ fontSize: 9, color: "#475569", marginTop: -6, marginBottom: 6 }}>
+                <div style={{ fontSize: 9, color: "#b8c3d4", marginTop: -6, marginBottom: 6 }}>
                   Amount in whole FLIPPER tokens. Decimals allowed (dot or comma).
                 </div>
 
@@ -1903,7 +1907,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                       flex: 1, padding: "8px 4px", borderRadius: 6,
                       border: "1px solid " + (mintDepositHours === opt.h ? "#f7b32b" : "#1c2430"),
                       background: mintDepositHours === opt.h ? "#f7b32b12" : "#0b0e11",
-                      color: mintDepositHours === opt.h ? "#f7b32b" : "#94a3b8",
+                      color: mintDepositHours === opt.h ? "#f7b32b" : "#b8c3d4",
                       fontSize: 11, fontWeight: 700, cursor: "pointer",
                       fontFamily: "inherit", display: "flex", flexDirection: "column", alignItems: "center", gap: 1,
                     }}>
@@ -1930,19 +1934,19 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                       : mintDepositHours === 720 ? "1m"
                       : mintDepositHours + "h";
                     return [
-                      { l: "Mint price",            v: (onChainMintPriceWei ? fmt(mintWei) : "loading…") + " FLIP", c: "#94a3b8" },
+                      { l: "Mint price",            v: (onChainMintPriceWei ? fmt(mintWei) : "loading…") + " FLIP", c: "#b8c3d4" },
                       { l: "Weekly tax",            v: fmt(weeklyTaxWei) + " FLIP/wk" },
                       { l: `Deposit (${durLabel})`, v: fmt(depositWei) + " FLIP" },
                       { l: "Total approve",         v: fmt(totalWei) + " FLIP", c: "#f7b32b", bold: true },
                     ];
                   })().map((r, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 10 }}>
-                      <span style={{ color: "#475569" }}>{r.l}</span>
-                      <span style={{ color: r.c || "#e2e8f0", fontWeight: r.bold ? 700 : 400, fontFamily: "'JetBrains Mono', monospace" }}>{r.v}</span>
+                      <span style={{ color: "#b8c3d4" }}>{r.l}</span>
+                      <span style={{ color: r.c || "#e8eef5", fontWeight: r.bold ? 700 : 400, fontFamily: "'JetBrains Mono', monospace" }}>{r.v}</span>
                     </div>
                   ))}
                 </div>
-                <div style={{ fontSize: 9, color: "#475569", marginBottom: 8, textAlign: "center" }}>
+                <div style={{ fontSize: 9, color: "#b8c3d4", marginBottom: 8, textAlign: "center" }}>
                   Two transactions: approve FLIPPER → mint seat
                 </div>
                 <button className="modal-buy-btn" onClick={async () => {
@@ -2031,11 +2035,11 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   }}>
                   Claim Rewards {seatDetail?.rewards && parseFloat(seatDetail.rewards) > 0 ? `(${parseFloat(seatDetail.rewards).toFixed(4)} ETH)` : ""}
                 </button>
-                <div style={{ fontSize: 9, color: "#475569", marginTop: -2, marginBottom: 4, textAlign: "center" }}>Rewards sent directly to your wallet</div>
+                <div style={{ fontSize: 9, color: "#b8c3d4", marginTop: -2, marginBottom: 4, textAlign: "center" }}>Rewards sent directly to your wallet</div>
 
                 {/* Top Up Deposit (V8: FLIPPER tokens, approve + addDeposit) */}
                 <div style={{ marginTop: 4 }}>
-                  <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>Add deposit to extend seat life</div>
+                  <div style={{ fontSize: 10, color: "#b8c3d4", marginBottom: 4 }}>Add deposit to extend seat life</div>
                   <div style={{ display: "flex", gap: 6 }}>
                     {[
                       { label: "+1d", hours: 24 },
@@ -2061,7 +2065,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                           color: "#f7b32b", fontSize: 10, textAlign: "center",
                         }}>
                           <div>{d.label}</div>
-                          <div style={{ fontSize: 8, color: "#475569", marginTop: 2 }}>{depositAmt} FLIP</div>
+                          <div style={{ fontSize: 8, color: "#b8c3d4", marginTop: 2 }}>{depositAmt} FLIP</div>
                         </button>
                       );
                     })}
@@ -2091,7 +2095,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                     } catch (err) { addToast("error", decodeError(err)); }
                   }}>
                     Withdraw Excess Deposit
-                    <span style={{ fontSize: 8, color: "#475569", marginLeft: 4 }}>
+                    <span style={{ fontSize: 8, color: "#b8c3d4", marginLeft: 4 }}>
                       ({parseFloat(seatDetail.deposit).toFixed(2)} FLIP)
                     </span>
                   </button>
@@ -2194,7 +2198,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   );
                 })()}
 
-                <div style={{ fontSize: 9, color: "#475569", margin: "4px 0 8px", textAlign: "center" }}>
+                <div style={{ fontSize: 9, color: "#b8c3d4", margin: "4px 0 8px", textAlign: "center" }}>
                   {seatHook.graduation?.graduated
                     ? "Two transactions: approve FLIPPER → buy out"
                     : "Buyouts unlock after all 256 seats are minted."}
@@ -2260,13 +2264,13 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
               <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 16, fontWeight: 800, color: "#f7b32b", marginBottom: 6 }}>
                 {bulkBuying ? "Minting…" : "Buy Several at Once"}
               </div>
-              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 14, lineHeight: 1.5 }}>
+              <div style={{ fontSize: 11, color: "#b8c3d4", marginBottom: 14, lineHeight: 1.5 }}>
                 One approve for the grand total, then one mint per seat. Approve = (mint price + deposit) × qty.
               </div>
 
               {!bulkBuying && (<>
                 {/* Quantity — numeric input + quick buttons */}
-                <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>QUANTITY (1–{maxQty})</div>
+                <div style={{ fontSize: 9, color: "#b8c3d4", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>QUANTITY (1–{maxQty})</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                   <input type="number" min={1} max={maxQty} step={1}
                     value={bulkCount}
@@ -2287,7 +2291,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                         padding: "6px 10px", borderRadius: 5,
                         border: "1px solid " + (qty === n ? "#f7b32b" : "#1c2430"),
                         background: qty === n ? "#f7b32b10" : "#0b0e11",
-                        color: qty === n ? "#f7b32b" : (n > maxQty ? "#2a3040" : "#94a3b8"),
+                        color: qty === n ? "#f7b32b" : (n > maxQty ? "#2a3040" : "#b8c3d4"),
                         fontSize: 10, fontWeight: 700,
                         cursor: n > maxQty ? "not-allowed" : "pointer", fontFamily: "inherit",
                       }}>{n}</button>
@@ -2302,26 +2306,26 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 </div>
 
                 {/* List price per seat */}
-                <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>LIST PRICE PER SEAT (FLIP)</div>
+                <div style={{ fontSize: 9, color: "#b8c3d4", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>LIST PRICE PER SEAT (FLIP)</div>
                 <input inputMode="decimal" value={bulkListPrice}
                   onChange={e => setBulkListPrice(e.target.value)}
                   placeholder="e.g. 1000"
                   style={{
                     width: "100%", padding: "8px 10px", borderRadius: 6,
                     border: "1px solid #1c2430", background: "#0b0e11",
-                    color: "#e2e8f0", fontSize: 12, fontWeight: 600,
+                    color: "#e8eef5", fontSize: 12, fontWeight: 600,
                     fontFamily: "'JetBrains Mono', monospace", marginBottom: 10,
                   }} />
 
                 {/* V8 deposit duration (hours) */}
-                <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>DEPOSIT DURATION (min 1h)</div>
+                <div style={{ fontSize: 9, color: "#b8c3d4", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>DEPOSIT DURATION (min 1h)</div>
                 <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
                   {[{l:"1h",h:1},{l:"1d",h:24},{l:"7d",h:168},{l:"1m",h:720}].map(opt => (
                     <button key={opt.h} onClick={() => setBulkDepositHours(opt.h)} style={{
                       flex: 1, padding: "6px 0", borderRadius: 6,
                       border: "1px solid " + (bulkDepositHours === opt.h ? "#f7b32b" : "#1c2430"),
                       background: bulkDepositHours === opt.h ? "#f7b32b12" : "#0b0e11",
-                      color: bulkDepositHours === opt.h ? "#f7b32b" : "#94a3b8",
+                      color: bulkDepositHours === opt.h ? "#f7b32b" : "#b8c3d4",
                       fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                     }}>{opt.l}</button>
                   ))}
@@ -2337,16 +2341,16 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                     : bulkDepositHours + "h";
                   return [
                   { l: "Seats",               v: String(qty) },
-                  { l: "Mint price (chain)",  v: (onChainMintPriceWei ? fmt(mintWei) : "loading…") + " FLIP", c: "#94a3b8" },
+                  { l: "Mint price (chain)",  v: (onChainMintPriceWei ? fmt(mintWei) : "loading…") + " FLIP", c: "#b8c3d4" },
                   { l: "List price / seat",   v: fmt(listedWei) + " FLIP" },
                   { l: `Deposit / seat (${bulkDurLabel})`, v: fmt(depositPerWei) + " FLIP" },
-                  { l: "Approve / seat",      v: fmt(approvePerWei) + " FLIP", c: "#94a3b8" },
+                  { l: "Approve / seat",      v: fmt(approvePerWei) + " FLIP", c: "#b8c3d4" },
                   { l: "Total approve",       v: fmt(grandTotalWei) + " FLIP", c: "#f7b32b", bold: true },
                   ];
                 })().map((r, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11 }}>
-                    <span style={{ color: "#475569" }}>{r.l}</span>
-                    <span style={{ color: r.c || "#e2e8f0", fontFamily: "'JetBrains Mono', monospace", fontWeight: r.bold ? 700 : 600 }}>{r.v}</span>
+                    <span style={{ color: "#b8c3d4" }}>{r.l}</span>
+                    <span style={{ color: r.c || "#e8eef5", fontFamily: "'JetBrains Mono', monospace", fontWeight: r.bold ? 700 : 600 }}>{r.v}</span>
                   </div>
                 ))}
               </div>
@@ -2354,7 +2358,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
               {/* Seat IDs that will be minted */}
               {plannedIds.length > 0 && (
                 <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>SEATS TO MINT</div>
+                  <div style={{ fontSize: 9, color: "#b8c3d4", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>SEATS TO MINT</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                     {plannedIds.slice(0, 40).map((id, i) => {
                       const done = bulkProgress.total > 0 && i < bulkProgress.done;
@@ -2365,18 +2369,18 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                           fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
                           border: "1px solid " + (done ? "#f7b32b40" : active ? "#f7b32b" : "#1c2430"),
                           background: done ? "#f7b32b15" : active ? "#f7b32b18" : "#0b0e11",
-                          color: done ? "#f7b32b" : active ? "#f7b32b" : "#94a3b8",
+                          color: done ? "#f7b32b" : active ? "#f7b32b" : "#b8c3d4",
                         }}>#{id}{done ? " \u2713" : ""}</span>
                       );
                     })}
-                    {plannedIds.length > 40 && <span style={{ fontSize: 10, color: "#475569" }}>+{plannedIds.length - 40}</span>}
+                    {plannedIds.length > 40 && <span style={{ fontSize: 10, color: "#b8c3d4" }}>+{plannedIds.length - 40}</span>}
                   </div>
                 </div>
               )}
 
               {bulkBuying && (
                 <div style={{ marginBottom: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#b8c3d4", marginBottom: 4 }}>
                     <span>Progress</span>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: "#f7b32b" }}>
                       {bulkProgress.done}/{bulkProgress.total} ({progressPct}%)
@@ -2488,13 +2492,13 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 }
               }} style={{
                 width: "100%", padding: 14, borderRadius: 10,
-                background: bulkBuying ? "#475569" : "linear-gradient(135deg, #b8860b, #f7b32b)",
+                background: bulkBuying ? "#b8c3d4" : "linear-gradient(135deg, #b8860b, #f7b32b)",
                 color: "#0b0e11", fontSize: 14, fontWeight: 800, border: "none",
                 cursor: bulkBuying ? "wait" : "pointer", fontFamily: "'Chakra Petch', sans-serif",
               }}>
                 {bulkBuying ? `Minting ${bulkProgress.done + 1}/${bulkProgress.total}…` : `Mint ${qty} Seat${qty === 1 ? "" : "s"}`}
               </button>
-              <div style={{ fontSize: 9, color: "#475569", marginTop: 8, textAlign: "center" }}>V8: 1 approve + 1 batchMint for all seats (atomic)</div>
+              <div style={{ fontSize: 9, color: "#b8c3d4", marginTop: 8, textAlign: "center" }}>V8: 1 approve + 1 batchMint for all seats (atomic)</div>
             </div>
           </div>
         );
@@ -2534,40 +2538,40 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
               <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 16, fontWeight: 800, color: "#ef4444", marginBottom: 6 }}>
                 Take Over Multiple
               </div>
-              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 14, lineHeight: 1.5 }}>
+              <div style={{ fontSize: 11, color: "#b8c3d4", marginBottom: 14, lineHeight: 1.5 }}>
                 Buy {selected.length} occupied seat{selected.length === 1 ? "" : "s"} in a single transaction. Max 64 per TX.
               </div>
 
               {/* Multiplier — min 1.1x because on-chain requires new price > current */}
-              <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>NEW PRICE MULTIPLIER</div>
+              <div style={{ fontSize: 9, color: "#b8c3d4", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>NEW PRICE MULTIPLIER</div>
               <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
                 {multOptions.map(opt => (
                   <button key={opt.tenths} onClick={() => setTakeOverMult(opt.tenths)} style={{
                     flex: 1, padding: "6px 0", borderRadius: 6,
                     border: "1px solid " + (takeOverMult === opt.tenths ? "#f7b32b" : "#1c2430"),
                     background: takeOverMult === opt.tenths ? "#f7b32b10" : "#0b0e11",
-                    color: takeOverMult === opt.tenths ? "#f7b32b" : "#475569",
+                    color: takeOverMult === opt.tenths ? "#f7b32b" : "#b8c3d4",
                     fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                   }}>{opt.label}</button>
                 ))}
               </div>
 
               {/* V8: duration is hours; contract min is MIN_DEPOSIT_HOURS=1 */}
-              <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>DEPOSIT DURATION (min 1h)</div>
+              <div style={{ fontSize: 9, color: "#b8c3d4", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>DEPOSIT DURATION (min 1h)</div>
               <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
                 {[{l:"1h",h:1},{l:"1d",h:24},{l:"7d",h:168},{l:"1m",h:720}].map(d => (
                   <button key={d.h} onClick={() => setTakeOverDuration(d.h)} style={{
                     flex: 1, padding: "6px 0", borderRadius: 6,
                     border: "1px solid " + (takeOverDuration === d.h ? "#f7b32b" : "#1c2430"),
                     background: takeOverDuration === d.h ? "#f7b32b10" : "#0b0e11",
-                    color: takeOverDuration === d.h ? "#f7b32b" : "#475569",
+                    color: takeOverDuration === d.h ? "#f7b32b" : "#b8c3d4",
                     fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                   }}>{d.l}</button>
                 ))}
               </div>
 
               {/* Selection grid */}
-              <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>
+              <div style={{ fontSize: 9, color: "#b8c3d4", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>
                 TARGETS ({selected.length}/{Math.min(occupiedAll.length, 64)})
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4, padding: 8, background: "#0b0e11", borderRadius: 6, marginBottom: 12, maxHeight: 140, overflowY: "auto" }}>
@@ -2578,7 +2582,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                       fontSize: 10, padding: "3px 8px", borderRadius: 4,
                       border: "1px solid " + (on ? "#ef4444" : "#1c2430"),
                       background: on ? "rgba(239,68,68,0.15)" : "transparent",
-                      color: on ? "#fca5a5" : "#94a3b8",
+                      color: on ? "#fca5a5" : "#b8c3d4",
                       fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, cursor: "pointer",
                     }}>#{s.id} · {s.priceNum.toFixed(0)}</button>
                   );
@@ -2595,8 +2599,8 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   { l: "USD equivalent", v: `~$${fmtNum(usd, 0)}`, c: "#f7b32b" },
                 ].map((r, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11 }}>
-                    <span style={{ color: "#475569" }}>{r.l}</span>
-                    <span style={{ color: r.c || "#e2e8f0", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{r.v}</span>
+                    <span style={{ color: "#b8c3d4" }}>{r.l}</span>
+                    <span style={{ color: r.c || "#e8eef5", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{r.v}</span>
                   </div>
                 ))}
               </div>
@@ -2628,13 +2632,13 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                 setTakeOverBusy(false);
               }} style={{
                 width: "100%", padding: 14, borderRadius: 10,
-                background: takeOverBusy ? "#475569" : "linear-gradient(135deg, #ef4444, #b91c1c)",
+                background: takeOverBusy ? "#b8c3d4" : "linear-gradient(135deg, #ef4444, #b91c1c)",
                 color: "#fff", fontSize: 14, fontWeight: 800, border: "none",
                 cursor: takeOverBusy ? "wait" : "pointer", fontFamily: "'Chakra Petch', sans-serif",
               }}>
                 {takeOverBusy ? "Taking over…" : `Take Over ${selected.length} Seat${selected.length === 1 ? "" : "s"}`}
               </button>
-              <div style={{ fontSize: 9, color: "#475569", marginTop: 8, textAlign: "center" }}>
+              <div style={{ fontSize: 9, color: "#b8c3d4", marginTop: 8, textAlign: "center" }}>
                 Two transactions: approve FLIPPER → takeOverMultiple
               </div>
             </div>
@@ -2697,12 +2701,12 @@ function AdminPanel({ contract, seatsContract, protocolStats, graduation, yieldP
     opacity: loading ? 0.5 : 1, marginBottom: 6,
   });
 
-  const stat = (label, value, color = "#e2e8f0") => (
+  const stat = (label, value, color = "#e8eef5") => (
     <div style={{
       padding: "10px 12px", background: "#0b0e11", border: "1px solid #1c2430",
       borderRadius: 8, display: "flex", justifyContent: "space-between", alignItems: "center",
     }}>
-      <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: 0.5 }}>{label}</span>
+      <span style={{ fontSize: 10, color: "#b8c3d4", letterSpacing: 0.5 }}>{label}</span>
       <span style={{ fontSize: 13, color, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
         {value}
       </span>
@@ -2734,7 +2738,7 @@ function AdminPanel({ contract, seatsContract, protocolStats, graduation, yieldP
         border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8,
       }}>
         <div style={{ fontSize: 10, color: "#ef4444", fontWeight: 700, letterSpacing: 0.5 }}>NEXT TREASURY CLAIM</div>
-        <div style={{ fontSize: 16, color: untilNext === 0 ? "#f7b32b" : "#e2e8f0", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>
+        <div style={{ fontSize: 16, color: untilNext === 0 ? "#f7b32b" : "#e8eef5", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>
           {untilNext === 0 ? "Available now" : `in ${countdownStr}`}
         </div>
       </div>
@@ -2755,13 +2759,13 @@ function AdminPanel({ contract, seatsContract, protocolStats, graduation, yieldP
           style={btnStyle("#ef4444")}>
           {untilNext > 0 ? "Treasury locked" : "Withdraw Treasury"}
         </button>
-        <button disabled={loading !== ""} onClick={() => exec("Fund Treasury +0.01", () => contract.fundTreasury({ value: parseEther("0.01") }))} style={btnStyle("#94a3b8")}>
+        <button disabled={loading !== ""} onClick={() => exec("Fund Treasury +0.01", () => contract.fundTreasury({ value: parseEther("0.01") }))} style={btnStyle("#b8c3d4")}>
           Fund Treasury +0.01 ETH
         </button>
-        <button disabled={loading !== ""} onClick={() => exec("Pause", () => contract.pause())} style={btnStyle("#94a3b8")}>
+        <button disabled={loading !== ""} onClick={() => exec("Pause", () => contract.pause())} style={btnStyle("#b8c3d4")}>
           Pause
         </button>
-        <button disabled={loading !== ""} onClick={() => exec("Unpause", () => contract.unpause())} style={btnStyle("#94a3b8")}>
+        <button disabled={loading !== ""} onClick={() => exec("Unpause", () => contract.unpause())} style={btnStyle("#b8c3d4")}>
           Unpause
         </button>
       </div>
@@ -2772,11 +2776,11 @@ function AdminPanel({ contract, seatsContract, protocolStats, graduation, yieldP
           style={{ position: "fixed", inset: 0, zIndex: 1100, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div style={{ background: "#131820", border: "1px solid #ef444440", borderRadius: 12, padding: 24, maxWidth: 400, width: "100%" }}>
             <div style={{ fontSize: 14, fontWeight: 800, color: "#ef4444", marginBottom: 8 }}>Confirm action</div>
-            <div style={{ fontSize: 12, color: "#e2e8f0", marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: "#e8eef5", marginBottom: 16 }}>
               {confirm.label} — this is irreversible. Proceed?
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setConfirm(null)} style={{ flex: 1, padding: 10, borderRadius: 8, background: "#0b0e11", border: "1px solid #1c2430", color: "#94a3b8", fontWeight: 700, cursor: "pointer" }}>
+              <button onClick={() => setConfirm(null)} style={{ flex: 1, padding: 10, borderRadius: 8, background: "#0b0e11", border: "1px solid #1c2430", color: "#b8c3d4", fontWeight: 700, cursor: "pointer" }}>
                 Cancel
               </button>
               <button onClick={confirm.run} disabled={loading !== ""} style={{ flex: 1, padding: 10, borderRadius: 8, background: "#ef4444", border: "none", color: "#fff", fontWeight: 800, cursor: "pointer" }}>
@@ -2824,10 +2828,10 @@ function FlipTicker({ recentFlips }) {
       }}>
         <span>{label}</span>
         <span>{outcomeWin ? "+" : "−"}{fmtNum(outcomeWin ? payoutNum || amountNum : amountNum)} ETH</span>
-        <span style={{ color: "#94a3b8" }}>{playerName}</span>
+        <span style={{ color: "#b8c3d4" }}>{playerName}</span>
         {trInvolved && (
           <span style={{ fontSize: 9 }}>
-            <span style={{ color: "#64748b" }}>vs </span>
+            <span style={{ color: "#b8c3d4" }}>vs </span>
             <span style={{ color: "#f7b32b", fontWeight: 700 }}>Treasury</span>
           </span>
         )}
@@ -2995,7 +2999,7 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
   return (
     <div style={{ maxWidth: 880, margin: "0 auto", padding: "24px 20px" }}>
       <button onClick={onBack} style={{
-        background: "none", border: "none", color: "#94a3b8", cursor: "pointer",
+        background: "none", border: "none", color: "#b8c3d4", cursor: "pointer",
         fontSize: 12, marginBottom: 16, padding: "6px 0",
       }}>← Back</button>
 
@@ -3019,18 +3023,18 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
             {editing ? (
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <input value={nameInput} onChange={e => setNameInput(e.target.value)} maxLength={32}
-                  style={{ flex: 1, padding: "8px 10px", borderRadius: 6, background: "#07090d", border: "1px solid #1c2430", color: "#e2e8f0", fontSize: 14, fontFamily: "inherit" }}
+                  style={{ flex: 1, padding: "8px 10px", borderRadius: 6, background: "#07090d", border: "1px solid #1c2430", color: "#e8eef5", fontSize: 14, fontFamily: "inherit" }}
                   placeholder="Display name" autoFocus />
                 <button onClick={saveName} disabled={saving} style={{ padding: "8px 14px", borderRadius: 6, background: "#f7b32b", color: "#0b0e11", border: "none", fontWeight: 800, cursor: "pointer" }}>
                   {saving ? "…" : "Save"}
                 </button>
-                <button onClick={() => { setEditing(false); setNameInput(profileData.name); }} style={{ padding: "8px 10px", borderRadius: 6, background: "transparent", color: "#94a3b8", border: "1px solid #1c2430", cursor: "pointer" }}>
+                <button onClick={() => { setEditing(false); setNameInput(profileData.name); }} style={{ padding: "8px 10px", borderRadius: 6, background: "transparent", color: "#b8c3d4", border: "1px solid #1c2430", cursor: "pointer" }}>
                   Cancel
                 </button>
               </div>
             ) : (
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 22, fontWeight: 900, color: "#e2e8f0" }}>
+                <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 22, fontWeight: 900, color: "#e8eef5" }}>
                   {profileData.name || shortAddr(address)}
                 </div>
                 <span style={{
@@ -3042,7 +3046,7 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
                     style={{ fontSize: 11, color: "#1da1f2", textDecoration: "none" }}>@{profileData.twitter}</a>
                 )}
                 {isOwnProfile && (
-                  <button onClick={() => setEditing(true)} style={{ fontSize: 11, background: "none", border: "1px solid #1c2430", color: "#94a3b8", padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>
+                  <button onClick={() => setEditing(true)} style={{ fontSize: 11, background: "none", border: "1px solid #1c2430", color: "#b8c3d4", padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>
                     Edit
                   </button>
                 )}
@@ -3051,7 +3055,7 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
 
             {/* Address + copy */}
             <div onClick={() => { navigator.clipboard.writeText(address); addToast("success", "Address copied"); }}
-              style={{ fontSize: 11, color: "#475569", marginTop: 6, cursor: "pointer", fontFamily: "'JetBrains Mono', monospace", wordBreak: "break-all" }}>
+              style={{ fontSize: 11, color: "#b8c3d4", marginTop: 6, cursor: "pointer", fontFamily: "'JetBrains Mono', monospace", wordBreak: "break-all" }}>
               {address} <span style={{ color: "#f7b32b" }}>↗ copy</span>
             </div>
 
@@ -3069,10 +3073,10 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
         {/* XP BAR */}
         <div style={{ marginTop: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-            <span style={{ fontSize: 9, color: "#94a3b8", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
+            <span style={{ fontSize: 9, color: "#b8c3d4", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
               XP · Level {level}
             </span>
-            <span style={{ fontSize: 10, color: "#e2e8f0", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>
+            <span style={{ fontSize: 10, color: "#e8eef5", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>
               {capped ? `${fmtNum(xp, 0)} XP · MAX` : `${fmtNum(xp, 0)} / ${fmtNum(nextMin, 0)} XP`}
             </span>
           </div>
@@ -3091,36 +3095,36 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }}>
         {/* PNL */}
         <div style={{ ...card, padding: "14px 16px" }}>
-          <div style={{ fontSize: 9, color: "#475569", letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>PNL</div>
+          <div style={{ fontSize: 9, color: "#b8c3d4", letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>PNL</div>
           <div style={{
             fontSize: 20, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 4,
-            color: pnlEth === 0 ? "#e2e8f0" : pnlPositive ? "#f7b32b" : "#ef4444",
+            color: pnlEth === 0 ? "#e8eef5" : pnlPositive ? "#f7b32b" : "#ef4444",
           }}>
             {pnlEth === 0 ? "0" : (pnlPositive ? "+" : "−") + fmtNum(Math.abs(pnlEth), 4)} ETH
           </div>
-          <div style={{ fontSize: 9, color: "#475569", marginTop: 2 }}>
+          <div style={{ fontSize: 9, color: "#b8c3d4", marginTop: 2 }}>
             Coinflip wins − wagered
           </div>
         </div>
 
         {/* Seats Held */}
         <div style={{ ...card, padding: "14px 16px" }}>
-          <div style={{ fontSize: 9, color: "#475569", letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>Seats Held</div>
-          <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 4, color: "#e2e8f0" }}>
+          <div style={{ fontSize: 9, color: "#b8c3d4", letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>Seats Held</div>
+          <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 4, color: "#e8eef5" }}>
             {fmtNum(mySeats.length, 0)}
           </div>
-          <div style={{ fontSize: 9, color: "#475569", marginTop: 2 }}>
+          <div style={{ fontSize: 9, color: "#b8c3d4", marginTop: 2 }}>
             Active of {TOTAL_SEATS}
           </div>
         </div>
 
         {/* Seat Value */}
         <div style={{ ...card, padding: "14px 16px" }}>
-          <div style={{ fontSize: 9, color: "#475569", letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>Seat Value</div>
+          <div style={{ fontSize: 9, color: "#b8c3d4", letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>Seat Value</div>
           <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 4, color: "#f7b32b" }}>
             {fmtNum(totalSeatValueFlip, 0)}
           </div>
-          <div style={{ fontSize: 9, color: "#475569", marginTop: 2 }}>
+          <div style={{ fontSize: 9, color: "#b8c3d4", marginTop: 2 }}>
             FLIP listed
           </div>
         </div>
@@ -3134,7 +3138,7 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
         ].map(t => (
           <button key={t.k} onClick={() => setTab(t.k)} style={{
             padding: "10px 20px", background: "none", border: "none",
-            color: tab === t.k ? "#f7b32b" : "#94a3b8",
+            color: tab === t.k ? "#f7b32b" : "#b8c3d4",
             borderBottom: "2px solid " + (tab === t.k ? "#f7b32b" : "transparent"),
             fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
           }}>{t.l}</button>
@@ -3144,7 +3148,7 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
       {/* ── SEATS TAB ─────────────────────────────── */}
       {tab === "seats" && (
         mySeats.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#475569", fontSize: 12 }}>
+          <div style={{ padding: 40, textAlign: "center", color: "#b8c3d4", fontSize: 12 }}>
             No seats owned yet.
           </div>
         ) : (
@@ -3159,10 +3163,10 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 20 }}>🎰</span>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: "#e2e8f0", fontFamily: "'Orbitron', sans-serif" }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: "#e8eef5", fontFamily: "'Orbitron', sans-serif" }}>
                       FLIP N FLOP
                     </div>
-                    <div style={{ fontSize: 10, color: "#94a3b8" }}>
+                    <div style={{ fontSize: 10, color: "#b8c3d4" }}>
                       {mySeats.length} seat{mySeats.length === 1 ? "" : "s"}
                     </div>
                   </div>
@@ -3180,11 +3184,11 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
                   { l: "💰 Deposit",     v: fmtNum(totalDepositFlip, 0), sub: "FLIP locked" },
                 ].map((m, i) => (
                   <div key={i} style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 9, color: "#475569", letterSpacing: 0.5, fontWeight: 700, marginBottom: 3 }}>{m.l}</div>
-                    <div style={{ fontSize: 14, color: "#e2e8f0", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.1 }}>
+                    <div style={{ fontSize: 9, color: "#b8c3d4", letterSpacing: 0.5, fontWeight: 700, marginBottom: 3 }}>{m.l}</div>
+                    <div style={{ fontSize: 14, color: "#e8eef5", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.1 }}>
                       {m.v}
                     </div>
-                    <div style={{ fontSize: 9, color: "#475569", marginTop: 2 }}>{m.sub}</div>
+                    <div style={{ fontSize: 9, color: "#b8c3d4", marginTop: 2 }}>{m.sub}</div>
                   </div>
                 ))}
               </div>
@@ -3201,17 +3205,17 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
                   <div key={s.id} style={{ ...card, padding: 12 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                       <span style={{ fontSize: 14, fontWeight: 800, color: "#f7b32b" }}>#{s.id}</span>
-                      {s.name && <span style={{ fontSize: 10, color: "#94a3b8" }}>"{s.name}"</span>}
+                      {s.name && <span style={{ fontSize: 10, color: "#b8c3d4" }}>"{s.name}"</span>}
                     </div>
-                    <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                    <div style={{ fontSize: 11, color: "#b8c3d4" }}>
                       Price:{" "}
-                      <span style={{ color: "#e2e8f0", fontFamily: "'JetBrains Mono', monospace" }}>
+                      <span style={{ color: "#e8eef5", fontFamily: "'JetBrains Mono', monospace" }}>
                         {fmtNum(s.priceNum, 0)} FLIP
                       </span>
                     </div>
-                    <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                    <div style={{ fontSize: 11, color: "#b8c3d4" }}>
                       Deposit:{" "}
-                      <span style={{ color: "#e2e8f0", fontFamily: "'JetBrains Mono', monospace" }}>
+                      <span style={{ color: "#e8eef5", fontFamily: "'JetBrains Mono', monospace" }}>
                         {fmtNum(s.depositNum, 0)} FLIP
                       </span>
                     </div>
@@ -3227,15 +3231,15 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
       {tab === "flips" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
           {[
-            { l: "Total wagered", v: `${fmtNum(wageredEth, 4)} ETH`, c: "#e2e8f0" },
+            { l: "Total wagered", v: `${fmtNum(wageredEth, 4)} ETH`, c: "#e8eef5" },
             { l: "Total won",     v: `${fmtNum(wonEth, 4)} ETH`,     c: "#f7b32b" },
-            { l: "Win rate",      v: `${fmtNum(winRate, 1)}%`,       c: "#e2e8f0" },
-            { l: "Flips",         v: `${userProfile?.wins || 0}/${userProfile?.totalFlips || 0}`, c: "#e2e8f0" },
+            { l: "Win rate",      v: `${fmtNum(winRate, 1)}%`,       c: "#e8eef5" },
+            { l: "Flips",         v: `${userProfile?.wins || 0}/${userProfile?.totalFlips || 0}`, c: "#e8eef5" },
             { l: "Current streak", v: `${playerStats?.streak || 0}`,  c: "#f7b32b" },
             { l: "Best streak",    v: `${playerStats?.bestStreak || 0}`, c: "#f7b32b" },
           ].map((r, i) => (
             <div key={i} style={{ ...card, padding: "12px 14px" }}>
-              <div style={{ fontSize: 9, color: "#475569", letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>{r.l}</div>
+              <div style={{ fontSize: 9, color: "#b8c3d4", letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>{r.l}</div>
               <div style={{ fontSize: 16, color: r.c, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", marginTop: 3 }}>{r.v}</div>
             </div>
           ))}
@@ -3256,16 +3260,16 @@ function HowItWorksModal({ onClose }) {
           <div>
             <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 22, fontWeight: 900, letterSpacing: 3, marginBottom: 4 }}>
               <span style={{ color: "#f7b32b" }}>FLIP</span>
-              <span style={{ color: "#475569" }}>N</span>
+              <span style={{ color: "#b8c3d4" }}>N</span>
               <span style={{ color: "#f7b32b" }}>FLOP</span>
             </div>
-            <div style={{ fontSize: 11, color: "#94a3b8", letterSpacing: 0.3 }}>
+            <div style={{ fontSize: 11, color: "#b8c3d4", letterSpacing: 0.3 }}>
               PvP coinflip on Base &middot; 256 revenue seats earn from every flip
             </div>
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#475569", fontSize: 20, cursor: "pointer", lineHeight: 1 }}>×</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#b8c3d4", fontSize: 20, cursor: "pointer", lineHeight: 1 }}>×</button>
         </div>
-        <div style={{ fontSize: 11, color: "#64748b", marginBottom: 20, letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>
+        <div style={{ fontSize: 11, color: "#b8c3d4", marginBottom: 20, letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>
           How it works
         </div>
 
@@ -3282,27 +3286,27 @@ function HowItWorksModal({ onClose }) {
               <div style={{ width: 28, height: 28, borderRadius: "50%", background: s.color + "15", border: "1px solid " + s.color + "40",
                 display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: s.color,
                 fontFamily: "'Orbitron', sans-serif" }}>{s.n}</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0" }}>{s.title}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#e8eef5" }}>{s.title}</div>
             </div>
-            <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.6, paddingLeft: 38 }}>{s.text}</div>
+            <div style={{ fontSize: 12, color: "#b8c3d4", lineHeight: 1.6, paddingLeft: 38 }}>{s.text}</div>
           </div>
         ))}
 
         <div style={{ padding: 14, background: "#0b0e11", borderRadius: 10, border: "1px solid #1c2430", marginBottom: 20 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: 1.5, marginBottom: 8 }}>FEE BREAKDOWN (4% of pot)</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#b8c3d4", letterSpacing: 1.5, marginBottom: 8 }}>FEE BREAKDOWN (4% of pot)</div>
           {[
             { label: "Seat holders", pct: "1.25%", color: "#f7b32b" },
-            { label: "Protocol", pct: "2.0%", color: "#94a3b8" },
+            { label: "Protocol", pct: "2.0%", color: "#b8c3d4" },
             { label: "Referral", pct: "0.5%", color: "#3b82f6" },
             { label: "Jackpot pool", pct: "0.25%", color: "#ef4444" },
           ].map((item, i) => (
             <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11 }}>
-              <span style={{ color: "#94a3b8" }}>{item.label}</span>
+              <span style={{ color: "#b8c3d4" }}>{item.label}</span>
               <span style={{ color: item.color, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{item.pct}</span>
             </div>
           ))}
           <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0 0", borderTop: "1px solid #1c2430", marginTop: 4, fontSize: 11 }}>
-            <span style={{ color: "#e2e8f0", fontWeight: 700 }}>Winner receives</span>
+            <span style={{ color: "#e8eef5", fontWeight: 700 }}>Winner receives</span>
             <span style={{ color: "#f7b32b", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>96%</span>
           </div>
         </div>
@@ -4179,21 +4183,21 @@ export default function FlipperRooms() {
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>
                     {stats?.totalFlips || 0}
                   </div>
-                  <div style={{ fontSize: 7, color: "#475569", letterSpacing: 1, fontWeight: 700, marginTop: 2 }}>FLIPS</div>
+                  <div style={{ fontSize: 7, color: "#b8c3d4", letterSpacing: 1, fontWeight: 700, marginTop: 2 }}>FLIPS</div>
                 </div>
                 <div style={{ width: 1, height: 18, background: "#1c2430" }}/>
                 <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#e2e8f0", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#e8eef5", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>
                     {stats ? parseFloat(stats.totalVolume).toFixed(2) : "0.00"}
                   </div>
-                  <div style={{ fontSize: 7, color: "#475569", letterSpacing: 1, fontWeight: 700, marginTop: 2 }}>VOL</div>
+                  <div style={{ fontSize: 7, color: "#b8c3d4", letterSpacing: 1, fontWeight: 700, marginTop: 2 }}>VOL</div>
                 </div>
                 <div style={{ width: 1, height: 18, background: "#1c2430" }}/>
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#f7b32b", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>
                     {openRooms ? openRooms.length : "..."}
                   </div>
-                  <div style={{ fontSize: 7, color: "#475569", letterSpacing: 1, fontWeight: 700, marginTop: 2 }}>ROOMS</div>
+                  <div style={{ fontSize: 7, color: "#b8c3d4", letterSpacing: 1, fontWeight: 700, marginTop: 2 }}>ROOMS</div>
                 </div>
               </div>
               {/* Quiet testnet indicator — dot + short label, no pill. */}
@@ -4231,7 +4235,7 @@ export default function FlipperRooms() {
                   )}
                   <button onClick={() => setShowWalletMenu(p => !p)} style={{
                     padding: "6px 14px", borderRadius: 8, background: "#131820",
-                    border: "1px solid #1c2430", color: "#e2e8f0", fontSize: 11,
+                    border: "1px solid #1c2430", color: "#e8eef5", fontSize: 11,
                     fontWeight: 600, cursor: "pointer", fontFamily: "'JetBrains Mono', monospace",
                     display: "inline-flex", alignItems: "center", gap: 6,
                   }}>
@@ -4250,7 +4254,7 @@ export default function FlipperRooms() {
                       boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
                     }}>
                       <div onClick={() => { navigator.clipboard.writeText(address); addToast("success", "Address copied"); }}
-                        style={{ fontSize: 10, color: "#94a3b8", padding: "6px 0", cursor: "pointer", fontFamily: "'JetBrains Mono', monospace", wordBreak: "break-all" }}>
+                        style={{ fontSize: 10, color: "#b8c3d4", padding: "6px 0", cursor: "pointer", fontFamily: "'JetBrains Mono', monospace", wordBreak: "break-all" }}>
                         {address}
                       </div>
                       <button onClick={() => { setProfileViewAddr(address); setView("profile"); setShowWalletMenu(false); }}
@@ -4427,7 +4431,7 @@ export default function FlipperRooms() {
                                 </div>
                                 {coinState === "spinning" && (
                                   <div style={{
-                                    fontSize: 10, color: "#475569", marginTop: 8,
+                                    fontSize: 10, color: "#b8c3d4", marginTop: 8,
                                     animation: "pulse 1.5s ease infinite",
                                   }}>
                                     Processing on Base chain...
@@ -4559,7 +4563,7 @@ export default function FlipperRooms() {
                         }}>
                           SEARCHING
                         </div>
-                        <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 8 }}>
+                        <div style={{ fontSize: 12, color: "#b8c3d4", marginTop: 8 }}>
                           Waiting for opponent &middot; {roomCountdown}s
                         </div>
                         <div style={{
@@ -4579,7 +4583,7 @@ export default function FlipperRooms() {
                             width: ((60 - roomCountdown) / 60 * 100) + "%",
                           }}/>
                         </div>
-                        <div style={{ fontSize: 9, color: "#475569", marginTop: 8 }}>
+                        <div style={{ fontSize: 9, color: "#b8c3d4", marginTop: 8 }}>
                           Auto-flip vs treasury when timer ends
                         </div>
                         <button onClick={() => handleCancelRoom(myRoomId)} style={{
@@ -4667,14 +4671,14 @@ export default function FlipperRooms() {
                   <div style={{ marginBottom: 16, animation: "slideUp 0.3s ease 0.1s both" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: 1.5 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#b8c3d4", letterSpacing: 1.5 }}>
                           OPEN ROOMS
                         </div>
                         {openRooms && openRooms.length > 0 && (
                           <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f7b32b", boxShadow: "0 0 6px #f7b32b", animation: "blink 1.5s ease infinite" }} />
                         )}
                       </div>
-                      <span style={{ fontSize: 10, color: "#475569" }}>{openRooms ? openRooms.length : "..."} active</span>
+                      <span style={{ fontSize: 10, color: "#b8c3d4" }}>{openRooms ? openRooms.length : "..."} active</span>
                     </div>
                     {openRooms === null && (
                       <div style={{ padding: 20, textAlign: "center" }}>
@@ -4684,7 +4688,7 @@ export default function FlipperRooms() {
                           animation: "spin 0.8s linear infinite",
                           margin: "0 auto 8px",
                         }}/>
-                        <div style={{ fontSize: 10, color: "#475569" }}>Loading rooms...</div>
+                        <div style={{ fontSize: 10, color: "#b8c3d4" }}>Loading rooms...</div>
                       </div>
                     )}
                     {openRooms && openRooms.length === 0 && (
@@ -4694,10 +4698,10 @@ export default function FlipperRooms() {
                         border: "1px dashed #1c2430",
                       }}>
                         <div style={{ fontSize: 24, marginBottom: 8 }}>🪙</div>
-                        <div style={{ fontSize: 13, color: "#94a3b8", fontWeight: 600 }}>
+                        <div style={{ fontSize: 13, color: "#b8c3d4", fontWeight: 600 }}>
                           No rooms yet
                         </div>
-                        <div style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>
+                        <div style={{ fontSize: 11, color: "#b8c3d4", marginTop: 4 }}>
                           Create a room and be the first to flip!
                         </div>
                       </div>
@@ -4721,10 +4725,10 @@ export default function FlipperRooms() {
                               fontSize: 9, fontWeight: 800, color: "#fff",
                             }}>{room.creator.slice(2,4).toUpperCase()}</div>
                             <div>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: "#e2e8f0" }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: "#e8eef5" }}>
                                 {isMine ? "You" : displayNameFn(room.creator)}
                               </div>
-                              <div style={{ fontSize: 9, color: "#475569" }}>{timeAgo}m ago</div>
+                              <div style={{ fontSize: 9, color: "#b8c3d4" }}>{timeAgo}m ago</div>
                             </div>
                           </div>
                           <div style={{
@@ -4752,8 +4756,8 @@ export default function FlipperRooms() {
                   }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8" }}>No opponents online?</div>
-                        <div style={{ fontSize: 10, color: "#475569" }}>Flip against the house treasury</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "#b8c3d4" }}>No opponents online?</div>
+                        <div style={{ fontSize: 10, color: "#b8c3d4" }}>Flip against the house treasury</div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <select value={tier} onChange={e => setTier(Number(e.target.value))} style={{
@@ -4782,7 +4786,7 @@ export default function FlipperRooms() {
                       </div>
                     </div>
                     {treasuryMax && (
-                      <div style={{ fontSize: 9, color: "#475569", marginTop: 6 }}>
+                      <div style={{ fontSize: 9, color: "#b8c3d4", marginTop: 6 }}>
                         Treasury: {stats ? parseFloat(stats.treasuryBalance).toFixed(4) : "0"} ETH | Max bet: {parseFloat(treasuryMax).toFixed(4)} ETH
                       </div>
                     )}
@@ -4814,27 +4818,27 @@ export default function FlipperRooms() {
                 <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 28, fontWeight: 900, color: "#f7b32b", marginBottom: 8, textAlign: "center" }}>
                   Provably Fair
                 </div>
-                <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", marginBottom: 32 }}>
+                <div style={{ fontSize: 12, color: "#b8c3d4", textAlign: "center", marginBottom: 32 }}>
                   Every flip is on-chain and verifiable
                 </div>
 
                 <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0", marginBottom: 8 }}>How we pick the winner</div>
-                  <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.6 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#e8eef5", marginBottom: 8 }}>How we pick the winner</div>
+                  <div style={{ fontSize: 12, color: "#b8c3d4", lineHeight: 1.6 }}>
                     Every flip uses randomness from the Ethereum network itself (<code style={{ background: "#131820", padding: "2px 6px", borderRadius: 4 }}>block.prevrandao</code>) mixed with player addresses and timestamps. The result is decided on-chain instantly. No server. No oracle. No delay.
                   </div>
                 </div>
 
                 <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0", marginBottom: 8 }}>Check any flip yourself</div>
-                  <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.6 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#e8eef5", marginBottom: 8 }}>Check any flip yourself</div>
+                  <div style={{ fontSize: 12, color: "#b8c3d4", lineHeight: 1.6 }}>
                     Every flip creates a public record on Base. Copy any transaction hash into BaseScan and see exactly what happened. Nothing is hidden.
                   </div>
                 </div>
 
                 <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0", marginBottom: 8 }}>The contract is public</div>
-                  <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.6 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#e8eef5", marginBottom: 8 }}>The contract is public</div>
+                  <div style={{ fontSize: 12, color: "#b8c3d4", lineHeight: 1.6 }}>
                     Read the contract yourself. Every line of code is public and verified on BaseScan. What you see is what runs.
                   </div>
                   <a href={`${EXPLORER}/address/${CONTRACT_ADDRESS}#code`} target="_blank" rel="noreferrer"
@@ -4844,8 +4848,8 @@ export default function FlipperRooms() {
                 </div>
 
                 <div style={{ padding: 16, background: "#131820", borderRadius: 12, border: "1px solid #1c2430", marginBottom: 20 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: 1.5, marginBottom: 8 }}>FLIP FORMULA</div>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "#94a3b8", lineHeight: 1.8 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#b8c3d4", letterSpacing: 1.5, marginBottom: 8 }}>FLIP FORMULA</div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "#b8c3d4", lineHeight: 1.8 }}>
                     result = keccak256(<br/>
                     {"  "}prevrandao, timestamp,<br/>
                     {"  "}player1, player2,<br/>
@@ -4856,24 +4860,24 @@ export default function FlipperRooms() {
                 </div>
 
                 <div style={{ padding: 14, background: "#131820", borderRadius: 10, border: "1px solid #1c2430" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: 1.5, marginBottom: 8 }}>FEE BREAKDOWN (4% of pot)</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#b8c3d4", letterSpacing: 1.5, marginBottom: 8 }}>FEE BREAKDOWN (4% of pot)</div>
                   {[
                     { label: "Seat holders",    pct: "1.25%", note: "distributed to 256 seat owners", color: "#f7b32b" },
-                    { label: "Protocol",        pct: "1.00%", note: "creator wallet (ETH)",          color: "#94a3b8" },
+                    { label: "Protocol",        pct: "1.00%", note: "creator wallet (ETH)",          color: "#b8c3d4" },
                     { label: "Treasury growth", pct: "1.00%", note: "grows the house pool",          color: "#a78bfa" },
                     { label: "Referral",        pct: "0.50%", note: "to the referring seat",         color: "#3b82f6" },
                     { label: "Jackpot pool",    pct: "0.25%", note: "1% chance per flip",            color: "#ef4444" },
                   ].map((item, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "5px 0", fontSize: 11 }}>
                       <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span style={{ color: "#94a3b8" }}>{item.label}</span>
-                        <span style={{ color: "#475569", fontSize: 9 }}>{item.note}</span>
+                        <span style={{ color: "#b8c3d4" }}>{item.label}</span>
+                        <span style={{ color: "#b8c3d4", fontSize: 9 }}>{item.note}</span>
                       </div>
                       <span style={{ color: item.color, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{item.pct}</span>
                     </div>
                   ))}
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0 0", borderTop: "1px solid #1c2430", marginTop: 4, fontSize: 11 }}>
-                    <span style={{ color: "#e2e8f0", fontWeight: 700 }}>Winner receives</span>
+                    <span style={{ color: "#e8eef5", fontWeight: 700 }}>Winner receives</span>
                     <span style={{ color: "#f7b32b", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>96%</span>
                   </div>
                 </div>
@@ -4899,7 +4903,7 @@ export default function FlipperRooms() {
             {view === "admin" && isAdmin && adminUnlocked && (
               <div style={{ maxWidth: 820, margin: "0 auto", padding: "24px 20px" }}>
                 <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 22, fontWeight: 900, color: "#ef4444", marginBottom: 4 }}>Admin Panel</div>
-                <div style={{ fontSize: 11, color: "#475569", marginBottom: 24 }}>Password-gated · contract owner only</div>
+                <div style={{ fontSize: 11, color: "#b8c3d4", marginBottom: 24 }}>Password-gated · contract owner only</div>
 
                 <AdminPanel
                   contract={contract}
@@ -4964,7 +4968,7 @@ export default function FlipperRooms() {
         display: "flex", justifyContent: "center", gap: 18,
         padding: "12px 16px", borderTop: "1px solid #1c2430",
         background: "#07090d",
-        fontSize: 10, color: "#475569", fontFamily: "inherit",
+        fontSize: 10, color: "#b8c3d4", fontFamily: "inherit",
         flexWrap: "wrap",
       }}>
         <a href={FLAUNCH_URL} target="_blank" rel="noreferrer"
@@ -4972,15 +4976,15 @@ export default function FlipperRooms() {
           Buy $FLIPPER →
         </a>
         <button onClick={() => setShowHowItWorks(true)}
-          style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 10, fontWeight: 600, padding: 0 }}>
+          style={{ background: "none", border: "none", color: "#b8c3d4", cursor: "pointer", fontSize: 10, fontWeight: 600, padding: 0 }}>
           How it Works
         </button>
         <a href={TWITTER_URL} target="_blank" rel="noreferrer"
-          style={{ color: "#94a3b8", textDecoration: "none" }}>
+          style={{ color: "#b8c3d4", textDecoration: "none" }}>
           X @BasedJaider
         </a>
         <a href={WEBSITE_URL} target="_blank" rel="noreferrer"
-          style={{ color: "#94a3b8", textDecoration: "none" }}>
+          style={{ color: "#b8c3d4", textDecoration: "none" }}>
           Website
         </a>
       </div>
@@ -5001,12 +5005,12 @@ export default function FlipperRooms() {
         }}>
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#f7b32b", boxShadow: "0 0 8px #f7b32b" }} />
           <div>
-            <div style={{ fontSize: 11, color: "#e2e8f0" }}>
+            <div style={{ fontSize: 11, color: "#e8eef5" }}>
               <span style={{ fontWeight: 700 }}>{displayNameFn(liveFlip.winner)}</span>
-              <span style={{ color: "#475569" }}> won </span>
+              <span style={{ color: "#b8c3d4" }}> won </span>
               <span style={{ color: "#f7b32b", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>{liveFlip.payout} ETH</span>
             </div>
-            <div style={{ fontSize: 9, color: "#475569" }}>Just now</div>
+            <div style={{ fontSize: 9, color: "#b8c3d4" }}>Just now</div>
           </div>
         </div>
       )}
@@ -5055,11 +5059,11 @@ export default function FlipperRooms() {
               <div style={{ textAlign: "center" }}>
                 <div style={{
                   width: 56, height: 56, borderRadius: "50%",
-                  background: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "#b8c3d4", display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 18, fontWeight: 800, color: "#0b0e11",
-                  boxShadow: "0 0 20px #94a3b840",
+                  boxShadow: "0 0 20px #b8c3d440",
                 }}>{vsFlash.them?.slice(2,4).toUpperCase()}</div>
-                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6, fontWeight: 700 }}>
+                <div style={{ fontSize: 11, color: "#b8c3d4", marginTop: 6, fontWeight: 700 }}>
                   {vsFlash.them ? (vsFlash.them.slice(0,6) + "..." + vsFlash.them.slice(-4)) : ""}
                 </div>
               </div>
@@ -5090,7 +5094,7 @@ export default function FlipperRooms() {
             fontFamily: "'JetBrains Mono', monospace",
             marginBottom: 24,
           }}>+{jackpotWin.amount} ETH</div>
-          <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 24 }}>
+          <div style={{ fontSize: 13, color: "#b8c3d4", marginBottom: 24 }}>
             You hit the jackpot! ETH sent to your wallet.
           </div>
           <button onClick={() => setJackpotWin(null)} style={{
@@ -5118,7 +5122,7 @@ export default function FlipperRooms() {
             }}>
               MATCH FOUND
             </div>
-            <div style={{ fontSize: 14, color: "#94a3b8", marginTop: 12 }}>
+            <div style={{ fontSize: 14, color: "#b8c3d4", marginTop: 12 }}>
               Flipping coin...
             </div>
           </div>
