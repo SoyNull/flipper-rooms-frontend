@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
-import { BrowserProvider, JsonRpcProvider, formatEther, formatUnits, parseEther, parseUnits } from "ethers";
+import { BrowserProvider, JsonRpcProvider, Contract, formatEther, formatUnits, parseEther, parseUnits } from "ethers";
 import {
   getSeatsContract, getCoinflipContract, getTokenContract,
   getAllSeatsBasic, getUserProfile as getUserProfileFn, getGraduationInfo,
@@ -197,6 +197,44 @@ export function useTokenBalance(tokenContract, readToken, address) {
   }, [refresh]);
 
   return { balance, refreshBalance: refresh };
+}
+
+// ═══════════════════════════════════════
+//           useEthUsdPrice
+// ═══════════════════════════════════════
+// Live ETH/USD price from the Chainlink aggregator on Base mainnet.
+// Refreshes every 60s; falls back to the last known value on transient
+// RPC errors so the UI never shows a stale-then-zero flicker. Consumers
+// should handle `null` on first paint by displaying a "—" or skipping
+// the USD line rather than rendering $0.
+const ETH_USD_FEED = "0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70";
+const FEED_ABI = [
+  "function latestRoundData() view returns (uint80,int256,uint256,uint256,uint80)",
+  "function decimals() view returns (uint8)",
+];
+const _feedContract = new Contract(ETH_USD_FEED, FEED_ABI, _readProvider);
+
+export function useEthUsdPrice() {
+  const [price, setPrice] = useState(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const [, answer] = await _feedContract.latestRoundData();
+      // Chainlink ETH/USD feeds on Base return 8 decimals.
+      const usd = Number(answer) / 1e8;
+      if (Number.isFinite(usd) && usd > 0) setPrice(usd);
+    } catch {
+      // Keep last known value; retry on next interval.
+    }
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    const iv = setInterval(refresh, 60000);
+    return () => clearInterval(iv);
+  }, [refresh]);
+
+  return price;
 }
 
 // ═══════════════════════════════════════

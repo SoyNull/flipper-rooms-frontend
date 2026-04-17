@@ -25,7 +25,7 @@ export const PROFILES_API = "https://api.aitrencher.xyz/flipper-profiles";
 // External links
 export const FLAUNCH_URL = "https://flaunch.gg"; // placeholder for $FNF token page
 export const TWITTER_URL = "https://x.com/BasedJaider";
-export const WEBSITE_URL = "https://flipper-rooms-frontend.vercel.app";
+export const WEBSITE_URL = "https://www.flipnflop.fun";
 
 export const TIERS = [
   { label: "0.001", wei: "1000000000000000" },

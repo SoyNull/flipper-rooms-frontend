@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from "react";
 import {
   useWallet, useFlip, useSeats, useProtocol, useToasts, addToast, dismissToast, EXPLORER,
-  useGlobalFeed, useTokenBalance, useUserProfile,
+  useGlobalFeed, useTokenBalance, useUserProfile, useEthUsdPrice,
 } from "./hooks.js";
 
 const Coin3D = lazy(() => import("./Coin3D.jsx"));
@@ -1100,7 +1100,7 @@ function LiveFeedSidebar({ recentFlips, address, drawerOpen }) {
 // ═══════════════════════════════════════
 //  STATS SIDEBAR
 // ═══════════════════════════════════════
-function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, protocolStats, treasuryMax, contract, address, isAdmin, drawerOpen, onCloseDrawer, tokenBalance, mySeats, seats, graduation, userProfile, seatsContract, refreshSeats }) {
+function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, protocolStats, treasuryMax, contract, address, isAdmin, drawerOpen, onCloseDrawer, tokenBalance, mySeats, seats, graduation, userProfile, seatsContract, refreshSeats, ethUsd }) {
   const jackpotPercent = protocolStats ? Math.min(100, (parseFloat(protocolStats.jackpotPool || 0) / 0.05) * 100) : 0;
   const flipBal = tokenBalance ? parseFloat(formatUnits(tokenBalance, 18)) : 0;
   // Derive from `seats` as a fallback — if the hook's mySeats is ever
@@ -1131,7 +1131,9 @@ function StatsSidebar({ sessionBalance, walletBalance, connected, playerStats, p
             <AnimatedNumber value={walletBalance || 0} />
           </div>
           <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-            {"\u2248"} ${(parseFloat(walletBalance || 0) * 2500).toFixed(2)} USD
+            {ethUsd
+              ? `\u2248 $${(parseFloat(walletBalance || 0) * ethUsd).toFixed(2)} USD`
+              : "\u2248 — USD"}
           </span>
         </div>
 
@@ -3382,6 +3384,7 @@ export default function FlipperRooms() {
   const protocol = useProtocol(coinflipContract, readCoinflip);
   const tokenHook = useTokenBalance(tokenContract, readToken, address);
   const userProfile = useUserProfile(seatsContract, readSeats, address);
+  const ethUsd = useEthUsdPrice();
   const { toasts, remove: removeToastFn } = useToasts();
 
   const refreshBalance = useCallback(() => {
@@ -4683,7 +4686,9 @@ export default function FlipperRooms() {
                           }}
                         />
                         <span style={{ fontSize: 11, color: "var(--text-faint)", fontWeight: 600, whiteSpace: "nowrap" }}>
-                          {"\u2248"} ${(parseFloat(customBet || "0") * 2500).toFixed(0)}
+                          {ethUsd
+                            ? `\u2248 $${(parseFloat(customBet || "0") * ethUsd).toFixed(0)}`
+                            : "\u2248 —"}
                         </span>
                       </div>
                       <button onClick={() => connected ? handleCreateRoom() : connect()} style={{
@@ -4993,6 +4998,7 @@ export default function FlipperRooms() {
           userProfile={userProfile.profile}
           seatsContract={seatsContract}
           refreshSeats={seatHook.refreshSeats}
+          ethUsd={ethUsd}
         />
       </div>
 
