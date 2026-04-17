@@ -374,9 +374,11 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
 .logo-gold { color: var(--gold); }
 .logo-dim { color: var(--text-muted); }
 .logo-badge {
-  font-size: 9px; font-weight: 800; letter-spacing: 1px; padding: 3px 8px;
-  border-radius: 4px; background: linear-gradient(135deg, var(--gold), var(--gold-dark));
-  color: #07090d; border: none;
+  font-size: 9px; font-weight: 700; letter-spacing: 1.2px; padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(247,179,43,0.10);
+  color: var(--gold);
+  border: 1px solid rgba(247,179,43,0.25);
 }
 .nav { display: flex; gap: 4px; padding: 3px; background: rgba(255,255,255,0.03); border-radius: 8px; }
 .nav-btn {
@@ -4093,10 +4095,6 @@ export default function FlipperRooms() {
             <div className="logo">
               <span className="logo-text"><span className="logo-gold">FLIP</span><span className="logo-dim">N</span><span className="logo-gold">FLOP</span></span>
               <span className="logo-badge">BASE</span>
-              <span className="logo-badge" style={{
-                background: "linear-gradient(135deg, #22c55e, #16a34a)",
-                color: "#07090d", marginLeft: 4,
-              }}>V8</span>
             </div>
             <div className="nav">
               {["flip", "board", "fair"].map(v => (
@@ -4140,15 +4138,13 @@ export default function FlipperRooms() {
             </div>
 
             <div className="header-right">
-              {/* Network badge — static, no fake user count */}
-              <div className="header-stats" style={{
+              {/* Quiet testnet indicator — dot + short label, no pill. */}
+              <div className="header-stats" title="Base Sepolia testnet" style={{
                 display: "flex", alignItems: "center", gap: 6,
-                padding: "5px 10px", background: "rgba(247,179,43,0.08)",
-                border: "1px solid rgba(247,179,43,0.25)", borderRadius: 6,
               }}>
-                <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#f7b32b", animation: "liveDot 1.5s ease infinite" }} />
-                <span style={{ fontSize: 10, color: "#f7b32b", fontWeight: 700, letterSpacing: 0.5 }}>
-                  SEPOLIA TESTNET
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f7b32b", boxShadow: "0 0 6px rgba(247,179,43,0.6)" }} />
+                <span style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 600, letterSpacing: 1 }}>
+                  testnet
                 </span>
               </div>
               <button onClick={() => setShowChatDrawer(p => !p)} className="chat-drawer-toggle" title="Live activity"
@@ -4235,51 +4231,39 @@ export default function FlipperRooms() {
             </div>
           </div>
 
-          {/* ═══ V8 GRADUATION PROGRESS BAR ═══ */}
-          {seatHook.graduation && (() => {
+          {/* Graduation progress — shown while seats are still being
+             minted. Once 256/256 is reached, the bar is redundant noise,
+             so we collapse it. (Fair tab + stats sidebar still show
+             the graduated state for anyone who wants the detail.) */}
+          {seatHook.graduation && !seatHook.graduation.graduated && (() => {
             const g = seatHook.graduation;
             const minted = g.totalMinted || 0;
-            const active = g.activeCount || 0;
             const pct = Math.min(100, (minted / TOTAL_SEATS) * 100);
-            const graduated = g.graduated;
             return (
               <div style={{
-                padding: "8px 24px", display: "flex", alignItems: "center", gap: 14,
-                background: graduated
-                  ? "linear-gradient(90deg, rgba(34,197,94,0.04), transparent)"
-                  : "linear-gradient(90deg, rgba(247,179,43,0.04), transparent)",
+                padding: "6px 24px", display: "flex", alignItems: "center", gap: 14,
+                background: "linear-gradient(90deg, rgba(247,179,43,0.04), transparent)",
                 borderBottom: "1px solid var(--border)", flexShrink: 0,
               }}>
-                <span style={{
-                  fontSize: 9, fontWeight: 700, letterSpacing: 1.5,
-                  color: graduated ? "#22c55e" : "var(--gold)",
-                }}>
-                  {graduated ? "GRADUATED" : "GRADUATION"}
+                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1.5, color: "var(--gold)" }}>
+                  GRADUATION
                 </span>
                 <div style={{
-                  flex: 1, height: 5, background: "rgba(255,255,255,0.04)",
+                  flex: 1, height: 4, background: "rgba(255,255,255,0.04)",
                   borderRadius: 3, overflow: "hidden",
                 }}>
                   <div style={{
                     height: "100%", width: pct + "%",
-                    background: graduated
-                      ? "linear-gradient(90deg, #16a34a, #22c55e)"
-                      : "linear-gradient(90deg, #b8860b, #f7b32b, #ffd700)",
+                    background: "linear-gradient(90deg, #b8860b, #f7b32b, #ffd700)",
                     transition: "width 0.5s ease",
-                    boxShadow: graduated ? "0 0 8px #22c55e60" : "0 0 8px rgba(247,179,43,0.4)",
+                    boxShadow: "0 0 8px rgba(247,179,43,0.4)",
                   }} />
                 </div>
                 <span style={{
                   fontSize: 11, fontFamily: "'JetBrains Mono', monospace",
-                  color: "var(--text-dim)", fontWeight: 700, minWidth: 80, textAlign: "right",
+                  color: "var(--text-dim)", fontWeight: 700, minWidth: 64, textAlign: "right",
                 }}>
                   {minted}/{TOTAL_SEATS}
-                </span>
-                <span style={{
-                  fontSize: 9, color: "var(--text-muted)", fontWeight: 600,
-                  whiteSpace: "nowrap",
-                }}>
-                  {active} active
                 </span>
               </div>
             );
