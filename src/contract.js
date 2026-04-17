@@ -179,18 +179,45 @@ export async function getTreasuryMaxBet(coinflipContract) {
 //        SEATS — WRITE
 // ═══════════════════════════════════════
 
+// Max uint256 — used for the "approve once, mint many times" pattern so
+// returning users only sign the mint tx, never the approve.
+const MAX_UINT256 = (1n << 256n) - 1n;
+
+// Approve only if the current allowance is below `needed`. Returns the
+// receipt (or null if no approve was necessary). Uses MaxUint256 when
+// approving so the user doesn't have to re-approve on the next mint.
+async function ensureAllowance(tokenContract, owner, needed) {
+  try {
+    const current = await tokenContract.allowance(owner, SEATS_ADDRESS);
+    if (current >= needed) return null;
+  } catch {
+    // Allowance read failed — fall through and approve to be safe.
+  }
+  return sendTx(tokenContract.approve(SEATS_ADDRESS, MAX_UINT256));
+}
+
 // Approve FLIPPER for the Seats contract as a stand-alone step.
 // Returns the receipt so callers can await before queueing mints.
 export async function approveFlipperForSeats(tokenContract, amount) {
-  return sendTx(tokenContract.approve(SEATS_ADDRESS, amount));
+  // Same infinite-approval trick as the internal helper so the bulk
+  // flow doesn't re-prompt on every batch if the user already approved.
+  const owner = await tokenContract.runner?.getAddress?.();
+  if (owner) {
+    try {
+      const current = await tokenContract.allowance(owner, SEATS_ADDRESS);
+      if (current >= amount) return null;
+    } catch {}
+  }
+  return sendTx(tokenContract.approve(SEATS_ADDRESS, MAX_UINT256));
 }
 
-// Single mint: read the real mint price from-chain, approve
-// (mintPrice + deposit + safety buffer), then mint. Sequential awaits.
+// Single mint: read the real mint price from-chain, approve if needed,
+// then mint. Typical returning-user flow is 1 tx (just the mint).
 export async function mintSeat(seatsContract, tokenContract, seatId, initialPrice, name, _ignoredMintPrice, deposit) {
   const onChainMintPrice = await seatsContract.calculateMintPrice();
   const needed = onChainMintPrice + deposit;
-  await sendTx(tokenContract.approve(SEATS_ADDRESS, needed));
+  const owner = await tokenContract.runner?.getAddress?.();
+  await ensureAllowance(tokenContract, owner, needed);
   return sendTx(seatsContract.mintSeat(seatId, initialPrice, name));
 }
 
@@ -204,28 +231,32 @@ export async function mintSeatNoApprove(seatsContract, seatId, initialPrice, nam
 // Approve = newPrice (paid to previous owner) + additionalDeposit.
 export async function buyOutSeat(seatsContract, tokenContract, seatId, newPrice, additionalDeposit) {
   const totalApproval = newPrice + additionalDeposit;
-  await sendTx(tokenContract.approve(SEATS_ADDRESS, totalApproval));
+  const owner = await tokenContract.runner?.getAddress?.();
+  await ensureAllowance(tokenContract, owner, totalApproval);
   return sendTx(seatsContract.buyOutSeat(seatId, newPrice, additionalDeposit));
 }
 
-// Batch buyout (max 64 per TX). Caller pre-computes total FLIPPER approval.
+// Batch buyout. Caller pre-computes total FLIPPER approval.
 export async function takeOverMultiple(seatsContract, tokenContract, seatIds, newPrices, additionalDeposits, totalApproval) {
-  await sendTx(tokenContract.approve(SEATS_ADDRESS, totalApproval));
+  const owner = await tokenContract.runner?.getAddress?.();
+  await ensureAllowance(tokenContract, owner, totalApproval);
   return sendTx(seatsContract.takeOverMultiple(seatIds, newPrices, additionalDeposits));
 }
 
-// V8: batchMint up to 64 empty seats in a single TX (one approve + one mint).
+// V8: batchMint many empty seats in a single TX.
 // `initialPrice` and `depositPerSeat` apply to every seat in the batch.
 export async function batchMint(seatsContract, tokenContract, seatIds, initialPrice, depositPerSeat) {
   const onChainMintPrice = await seatsContract.calculateMintPrice();
   const perSeat = onChainMintPrice + depositPerSeat;
   const total = perSeat * BigInt(seatIds.length);
-  await sendTx(tokenContract.approve(SEATS_ADDRESS, total));
+  const owner = await tokenContract.runner?.getAddress?.();
+  await ensureAllowance(tokenContract, owner, total);
   return sendTx(seatsContract.batchMint(seatIds, initialPrice, depositPerSeat));
 }
 
 export async function addDeposit(seatsContract, tokenContract, seatId, amount) {
-  await sendTx(tokenContract.approve(SEATS_ADDRESS, amount));
+  const owner = await tokenContract.runner?.getAddress?.();
+  await ensureAllowance(tokenContract, owner, amount);
   return sendTx(seatsContract.addDeposit(seatId, amount));
 }
 
