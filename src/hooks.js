@@ -208,20 +208,48 @@ export function useSeats(seatsContract, readSeats, address) {
   const [graduation, setGraduation] = useState(null);
   const [yieldPool, setYieldPool] = useState(0n);
 
+  // IDs that were just optimistically mutated and must NOT be clobbered
+  // by a refresh that still sees them as empty (Alchemy lag). Each entry
+  // is { id -> { expectedOwner, until } }; refresh merges on-chain data
+  // for an optimistic id only if the chain agrees (or until expires).
+  const optimisticRef = useRef(new Map());
+
+  const mergeWithOptimistic = useCallback((fresh) => {
+    const now = Date.now();
+    const pending = optimisticRef.current;
+    if (pending.size === 0) return fresh;
+    // Drop expired entries first.
+    for (const [id, meta] of pending) {
+      if (meta.until < now) pending.delete(id);
+    }
+    if (pending.size === 0) return fresh;
+    return fresh.map(s => {
+      const meta = pending.get(s.id);
+      if (!meta) return s;
+      // If chain now reports the expected owner, the optimistic guess
+      // has landed and we can drop the override.
+      if ((s.owner || "").toLowerCase() === (meta.expectedOwner || "").toLowerCase()) {
+        pending.delete(s.id);
+        return s;
+      }
+      // Chain still stale → keep the optimistic seat (override the wipe).
+      return meta.seat;
+    });
+  }, []);
+
   const refreshSeats = useCallback(async () => {
     const c = seatsContract || readSeats;
     if (!c) return;
-    // Fetch each piece independently — if one errors (e.g. graduationStart
-    // reverts on some providers), it must not wipe out the others.
     const [seatsRes, gradRes, poolRes] = await Promise.allSettled([
       getAllSeatsBasic(c),
       getGraduationInfo(c),
       c.yieldPoolETH(),
     ]);
     if (seatsRes.status === "fulfilled") {
-      setSeats(seatsRes.value);
+      const merged = mergeWithOptimistic(seatsRes.value);
+      setSeats(merged);
       if (address) {
-        const mine = seatsRes.value.filter(
+        const mine = merged.filter(
           s => s.active && s.owner.toLowerCase() === address.toLowerCase()
         ).map(s => s.id);
         setMySeats(mine);
@@ -234,7 +262,7 @@ export function useSeats(seatsContract, readSeats, address) {
     if (gradRes.status === "fulfilled") setGraduation(gradRes.value);
     if (poolRes.status === "fulfilled") setYieldPool(poolRes.value);
     setLoading(false);
-  }, [seatsContract, readSeats, address]);
+  }, [seatsContract, readSeats, address, mergeWithOptimistic]);
 
   useEffect(() => { refreshSeats(); }, [refreshSeats]);
   useEffect(() => {
@@ -242,22 +270,28 @@ export function useSeats(seatsContract, readSeats, address) {
     return () => clearInterval(iv);
   }, [refreshSeats]);
 
-  // Optimistic mutation. Most RPCs (especially Alchemy) lag by a block
-  // or two after tx.wait() so the first refresh often returns stale
-  // data. Callers hit this right after a successful tx so the board
-  // updates instantly; the background refresh reconciles if needed.
+  // Optimistic mutation. After a tx.wait() Alchemy often still serves
+  // a stale block, so the immediate refresh wipes our paint. We keep
+  // the optimistic entry alive for up to 60s, and any refresh in that
+  // window merges it on top of whatever the chain returns — unless the
+  // chain already agrees, in which case we drop the override.
   const applyLocalSeats = useCallback((updates) => {
     if (!Array.isArray(updates) || updates.length === 0) return;
+    const expiry = Date.now() + 60_000;
     setSeats(prev => {
       const byId = new Map(prev.map(s => [s.id, s]));
       for (const u of updates) {
         const existing = byId.get(u.id) || { id: u.id };
         const merged = { ...existing, ...u };
-        // derive active from owner if not set explicitly
         if (merged.owner && merged.owner !== "0x0000000000000000000000000000000000000000") {
           merged.active = true;
         }
         byId.set(u.id, merged);
+        optimisticRef.current.set(u.id, {
+          seat: merged,
+          expectedOwner: u.owner || "",
+          until: expiry,
+        });
       }
       return [...byId.values()].sort((a, b) => a.id - b.id);
     });
