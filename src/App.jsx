@@ -360,11 +360,18 @@ body { background: var(--bg-deep); color: var(--text); font-family: 'Chakra Petc
   background: transparent;
 }
 .game-topbar {
-  height: 56px; display: flex; align-items: center; justify-content: space-between;
+  height: 56px;
+  /* Three-column grid so the nav sits in the exact horizontal center of
+     the viewport, regardless of how wide the logo or right-side pills
+     happen to be. 1fr / auto / 1fr guarantees symmetry. */
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
   padding: 0 24px; border-bottom: 1px solid var(--border);
   background: linear-gradient(180deg, rgba(247,179,43,0.02), transparent); flex-shrink: 0;
   position: relative;
 }
+.game-topbar > .logo { justify-self: start; }
+.game-topbar > .nav { justify-self: center; }
+.game-topbar > .header-right { justify-self: end; }
 .game-topbar::after {
   content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
   background: linear-gradient(90deg, transparent 10%, rgba(247,179,43,0.15) 50%, transparent 90%);
@@ -422,16 +429,36 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   position: relative; padding: 36px 24px 24px; text-align: center;
 }
 .hero-section::before {
-  content: ''; position: absolute; inset: 0;
-  background-image: linear-gradient(rgba(247,179,43,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(247,179,43,0.03) 1px, transparent 1px);
-  background-size: 40px 40px; opacity: 0.5; pointer-events: none;
+  /* Tiled diamond pattern in the gold family using two overlapping
+     45-degree stripe grids. The crossing stripes form little diamond
+     outlines; a light blur diffuses the edges. Faint enough that the
+     coin/tiers stay the visual anchor. */
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    repeating-linear-gradient(45deg,
+      transparent 0px, transparent 22px,
+      rgba(247,179,43,0.07) 22px, rgba(247,179,43,0.07) 24px),
+    repeating-linear-gradient(-45deg,
+      transparent 0px, transparent 22px,
+      rgba(247,179,43,0.07) 22px, rgba(247,179,43,0.07) 24px);
+  background-size: 48px 48px;
+  filter: blur(0.6px);
+  opacity: 0.9;
+  mask-image: radial-gradient(ellipse at center, #000 0%, #000 55%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 0%, #000 55%, transparent 100%);
 }
 .hero-section::after {
   content: ''; position: absolute; inset: 0;
   background: radial-gradient(ellipse at center, rgba(247,179,43,0.06) 0%, transparent 60%);
   pointer-events: none;
 }
-.hero-inner { position: relative; z-index: 1; }
+.hero-inner {
+  position: relative; z-index: 1;
+  /* Clamp the coinflip view so it stays balanced on ultrawide displays
+     — the coin, tiers, and CTA feel anchored in the center instead of
+     smeared across the full game-center width. */
+  max-width: 720px; margin: 0 auto;
+}
 .hero-title-text {
   font-family: 'Orbitron', sans-serif;
   font-size: 56px; font-weight: 900; letter-spacing: 8px; margin-bottom: 4px;
