@@ -1480,23 +1480,40 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
           </div>
         ))}
 
-        {/* Buy CTA */}
+        {/* Buy CTA — disabled once the board is fully graduated so the
+            user isn't presented with clickable mint buttons that silently
+            revert. Buyouts stay available via the dedicated flow. */}
         {connected && (<>
-          <button onClick={() => {
-            const firstEmpty = seatHook.seats.find(s => !s.active);
-            if (firstEmpty) { setSelectedSeat(firstEmpty); setSelectedMult(0); setSelectedDuration(24); }
-          }} style={{
-            width: "100%", padding: 10, borderRadius: 8, marginTop: 12,
-            background: "linear-gradient(135deg, #b8860b, #f7b32b)", color: "#0b0e11",
-            fontSize: 12, fontWeight: 800, border: "none", cursor: "pointer",
-            fontFamily: "'Chakra Petch', sans-serif",
-          }}>Buy a Seat</button>
-          <button onClick={() => setShowBulkBuy(true)} style={{
-            width: "100%", padding: 8, borderRadius: 8, marginTop: 6,
-            background: "transparent", border: "1px solid #f7b32b30",
-            color: "#f7b32b80", fontSize: 10, fontWeight: 600,
-            cursor: "pointer", fontFamily: "inherit",
-          }}>Buy Several at Once</button>
+          {(() => {
+            const firstEmpty = seatHook.seats?.find(s => !s.active);
+            const anyEmpty = !!firstEmpty;
+            return (<>
+              <button onClick={() => {
+                if (!anyEmpty) { addToast("info", "Board is full — use Buyout on an existing seat"); return; }
+                setSelectedSeat(firstEmpty); setSelectedMult(0); setSelectedDuration(24);
+              }} disabled={!anyEmpty} style={{
+                width: "100%", padding: 10, borderRadius: 8, marginTop: 12,
+                background: anyEmpty
+                  ? "linear-gradient(135deg, #b8860b, #f7b32b)"
+                  : "#1c2430",
+                color: anyEmpty ? "#0b0e11" : "#475569",
+                fontSize: 12, fontWeight: 800, border: "none",
+                cursor: anyEmpty ? "pointer" : "not-allowed",
+                fontFamily: "'Chakra Petch', sans-serif",
+                opacity: anyEmpty ? 1 : 0.6,
+              }}>{anyEmpty ? "Buy a Seat" : "All seats taken — use Buyout"}</button>
+              <button onClick={() => anyEmpty && setShowBulkBuy(true)} disabled={!anyEmpty} style={{
+                width: "100%", padding: 8, borderRadius: 8, marginTop: 6,
+                background: "transparent",
+                border: "1px solid " + (anyEmpty ? "#f7b32b30" : "#1c2430"),
+                color: anyEmpty ? "#f7b32b80" : "#475569",
+                fontSize: 10, fontWeight: 600,
+                cursor: anyEmpty ? "pointer" : "not-allowed",
+                opacity: anyEmpty ? 1 : 0.5,
+                fontFamily: "inherit",
+              }}>Buy Several at Once</button>
+            </>);
+          })()}
           {(() => {
             const emptyCount = seatHook.seats?.filter(s => !s.active).length || 0;
             return (
@@ -2569,7 +2586,8 @@ function AdminPanel({ contract, seatsContract, protocolStats, graduation, yieldP
     try { return parseInt(localStorage.getItem("admin_last_withdraw") || "0", 10) || 0; }
     catch { return 0; }
   });
-  const [nowSec, setNowSec] = useState(Math.floor(Date.now() / 1000));
+  // Lazy initializer so Date.now() isn't evaluated on every render.
+  const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
   useEffect(() => {
     const iv = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
     return () => clearInterval(iv);
@@ -5120,7 +5138,7 @@ export default function FlipperRooms() {
               addToast("error", decodeError(err));
             }
           }}
-          title="Claim 100,000 test FLIPPER (Sepolia faucet)"
+          title="Claim 500,000,000 test FLIPPER (Sepolia faucet)"
           style={{
             position: "fixed", right: 20, bottom: 20, zIndex: 90,
             padding: "10px 18px", borderRadius: 999,

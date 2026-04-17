@@ -5,7 +5,9 @@ export default function Coin3D({ state, onComplete }) {
   const mountRef = useRef(null);
   const sceneRef = useRef({});
   const stateRef = useRef(state);
-  stateRef.current = state;
+  // Keep the latest state visible to the animation loop (which closes
+  // over stateRef.current) without re-creating the THREE scene.
+  useEffect(() => { stateRef.current = state; }, [state]);
 
   useEffect(() => {
     const el = mountRef.current;
