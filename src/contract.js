@@ -1,8 +1,8 @@
 import { Contract, formatEther, formatUnits } from "ethers";
 import { flipperSeatsAbi } from "./abis/flipperSeatsAbi.js";
 import { flipperCoinflipAbi } from "./abis/flipperCoinflipAbi.js";
-import { mockFlipperAbi } from "./abis/mockFlipperAbi.js";
-import { SEATS_ADDRESS, COINFLIP_ADDRESS, MOCK_FLIPPER_ADDRESS, EXPLORER } from "./config.js";
+import { flipperTokenAbi } from "./abis/flipperTokenAbi.js";
+import { SEATS_ADDRESS, COINFLIP_ADDRESS, FLIPPER_TOKEN_ADDRESS, EXPLORER } from "./config.js";
 
 // ═══════════════════════════════════════
 //          CONTRACT FACTORIES
@@ -16,8 +16,12 @@ export function getCoinflipContract(signerOrProvider) {
   return new Contract(COINFLIP_ADDRESS, flipperCoinflipAbi, signerOrProvider);
 }
 
-export function getTokenContract(signerOrProvider) {
-  return new Contract(MOCK_FLIPPER_ADDRESS, mockFlipperAbi, signerOrProvider);
+// Returns null until FLIPPER_TOKEN_ADDRESS is set (post-Flaunch launch
+// + `setFlipperToken` on Seats). All callers tolerate a null token.
+export function getTokenContract(signerOrProvider, addressOverride) {
+  const addr = addressOverride || FLIPPER_TOKEN_ADDRESS;
+  if (!addr) return null;
+  return new Contract(addr, flipperTokenAbi, signerOrProvider);
 }
 
 // ═══════════════════════════════════════
@@ -310,11 +314,6 @@ export async function deposit(coinflipContract, value) {
 
 export async function withdraw(coinflipContract, amount) {
   return sendTx(coinflipContract.withdraw(amount));
-}
-
-// Token
-export async function claimMockFlipper(tokenContract) {
-  return sendTx(tokenContract.claim());
 }
 
 // ═══════════════════════════════════════

@@ -12,14 +12,12 @@ import {
   addDeposit as addDepositFn, withdrawDeposit as withdrawDepositFn,
   claimRewards as claimRewardsFn, claimMultipleRewards as claimMultipleRewardsFn,
   updateSeatPrice as updateSeatPriceFn, abandonSeat as abandonSeatFn,
-  claimMockFlipper as claimMockFlipperFn,
 } from "./contract.js";
 import {
   COINFLIP_ADDRESS, SEATS_ADDRESS,
   TIERS, CHAIN_ID, CHAIN_ID_HEX, TOTAL_SEATS,
   LEVEL_NAMES, LEVEL_COLORS,
   PROFILES_API, ADMIN_PASSWORD, FLAUNCH_URL, TWITTER_URL, WEBSITE_URL,
-  IS_TESTNET,
 } from "./config.js";
 import { parseEther, parseUnits, formatEther, formatUnits } from "ethers";
 import { audio, vibrate } from "./audio.js";
@@ -2770,11 +2768,6 @@ function AdminPanel({ contract, seatsContract, protocolStats, graduation, yieldP
           style={btnStyle("#ef4444")}>
           {untilNext > 0 ? "Treasury locked" : "Withdraw Treasury"}
         </button>
-        {IS_TESTNET && (
-          <button disabled={loading !== ""} onClick={() => exec("Fund Treasury +0.01", () => contract.fundTreasury({ value: parseEther("0.01") }))} style={btnStyle("#b3b3b3")}>
-            Fund Treasury +0.01 ETH
-          </button>
-        )}
         <button disabled={loading !== ""} onClick={() => exec("Pause", () => contract.pause())} style={btnStyle("#b3b3b3")}>
           Pause
         </button>
@@ -2955,8 +2948,8 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
     ? Math.min(...mySeats.map(s => s.priceNum || Infinity))
     : 0;
 
-  // PNL = coinflip winnings - wagered (in ETH). No stablecoin price on testnet,
-  // so keep PNL in the native unit and tag it "ETH".
+  // PNL = coinflip winnings - wagered (in ETH). Reported in native ETH,
+  // not USD — no stablecoin price feed is wired in for UI display.
   const wageredEth = parseFloat(playerStats?.wagered || 0);
   const wonEth     = parseFloat(playerStats?.won || 0);
   const pnlEth = wonEth - wageredEth;
@@ -4213,16 +4206,6 @@ export default function FlipperRooms() {
                   <div style={{ fontSize: 7, color: "#b3b3b3", letterSpacing: 1, fontWeight: 700, marginTop: 2 }}>ROOMS</div>
                 </div>
               </div>
-              {IS_TESTNET && (
-                <div className="header-stats" title="Base Sepolia testnet" style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                }}>
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f7b32b", boxShadow: "0 0 6px rgba(247,179,43,0.6)" }} />
-                  <span style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 600, letterSpacing: 1 }}>
-                    testnet
-                  </span>
-                </div>
-              )}
               <button onClick={() => setShowChatDrawer(p => !p)} className="chat-drawer-toggle" title="Live activity"
                 style={{
                   display: "none", alignItems: "center", justifyContent: "center",
@@ -5162,40 +5145,6 @@ export default function FlipperRooms() {
             Confirm in wallet...
           </span>
         </div>
-      )}
-
-      {/* FAUCET — floating pill. Only rendered in testnet mode; gated
-         by IS_TESTNET so the launch build doesn't show a free-token
-         claim button. */}
-      {IS_TESTNET && connected && chainId === CHAIN_ID && tokenContract && (
-        <button
-          onClick={async () => {
-            const pid = addToast("pending", "Claiming test FLIPPER…");
-            try {
-              await claimMockFlipperFn(tokenContract);
-              dismissToast(pid);
-              addToast("success", "Received test FLIPPER");
-              tokenHook.refreshBalance?.();
-            } catch (err) {
-              dismissToast(pid);
-              addToast("error", decodeError(err));
-            }
-          }}
-          title="Claim 500,000,000 test FLIPPER (Sepolia faucet)"
-          style={{
-            position: "fixed", right: 20, bottom: 20, zIndex: 90,
-            padding: "10px 18px", borderRadius: 999,
-            background: "linear-gradient(135deg, rgba(247,179,43,0.14), rgba(247,179,43,0.06))",
-            border: "1px solid rgba(247,179,43,0.35)",
-            backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
-            color: "#f7b32b", fontSize: 12, fontWeight: 700, letterSpacing: 0.5,
-            fontFamily: "'Chakra Petch', sans-serif", cursor: "pointer",
-            display: "inline-flex", alignItems: "center", gap: 8,
-            boxShadow: "0 6px 20px rgba(0,0,0,0.35), 0 0 14px rgba(247,179,43,0.18)",
-          }}>
-          <span style={{ fontSize: 14 }}>{"\uD83C\uDFB0"}</span>
-          Claim FLIPPER
-        </button>
       )}
 
       {/* TOASTS */}

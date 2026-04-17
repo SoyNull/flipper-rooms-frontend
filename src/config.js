@@ -1,24 +1,21 @@
-// Flip N Flop — on-chain config.
-// Contracts still live on Base Sepolia at launch while mainnet rolls
-// out, but the UI is in launch mode: test-only affordances (faucet
-// pill, "testnet" indicator, RPC warning banner, admin-panel fund
-// button) are hidden unless IS_TESTNET is flipped back on.
-export const IS_TESTNET = false;
+// Flip N Flop — on-chain config. Base mainnet.
 
-export const SEATS_ADDRESS = "0x1994710f4e46752D78150AEC1583bc189F145d01";
-export const COINFLIP_ADDRESS = "0xD98bFbf90fF90B6C265f748AD9B385CA563BdE1d";
-export const MOCK_FLIPPER_ADDRESS = "0x755F4DbEB39f1EfaFd1088cF2EB9F8939d8473BA";
+export const SEATS_ADDRESS = "0x975d9CA950515e441B111ED1CE4c339736a8F1d3";
+export const COINFLIP_ADDRESS = "0xC8f1ddb8EEe9B24E9dAF9ee07B16fd691AB1e6Ca";
+// $FNF token — populated after the Flaunch launch and `setFlipperToken`
+// on Seats. Leave as "" until then; token-dependent UI gates on this.
+export const FLIPPER_TOKEN_ADDRESS = "";
 
-export const CHAIN_ID = 84532;
-export const CHAIN_ID_HEX = "0x14a34";
-export const RPC_URL = "https://base-sepolia.g.alchemy.com/v2/alcht_fDA5dcNFaa5XDrG6gMz32UMHzIQPum";
+export const CHAIN_ID = 8453;
+export const CHAIN_ID_HEX = "0x2105";
+export const RPC_URL = "https://base-mainnet.g.alchemy.com/v2/alcht_fDA5dcNFaa5XDrG6gMz32UMHzIQPum";
 // Public RPC used ONLY for `eth_getLogs` history scans. Alchemy's free
 // tier caps log queries at 10 blocks per call, so a 100k-block lookback
-// would need 10k requests and time out. sepolia.base.org accepts much
+// would need 10k requests and time out. mainnet.base.org accepts much
 // wider ranges and is fine for read-only event scans.
-export const HISTORY_RPC_URL = "https://sepolia.base.org";
-export const CHAIN_NAME = "Base Sepolia";
-export const EXPLORER = "https://sepolia.basescan.org";
+export const HISTORY_RPC_URL = "https://mainnet.base.org";
+export const CHAIN_NAME = "Base";
+export const EXPLORER = "https://basescan.org";
 
 // Off-chain profiles API (name/avatar/twitter per wallet).
 // HTTPS via nginx on api.aitrencher.xyz → localhost:3010 so the Vercel
@@ -26,7 +23,7 @@ export const EXPLORER = "https://sepolia.basescan.org";
 export const PROFILES_API = "https://api.aitrencher.xyz/flipper-profiles";
 
 // External links
-export const FLAUNCH_URL = "https://flaunch.gg"; // placeholder for $FLIPPER token page
+export const FLAUNCH_URL = "https://flaunch.gg"; // placeholder for $FNF token page
 export const TWITTER_URL = "https://x.com/BasedJaider";
 export const WEBSITE_URL = "https://flipper-rooms-frontend.vercel.app";
 

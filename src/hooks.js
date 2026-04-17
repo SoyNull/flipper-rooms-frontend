@@ -12,10 +12,9 @@ import {
   updateSeatPrice as updateSeatPriceFn, abandonSeat as abandonSeatFn,
   claimRewards as claimRewardsFn, claimMultipleRewards as claimMultipleRewardsFn,
   withdrawDeposit as withdrawDepositFn, distributeYield as distributeFn,
-  claimMockFlipper as claimMockFlipperFn,
   parseFlipResolved, decodeError, EXPLORER,
 } from "./contract.js";
-import { RPC_URL, HISTORY_RPC_URL, SEATS_ADDRESS } from "./config.js";
+import { RPC_URL, HISTORY_RPC_URL, SEATS_ADDRESS, CHAIN_ID } from "./config.js";
 
 // ═══════════════════════════════════════
 //             TOAST SYSTEM
@@ -98,7 +97,7 @@ export function useWallet() {
     async function setup() {
       try {
         setIsEmbedded(wallet.walletClientType === "privy");
-        try { await wallet.switchChain(84532); } catch {}
+        try { await wallet.switchChain(CHAIN_ID); } catch {}
 
         let ethProvider, sgnr;
         try {
@@ -495,7 +494,7 @@ export function useGlobalFeed(coinflipContract, readCoinflip) {
     if (!liveContract || !liveContract.runner?.provider) return;
 
     let cancelled = false;
-    // sepolia.base.org accepts thousands of blocks per call, so we walk
+    // mainnet.base.org accepts thousands of blocks per call, so we walk
     // in 10k-block chunks. First-paint is O(seconds), not O(minutes).
     const loadHistory = async () => {
       if (historyLoadedRef.current) return;
@@ -505,7 +504,7 @@ export function useGlobalFeed(coinflipContract, readCoinflip) {
       catch (e) { console.warn("[feed] head fetch failed:", e.message); return; }
 
       const WANT = 30;
-      // ~2s block time on Base Sepolia → 500k blocks ≈ 11 days.
+      // ~2s block time on Base → 500k blocks ≈ 11 days.
       const MAX_LOOKBACK = 500000;
       const CHUNK = 9500; // slightly under 10k to stay clear of any node caps
       const collected = new Map();

@@ -1,7 +1,7 @@
 import { StrictMode, Component } from 'react'
 import { createRoot } from 'react-dom/client'
 import { PrivyProvider } from '@privy-io/react-auth'
-import { baseSepolia } from 'viem/chains'
+import { base } from 'viem/chains'
 import App from './App.jsx'
 
 // Suppress wallet extension conflicts (OKX + MetaMask etc.)
@@ -40,8 +40,8 @@ createRoot(document.getElementById('root')).render(
             theme: 'dark',
             accentColor: '#00ffa3',
           },
-          defaultChain: baseSepolia,
-          supportedChains: [baseSepolia],
+          defaultChain: base,
+          supportedChains: [base],
           embeddedWallets: {
             createOnLogin: 'users-without-wallets',
             requireUserPasswordOnCreate: false,
