@@ -1,4 +1,9 @@
-// FlipperRooms V8 — Base Sepolia Config (redeploy 2026-04-16)
+// Flip N Flop — on-chain config.
+// Contracts still live on Base Sepolia at launch while mainnet rolls
+// out, but the UI is in launch mode: test-only affordances (faucet
+// pill, "testnet" indicator, RPC warning banner, admin-panel fund
+// button) are hidden unless IS_TESTNET is flipped back on.
+export const IS_TESTNET = false;
 
 export const SEATS_ADDRESS = "0x1994710f4e46752D78150AEC1583bc189F145d01";
 export const COINFLIP_ADDRESS = "0xD98bFbf90fF90B6C265f748AD9B385CA563BdE1d";

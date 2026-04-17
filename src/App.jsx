@@ -19,6 +19,7 @@ import {
   TIERS, CHAIN_ID, CHAIN_ID_HEX, TOTAL_SEATS,
   LEVEL_NAMES, LEVEL_COLORS,
   PROFILES_API, ADMIN_PASSWORD, FLAUNCH_URL, TWITTER_URL, WEBSITE_URL,
+  IS_TESTNET,
 } from "./config.js";
 import { parseEther, parseUnits, formatEther, formatUnits } from "ethers";
 import { audio, vibrate } from "./audio.js";
@@ -2769,9 +2770,11 @@ function AdminPanel({ contract, seatsContract, protocolStats, graduation, yieldP
           style={btnStyle("#ef4444")}>
           {untilNext > 0 ? "Treasury locked" : "Withdraw Treasury"}
         </button>
-        <button disabled={loading !== ""} onClick={() => exec("Fund Treasury +0.01", () => contract.fundTreasury({ value: parseEther("0.01") }))} style={btnStyle("#b3b3b3")}>
-          Fund Treasury +0.01 ETH
-        </button>
+        {IS_TESTNET && (
+          <button disabled={loading !== ""} onClick={() => exec("Fund Treasury +0.01", () => contract.fundTreasury({ value: parseEther("0.01") }))} style={btnStyle("#b3b3b3")}>
+            Fund Treasury +0.01 ETH
+          </button>
+        )}
         <button disabled={loading !== ""} onClick={() => exec("Pause", () => contract.pause())} style={btnStyle("#b3b3b3")}>
           Pause
         </button>
@@ -4112,7 +4115,7 @@ export default function FlipperRooms() {
           fontFamily: "'Chakra Petch', sans-serif", flexWrap: "wrap",
         }}>
           <span style={{ fontSize: 11, color: "#fca5a5", fontWeight: 600 }}>
-            {"\u26A0"} Base Sepolia RPC slow to respond. UI is live, on-chain data may be stale.
+            {"\u26A0"} Network slow to respond. UI is live, on-chain data may be stale.
           </span>
           <button onClick={() => { setLoadError(false); protocol.refreshStats?.(); }} style={{
             padding: "4px 12px", borderRadius: 6, fontSize: 10, fontWeight: 700,
@@ -4210,15 +4213,16 @@ export default function FlipperRooms() {
                   <div style={{ fontSize: 7, color: "#b3b3b3", letterSpacing: 1, fontWeight: 700, marginTop: 2 }}>ROOMS</div>
                 </div>
               </div>
-              {/* Quiet testnet indicator — dot + short label, no pill. */}
-              <div className="header-stats" title="Base Sepolia testnet" style={{
-                display: "flex", alignItems: "center", gap: 6,
-              }}>
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f7b32b", boxShadow: "0 0 6px rgba(247,179,43,0.6)" }} />
-                <span style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 600, letterSpacing: 1 }}>
-                  testnet
-                </span>
-              </div>
+              {IS_TESTNET && (
+                <div className="header-stats" title="Base Sepolia testnet" style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f7b32b", boxShadow: "0 0 6px rgba(247,179,43,0.6)" }} />
+                  <span style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 600, letterSpacing: 1 }}>
+                    testnet
+                  </span>
+                </div>
+              )}
               <button onClick={() => setShowChatDrawer(p => !p)} className="chat-drawer-toggle" title="Live activity"
                 style={{
                   display: "none", alignItems: "center", justifyContent: "center",
@@ -5160,8 +5164,10 @@ export default function FlipperRooms() {
         </div>
       )}
 
-      {/* FAUCET — floating pill (Sepolia-only) */}
-      {connected && chainId === CHAIN_ID && tokenContract && (
+      {/* FAUCET — floating pill. Only rendered in testnet mode; gated
+         by IS_TESTNET so the launch build doesn't show a free-token
+         claim button. */}
+      {IS_TESTNET && connected && chainId === CHAIN_ID && tokenContract && (
         <button
           onClick={async () => {
             const pid = addToast("pending", "Claiming test FLIPPER…");
