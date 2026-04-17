@@ -163,6 +163,9 @@ export function useWallet() {
     readSeats: _readSeats,
     readCoinflip: _readCoinflip,
     readToken: _readToken,
+    // Public-RPC-backed coinflip contract; accepts wide-range log queries
+    // so host-side scans don't need 12 sequential 10-block windows.
+    historyCoinflip: _historyCoinflip,
     chainId,
     connect: login,
     disconnect: logout,

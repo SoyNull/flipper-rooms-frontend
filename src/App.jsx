@@ -23,6 +23,7 @@ import {
 } from "./config.js";
 import { parseEther, parseUnits, formatEther, formatUnits } from "ethers";
 import { audio, vibrate } from "./audio.js";
+import { useProfilesCache, displayName as displayNameFn, primeProfile } from "./profiles.js";
 import confetti from "canvas-confetti";
 
 // V7 used a single `CONTRACT_ADDRESS` for the house/treasury; in V8 that role is Coinflip's address.
@@ -894,8 +895,8 @@ function LiveFeedSidebar({ recentFlips, address, drawerOpen }) {
           const isTrW    = winner === treasury;
           const isTrL    = loser  === treasury;
 
-          const winnerName = isTrW ? "Treasury" : shortAddr(flip.winner);
-          const loserName  = isTrL ? "Treasury" : shortAddr(flip.loser);
+          const winnerName = isTrW ? "Treasury" : displayNameFn(flip.winner);
+          const loserName  = isTrL ? "Treasury" : displayNameFn(flip.loser);
           const payoutNum  = parseFloat(flip.payout || 0);
           const amountNum  = parseFloat(flip.amount || 0);
 
@@ -918,7 +919,7 @@ function LiveFeedSidebar({ recentFlips, address, drawerOpen }) {
             // Flip against Treasury: show the human player's perspective
             // with proper win/loss coloring, not Treasury's.
             const playerAddr = isTrW ? flip.loser : flip.winner;
-            const playerName = shortAddr(playerAddr);
+            const playerName = displayNameFn(playerAddr);
             const playerWon  = isTrL;
             if (playerWon) {
               title = `${playerName} won +${fmtNum(payoutNum)} ETH`;
@@ -1563,7 +1564,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
           <div className="holder-row" key={i}>
             <span className="holder-rank">{i + 1}</span>
             <div className="holder-avatar" style={{ background: addrColor(h.address) }}>{h.address.slice(2, 4).toUpperCase()}</div>
-            <span className="holder-name">{shortAddr(h.address)}</span>
+            <span className="holder-name">{displayNameFn(h.address)}</span>
             <span className="holder-count">{h.count}</span>
           </div>
         ))}
@@ -1686,7 +1687,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
           <div className="activity-item" key={i}>
             <div className="activity-head">
               <div className="activity-avatar" style={{ background: addrColor(a.newOwner) }}>{a.newOwner.slice(2, 4).toUpperCase()}</div>
-              <span className="activity-name">{shortAddr(a.newOwner)}</span>
+              <span className="activity-name">{displayNameFn(a.newOwner)}</span>
             </div>
             <div className="activity-detail">
               <span className="activity-action">{a.prevOwner === ZERO_ADDRESS ? "Claimed" : "Bought"} #{a.seatId}</span>
@@ -1750,7 +1751,7 @@ function BoardView({ seatHook, address, connected, seatsContract, tokenContract,
                   borderColor: `${addrColor(selectedSeat.owner)}60`,
                 }}>{selectedSeat.owner.slice(2, 4).toUpperCase()}</div>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{shortAddr(selectedSeat.owner)}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{displayNameFn(selectedSeat.owner)}</div>
                   <div style={{ fontSize: 10, color: "#475569" }}>Current holder</div>
                 </div>
               </div>
@@ -2716,7 +2717,7 @@ function FlipTicker({ recentFlips }) {
     const payoutNum = parseFloat(f.payout || 0);
     const amountNum = parseFloat(f.amount || 0);
     const playerAddr = trInvolved ? (isTrW ? f.loser : f.winner) : f.winner;
-    const playerName = shortAddr(playerAddr);
+    const playerName = displayNameFn(playerAddr);
     const outcomeWin = trInvolved ? isTrL : true;
     const label = trInvolved ? (outcomeWin ? "WON" : "LOST") : "PVP";
     const accent = outcomeWin ? "#22c55e" : "#ef4444";
@@ -2868,6 +2869,10 @@ function ProfileView({ address, isOwnProfile, seats, seatsContract, tokenBalance
       // the status code so a bad request doesn't silently look like success.
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setProfileData(p => ({ ...p, name: nameInput }));
+      // Push the new name into the shared cache so the ticker, feed,
+      // board, and live notifications update instantly — no wait for
+      // the 30s cache poll.
+      primeProfile(targetAddr, { name: nameInput, twitter: profileData.twitter, avatar: profileData.avatar });
       setEditing(false);
       addToast("success", "Profile saved");
     } catch (err) {
@@ -3211,7 +3216,7 @@ export default function FlipperRooms() {
   const {
     connected, address, chainId, connect, disconnect, ready, isEmbedded,
     seatsContract, coinflipContract, tokenContract,
-    readSeats, readCoinflip, readToken,
+    readSeats, readCoinflip, readToken, historyCoinflip,
   } = wallet;
   // V7 compatibility aliases: legacy code expects `contract` = coinflip, `readContract` = readCoinflip.
   const contract = coinflipContract;
@@ -3251,6 +3256,12 @@ export default function FlipperRooms() {
 
   // Global feeds
   const { recentFlips, liveFlip } = useGlobalFeed(coinflipContract, readCoinflip);
+
+  // Hydrate shared profile cache so addresses across the UI render as
+  // display names. Consumers read via the module-level displayName()
+  // helper; this hook just keeps the cache warm and re-renders the
+  // tree whenever a new batch lands.
+  useProfilesCache();
 
   // Coin state
   const [coinState, setCoinState] = useState("idle");
@@ -3595,22 +3606,33 @@ export default function FlipperRooms() {
     roomConfirmedOpenRef.current = false;
 
     const queryForMyFlip = async (challengeId) => {
-      const provider = contract.runner?.provider;
+      // Prefer the public RPC (wider block ranges → one query covers the
+      // last ~200 blocks vs 12 sequential 10-block Alchemy windows).
+      const src = historyCoinflip || contract;
+      const provider = src.runner?.provider;
       if (!provider) return null;
       try {
         const head = await provider.getBlockNumber();
-        // Alchemy free tier caps eth_getLogs at 10 blocks — walk recent windows.
-        for (let end = head, loops = 0; loops < 12; loops++, end -= 10) {
-          const from = Math.max(0, end - 9);
-          let evs;
-          try {
-            evs = await contract.queryFilter("FlipResolved", from, end);
-          } catch { continue; }
-          const mine = evs.find(e => Number(e.args[0]) === challengeId);
-          if (mine) return mine;
-          if (from === 0) break;
-        }
-      } catch {}
+        const from = Math.max(0, head - 200);
+        const evs = await src.queryFilter("FlipResolved", from, head);
+        return evs.find(e => Number(e.args[0]) === challengeId) || null;
+      } catch (err) {
+        // Fall back to narrow Alchemy windows if the wide range failed.
+        try {
+          const provider2 = contract.runner?.provider;
+          const head = await provider2.getBlockNumber();
+          for (let end = head, loops = 0; loops < 12; loops++, end -= 10) {
+            const fromN = Math.max(0, end - 9);
+            let evs;
+            try {
+              evs = await contract.queryFilter("FlipResolved", fromN, end);
+            } catch { continue; }
+            const mine = evs.find(e => Number(e.args[0]) === challengeId);
+            if (mine) return mine;
+            if (fromN === 0) break;
+          }
+        } catch {}
+      }
       return null;
     };
 
@@ -3711,7 +3733,11 @@ export default function FlipperRooms() {
       } catch {}
     };
 
-    const iv = setInterval(check, 2000);
+    // Fire one immediately so we don't wait a full interval after
+    // setMyRoomId lands, then tight 500ms poll keeps host-side latency
+    // under ~1s from the acceptance tx mining.
+    check();
+    const iv = setInterval(check, 500);
     return () => {
       clearInterval(iv);
       if (fallbackTimeoutRef.current) {
@@ -4331,7 +4357,7 @@ export default function FlipperRooms() {
                                   {currentOpponent ? currentOpponent.slice(2,4).toUpperCase() : "TR"}
                                 </div>
                                 <div className={`arena-name ${n2Class}`}>
-                                  {currentOpponent ? shortAddr(currentOpponent) : "Treasury"}
+                                  {currentOpponent ? displayNameFn(currentOpponent) : "Treasury"}
                                 </div>
                                 <div className={`arena-bet ${b2Class}`}>{displayBet} ETH</div>
                               </div>
@@ -4599,7 +4625,7 @@ export default function FlipperRooms() {
                             }}>{room.creator.slice(2,4).toUpperCase()}</div>
                             <div>
                               <div style={{ fontSize: 12, fontWeight: 600, color: "#e2e8f0" }}>
-                                {isMine ? "You" : shortAddr(room.creator)}
+                                {isMine ? "You" : displayNameFn(room.creator)}
                               </div>
                               <div style={{ fontSize: 9, color: "#475569" }}>{timeAgo}m ago</div>
                             </div>
@@ -4645,9 +4671,9 @@ export default function FlipperRooms() {
                             fontSize: 9, fontWeight: 800, color: "#fff",
                           }}>{isTrW ? "T" : flip.winner?.slice(2,4).toUpperCase()}</div>
                           <span style={{ fontSize: 12, color: "var(--text-dim)" }}>
-                            {isMyWin ? "You" : isTrW ? "Treasury" : shortAddr(flip.winner)}
+                            {isMyWin ? "You" : isTrW ? "Treasury" : displayNameFn(flip.winner)}
                             <span style={{ color: "var(--text-faint)", margin: "0 6px" }}>vs</span>
-                            {isMyLoss ? "You" : isTrL ? "Treasury" : shortAddr(flip.loser)}
+                            {isMyLoss ? "You" : isTrL ? "Treasury" : displayNameFn(flip.loser)}
                           </span>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -4925,7 +4951,7 @@ export default function FlipperRooms() {
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 8px #22c55e" }} />
           <div>
             <div style={{ fontSize: 11, color: "#e2e8f0" }}>
-              <span style={{ fontWeight: 700 }}>{shortAddr(liveFlip.winner)}</span>
+              <span style={{ fontWeight: 700 }}>{displayNameFn(liveFlip.winner)}</span>
               <span style={{ color: "#475569" }}> won </span>
               <span style={{ color: "#22c55e", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>{liveFlip.payout} ETH</span>
             </div>
