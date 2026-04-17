@@ -899,33 +899,51 @@ function LiveFeedSidebar({ recentFlips, address, drawerOpen }) {
           const payoutNum  = parseFloat(flip.payout || 0);
           const amountNum  = parseFloat(flip.amount || 0);
 
+          // tone palette:
+          //   "myWin"    — gold (my own win, most salient)
+          //   "myLoss"   — red
+          //   "otherWin" — green (someone else beat the Treasury)
+          //   "otherLoss"— red (someone else lost to the Treasury)
+          //   "neutral"  — PvP, dim
           let title, subtitle, tone;
           if (isMyWin) {
             title = `You won +${fmtNum(payoutNum)} ETH`;
             subtitle = `vs ${loserName}`;
-            tone = "win";
+            tone = "myWin";
           } else if (isMyLoss) {
             title = `You lost -${fmtNum(amountNum)} ETH`;
             subtitle = `vs ${winnerName}`;
-            tone = "lose";
-          } else if (isTrW) {
-            // Treasury-wins: no misleading "+amount" on the house side.
-            title = `Treasury won vs ${loserName}`;
-            subtitle = `${fmtNum(amountNum)} ETH`;
-            tone = "neutral";
+            tone = "myLoss";
+          } else if (isTrW || isTrL) {
+            // Flip against Treasury: show the human player's perspective
+            // with proper win/loss coloring, not Treasury's.
+            const playerAddr = isTrW ? flip.loser : flip.winner;
+            const playerName = shortAddr(playerAddr);
+            const playerWon  = isTrL;
+            if (playerWon) {
+              title = `${playerName} won +${fmtNum(payoutNum)} ETH`;
+              tone = "otherWin";
+            } else {
+              title = `${playerName} lost -${fmtNum(amountNum)} ETH`;
+              tone = "otherLoss";
+            }
+            subtitle = `vs Treasury`;
           } else {
             title = `${winnerName} won +${fmtNum(payoutNum)} ETH`;
             subtitle = `vs ${loserName}`;
             tone = "neutral";
           }
 
-          const borderColor = tone === "win" ? "#f7b32b"
-            : tone === "lose" ? "#ef4444"
-            : "rgba(34,197,94,0.3)";
-          const bg = tone === "win"  ? "linear-gradient(90deg, rgba(247,179,43,0.08), transparent)"
-                   : tone === "lose" ? "linear-gradient(90deg, rgba(239,68,68,0.06), transparent)"
-                   :                    "linear-gradient(90deg, rgba(34,197,94,0.04), transparent)";
-          const titleColor = tone === "win" ? "#f7b32b" : tone === "lose" ? "#ef4444" : "var(--text)";
+          const palette = {
+            myWin:     { color: "#f7b32b", border: "#f7b32b",           bg: "linear-gradient(90deg, rgba(247,179,43,0.10), transparent)" },
+            myLoss:    { color: "#ef4444", border: "#ef4444",           bg: "linear-gradient(90deg, rgba(239,68,68,0.08), transparent)"  },
+            otherWin:  { color: "#22c55e", border: "rgba(34,197,94,0.6)",  bg: "linear-gradient(90deg, rgba(34,197,94,0.06), transparent)"  },
+            otherLoss: { color: "#ef4444", border: "rgba(239,68,68,0.5)",  bg: "linear-gradient(90deg, rgba(239,68,68,0.05), transparent)"  },
+            neutral:   { color: "var(--text)", border: "rgba(148,163,184,0.25)", bg: "linear-gradient(90deg, rgba(148,163,184,0.03), transparent)" },
+          }[tone];
+          const titleColor = palette.color;
+          const borderColor = palette.border;
+          const bg = palette.bg;
           return (
             <div key={flip.id + "-" + i} style={{
               background: bg,
@@ -2659,27 +2677,36 @@ function FlipTicker({ recentFlips }) {
       }}>
         {flips.map((f, i) => {
           const winner = (f.winner || "").toLowerCase();
+          const loser  = (f.loser  || "").toLowerCase();
           const isTrW = winner === treasuryLC;
+          const isTrL = loser  === treasuryLC;
+          const trInvolved = isTrW || isTrL;
           const payoutNum = parseFloat(f.payout || 0);
           const amountNum = parseFloat(f.amount || 0);
+
+          // From the human player's perspective when Treasury is involved.
+          const playerAddr = trInvolved ? (isTrW ? f.loser : f.winner) : f.winner;
+          const playerName = shortAddr(playerAddr);
+          const outcomeWin = trInvolved ? isTrL : true; // PvP: color by winner side
+          const label = trInvolved
+            ? (outcomeWin ? "WON" : "LOST")
+            : "PVP";
+
+          const accent = outcomeWin ? "#22c55e" : "#ef4444";
           return (
             <div key={f.id + "-" + i} style={{
               display: "inline-flex", alignItems: "center", gap: 6,
               padding: "4px 10px", borderRadius: 12,
-              background: isTrW ? "rgba(239,68,68,0.08)" : "rgba(34,197,94,0.08)",
-              border: "1px solid " + (isTrW ? "rgba(239,68,68,0.2)" : "rgba(34,197,94,0.2)"),
-              fontSize: 10, color: isTrW ? "#ef4444" : "#22c55e", fontWeight: 700,
+              background: `${accent}14`,
+              border: `1px solid ${accent}33`,
+              fontSize: 10, color: accent, fontWeight: 700,
               flexShrink: 0,
             }}>
-              <span>{isTrW ? "L" : "W"}</span>
-              <span>{fmtNum(amountNum)} ETH</span>
-              <span style={{ color: "#94a3b8" }}>
-                {isTrW ? "Treasury" : shortAddr(f.winner)}
-              </span>
-              {!isTrW && payoutNum > 0 && (
-                <span style={{ color: "#22c55e" }}>
-                  +{fmtNum(payoutNum)}
-                </span>
+              <span>{label}</span>
+              <span>{outcomeWin ? "+" : "−"}{fmtNum(outcomeWin ? payoutNum || amountNum : amountNum)} ETH</span>
+              <span style={{ color: "#94a3b8" }}>{playerName}</span>
+              {trInvolved && (
+                <span style={{ color: "#64748b", fontSize: 9 }}>vs Treasury</span>
               )}
             </div>
           );
